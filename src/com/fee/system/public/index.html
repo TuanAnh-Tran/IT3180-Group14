@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartFee Java - Hệ thống Quản lý Thu phí Hộ gia đình</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-logo">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>Chung Cư BlueMoon</h1>
+        </div>
+      </div>
+
+      <nav class="nav-menu">
+        <button class="nav-item active" data-tab="dashboard">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+          <span>Bảng Điều Khiển</span>
+        </button>
+        <button class="nav-item" data-tab="fees">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          <span>Khoản Thu</span>
+        </button>
+        <button class="nav-item" data-tab="periods">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span>Đợt Thu</span>
+        </button>
+        <button class="nav-item" data-tab="households">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <span>Hộ Dân & Hóa Đơn</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer" style="display: none;">
+        <!-- Reset handled on Java Server restart -->
+      </div>
+    </aside>
+
+    <!-- MAIN BODY -->
+    <main class="main-content">
+      
+      <!-- TOP HEADER -->
+      <header class="top-header">
+        <div class="header-title">
+          <h2 id="page-title">Bảng Điều Khiển</h2>
+          <p id="page-subtitle" class="text-secondary">Thống kê tiến độ thu và dữ liệu hiện tại</p>
+        </div>
+        <div class="period-selector-wrapper">
+          <label for="active-period-select">Đợt thu đang xem:</label>
+          <select id="active-period-select" class="period-select">
+            <!-- Rendered dynamically -->
+          </select>
+        </div>
+      </header>
+
+      <!-- VIEW PANELS -->
+      <div class="view-panels">
+
+        <!-- TAB 1: DASHBOARD -->
+        <section id="tab-dashboard" class="tab-panel active">
+          <!-- STATS CARDS -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon bg-primary-light text-primary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              </div>
+              <div class="stat-info">
+                <span class="stat-label">Tổng Cần Thu (Java)</span>
+                <h3 id="stat-total-expected" class="stat-value">0 ₫</h3>
+              </div>
+            </div>
+            
+            <div class="stat-card">
+              <div class="stat-icon bg-success-light text-success">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              </div>
+              <div class="stat-info">
+                <span class="stat-label">Đã Thu Được (Java)</span>
+                <h3 id="stat-total-collected" class="stat-value text-success">0 ₫</h3>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon bg-warning-light text-warning">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              </div>
+              <div class="stat-info">
+                <span class="stat-label">Còn Nợ Cần Thu</span>
+                <h3 id="stat-total-remaining" class="stat-value text-warning">0 ₫</h3>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon bg-info-light text-info">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/></svg>
+              </div>
+              <div class="stat-info">
+                <span class="stat-label">Tỷ Lệ Hoàn Thành</span>
+                <h3 id="stat-completion-rate" class="stat-value text-info">0%</h3>
+                <div class="progress-bar-container">
+                  <div id="stat-progress-fill" class="progress-bar-fill" style="width: 0%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dashboard-details-grid">
+            <!-- Period Active Summary -->
+            <div class="card card-period-summary">
+              <div class="card-header">
+                <h3>Chi Tiết Đợt Thu Hoạt Động</h3>
+                <span id="badge-period-status" class="badge bg-success-light text-success">Đang hoạt động</span>
+              </div>
+              <div class="card-body">
+                <div class="info-row">
+                  <span>Mã đợt thu (Java):</span>
+                  <strong id="summary-period-id">-</strong>
+                </div>
+                <div class="info-row">
+                  <span>Tổng số hóa đơn phát sinh:</span>
+                  <strong id="summary-period-assignments">-</strong>
+                </div>
+                <div class="info-row">
+                  <span>Hóa đơn đã đóng tiền:</span>
+                  <strong id="summary-period-paid-count">-</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 2: KHOẢN THU (FEES) -->
+        <section id="tab-fees" class="tab-panel">
+          <div class="section-actions">
+            <h3>Danh sách Khoản thu</h3>
+            <button id="btn-open-add-fee-modal" class="btn btn-primary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Tạo Khoản Thu Mới
+            </button>
+          </div>
+
+          <div class="table-container">
+            <table class="data-table" id="table-fees-list">
+              <thead>
+                <tr>
+                  <th>Mã Khoản Thu</th>
+                  <th>Tên Khoản Thu</th>
+                  <th>Loại Hình</th>
+                  <th>Cách Tính</th>
+                  <th>Đơn Giá / Giá Trị</th>
+                  <th class="text-right">Hành động</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-fees-list">
+                <!-- Loaded dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- TAB 3: ĐỢT THU (PERIODS) -->
+        <section id="tab-periods" class="tab-panel">
+          <div class="periods-layout-grid">
+            
+            <!-- Add Period Form -->
+            <div class="card">
+              <div class="card-header">
+                <h3>Tạo Đợt Thu Mới</h3>
+              </div>
+              <div class="card-body">
+                <form id="form-create-period" class="interactive-form">
+                  <div class="form-group">
+                    <label for="period-new-name">Tên đợt thu:</label>
+                    <input type="text" id="period-new-name" placeholder="VD: Thu phí tháng 06/2026" required>
+                  </div>
+                  <div class="form-group">
+                    <label>Các khoản thu áp dụng trong đợt này:</label>
+                    <div id="period-fees-checkboxes" class="checkbox-group-container">
+                      <!-- Loaded dynamically -->
+                    </div>
+                  </div>
+                  <button type="submit" class="btn btn-primary btn-block">Tạo và gán tự động khoản bắt buộc</button>
+                </form>
+              </div>
+            </div>
+
+            <!-- List of Periods -->
+            <div class="card">
+              <div class="card-header">
+                <h3>Các Đợt Thu Đang Có</h3>
+              </div>
+              <div class="card-body" style="padding: 0;">
+                <div class="table-container scrollable">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Đợt Thu</th>
+                        <th>Khoản thu áp dụng</th>
+                        <th>Trạng thái</th>
+                        <th>Hành động</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbody-periods-list">
+                      <!-- Loaded dynamically -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- TAB 4: HỘ DÂN & HÓA ĐƠN (HOUSEHOLDS) -->
+        <section id="tab-households" class="tab-panel">
+          
+          <div class="households-header-row">
+            <div class="hh-stats-summary">
+              <span>Đợt thu đang chọn: <strong id="lbl-hh-period-name" class="text-primary">-</strong></span>
+            </div>
+            
+            <div class="hh-actions">
+              <button id="btn-open-add-household-modal" class="btn btn-secondary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="17" y1="11" x2="23" y2="11"/></svg>
+                Thêm Hộ Dân Mới
+              </button>
+            </div>
+          </div>
+
+          <div class="table-container">
+            <table class="data-table" id="table-households-list">
+              <thead>
+                <tr>
+                  <th>Mã Hộ</th>
+                  <th>Chủ Hộ</th>
+                  <th>Nhân Khẩu</th>
+                  <th>Diện Tích (m²)</th>
+                  <th>Tiền Phải Đóng (Java)</th>
+                  <th>Đã Đóng (Java)</th>
+                  <th>Còn Nợ (Java)</th>
+                  <th>Trạng Thế</th>
+                  <th class="text-center">Chi tiết</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-households-list">
+                <!-- Loaded dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- FOOTER: INTERACTIVE CODE EXPLAINER PANEL (CRITICAL FOR TUTORIAL) -->
+      <footer class="code-explainer-panel" style="display: none;">
+        <div class="panel-header">
+          <div class="panel-title-wrapper">
+            <div class="pulse-dot"></div>
+            <h3>Nhật Ký Gọi API Backend (Java Server)</h3>
+          </div>
+          <span class="panel-subtitle">Theo dõi luồng gọi HTTP REST API truyền dữ liệu JSON thực tế giữa Web Browser và Java Server!</span>
+        </div>
+        <div class="panel-body">
+          <div class="code-header">
+            <span id="code-action-label" class="code-action-tag">Khởi tạo kết nối</span>
+            <button id="btn-copy-code" class="btn-copy">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Sao chép Endpoint
+            </button>
+          </div>
+          <pre class="code-display"><code id="code-snippet-box" class="language-js">// Nhật ký truyền dữ liệu HTTP Request/Response sẽ hiển thị ở đây khi bạn tương tác...</code></pre>
+        </div>
+      </footer>
+
+    </main>
+  </div>
+
+  <!-- MODAL: ADD / EDIT FEE -->
+  <div id="modal-fee" class="modal">
+    <div class="modal-content card">
+      <div class="modal-header">
+        <h3 id="modal-fee-title">Tạo Khoản Thu Mới</h3>
+        <button class="btn-close-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-fee" class="interactive-form">
+          <input type="hidden" id="fee-edit-id">
+          
+          <div class="form-group">
+            <label for="fee-name">Tên khoản thu:</label>
+            <input type="text" id="fee-name" placeholder="VD: Phí vệ sinh, Đóng góp quỹ..." required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="fee-type">Tính chất:</label>
+              <select id="fee-type" required>
+                <option value="COMPULSORY">Bắt buộc (Tự động gán cho cả khu)</option>
+                <option value="VOLUNTARY">Tự nguyện (Đăng ký/Gán riêng lẻ)</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="fee-calc-method">Cách thức tính tiền:</label>
+              <select id="fee-calc-method" required>
+                <option value="FIXED">Cố định (Không phụ thuộc số lượng)</option>
+                <option value="PER_MEMBER">Theo nhân khẩu (Số người × Đơn giá)</option>
+                <option value="PER_AREA">Theo diện tích (Diện tích m² × Đơn giá)</option>
+                <option value="CONSUMPTION">Theo chỉ số tiêu thụ (Chỉ số đo đạc × Đơn giá)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="fee-price">Số tiền / Đơn giá (VND):</label>
+            <input type="number" id="fee-price" placeholder="VD: 50000" min="0" required>
+            <small class="form-help" id="fee-price-help">Số tiền cố định một đợt đóng.</small>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary btn-close-modal">Hủy</button>
+            <button type="submit" class="btn btn-primary" id="btn-fee-submit">Lưu Khoản Thu</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD HOUSEHOLD -->
+  <div id="modal-household" class="modal">
+    <div class="modal-content card">
+      <div class="modal-header">
+        <h3>Thêm Hộ Gia Đình Mới</h3>
+        <button class="btn-close-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-household" class="interactive-form">
+          <div class="form-group">
+            <label for="hh-id">Mã hộ gia đình:</label>
+            <input type="text" id="hh-id" placeholder="VD: P105, C302..." required>
+          </div>
+          <div class="form-group">
+            <label for="hh-owner">Họ tên chủ hộ:</label>
+            <input type="text" id="hh-owner" placeholder="VD: Trần Văn A..." required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="hh-members">Số nhân khẩu (người):</label>
+              <input type="number" id="hh-members" min="1" placeholder="4" required>
+            </div>
+            <div class="form-group">
+              <label for="hh-area">Diện tích căn hộ (m²):</label>
+              <input type="number" id="hh-area" min="1" placeholder="75" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group" >
+              <label for="hh-motorcycles">Số xe máy đăng ký:</label>
+              <input type="number" id="hh-motorcycles" min="0" value="0" required>
+            </div>
+            <div class="form-group">
+              <label for="hh-cars">Số ô tô đăng ký:</label>
+              <input type="number" id="hh-cars" min="0" value="0" required>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary btn-close-modal">Hủy</button>
+            <button type="submit" class="btn btn-primary">Thêm Hộ Dân</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: HOUSEHOLD BILL DETAILS & ASSIGNMENT -->
+  <div id="modal-bill" class="modal modal-large">
+    <div class="modal-content card">
+      <div class="modal-header header-gradient">
+        <div class="modal-header-desc">
+          <h3 id="bill-modal-title">Chi Tiết Hóa Đơn Hộ Dân</h3>
+          <p id="bill-modal-subtitle" class="text-white-muted">Hộ P101 - Nguyễn Văn Hùng</p>
+        </div>
+        <button class="btn-close-modal text-white">&times;</button>
+      </div>
+      
+      <div class="modal-body bg-light">
+        <div class="bill-modal-grid">
+          
+          <!-- LEFT: Bill calculation table -->
+          <div class="bill-left-col">
+            <div class="card flat-card">
+              <div class="card-header bg-white">
+                <h4>Các khoản phải đóng trong đợt (Tính từ Java Backend)</h4>
+              </div>
+              <div class="card-body padding-0 scrollable-y">
+                <table class="data-table border-none" id="table-bill-items">
+                  <thead>
+                    <tr>
+                      <th>Tên Khoản Thu</th>
+                      <th>Công Thức Tính</th>
+                      <th>Giá / Lượng</th>
+                      <th>Thành Tiền</th>
+                      <th>Trạng Thái</th>
+                      <th class="text-right">Hành Động</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-bill-items">
+                    <!-- Dynamic rendering -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: Assign optional fees and show totals -->
+          <div class="bill-right-col">
+            
+            <!-- Totals Card -->
+            <div class="card totals-panel">
+              <h4 class="totals-title">TỔNG CỘNG HÓA ĐƠN</h4>
+              
+              <div class="total-row">
+                <span>Tổng phải thanh toán:</span>
+                <span class="total-val" id="bill-total-amount">0 ₫</span>
+              </div>
+              <div class="total-row">
+                <span>Đã đóng:</span>
+                <span class="total-val text-success" id="bill-total-paid">0 ₫</span>
+              </div>
+              <div class="total-row border-top">
+                <span>Còn nợ:</span>
+                <span class="total-val text-warning" id="bill-total-unpaid">0 ₫</span>
+              </div>
+            </div>
+
+            <!-- Assign Fee Form -->
+            <div class="card flat-card margin-top">
+              <div class="card-header bg-white">
+                <h4>Đăng Ký / Gán Thêm Khoản Thu</h4>
+              </div>
+              <div class="card-body">
+                <form id="form-assign-optional-fee" class="interactive-form compact">
+                  <div class="form-group">
+                    <label for="assign-fee-select">Chọn khoản thu tự nguyện:</label>
+                    <select id="assign-fee-select" required>
+                      <!-- Render options -->
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="assign-fee-qty" id="lbl-assign-qty">Số lượng đăng ký:</label>
+                    <input type="number" id="assign-fee-qty" min="1" value="1" required>
+                    <small id="assign-qty-desc" class="form-help">Số lượng để nhân với đơn giá.</small>
+                  </div>
+                  <button type="submit" class="btn btn-secondary btn-block">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Đăng Ký Khoản Này
+                  </button>
+                </form>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript Scripts -->
+  <script src="app.js"></script>
+</body>
+</html>
