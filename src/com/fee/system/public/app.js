@@ -73,7 +73,7 @@ async function initApp() {
   btnCopyCode.addEventListener('click', copyEndpointToClipboard);
 
   // Tải dữ liệu ban đầu từ Java Server
-  logAPICall('GET', '/api/periods', null, 'Đang tải danh sách các đợt thu phí từ Java Server...');
+  logAPICall('GET', '/api/periods', null, 'Đang tải danh sách các đợt thu phi...');
   await refreshPeriodSelect();
   await loadBuildingInfo();
   updateAllViews();
@@ -120,7 +120,7 @@ async function apiCall(method, url, body = null) {
     return data;
   } catch (err) {
     logAPICall(method, url, body, `LỖI KẾT NỐI SERVER JAVA:\n${err.message}`);
-    showNotification('Lỗi kết nối tới máy chủ Java!');
+    showNotification('Lỗi kết nối tới máy chủ !');
     throw err;
   }
 }
@@ -253,7 +253,7 @@ async function renderFeesList() {
       if (confirm(`Bạn có chắc chắn muốn xóa khoản thu "${id}"? Hành động này sẽ được Java xử lý cascade.`)) {
         await apiCall('DELETE', `/api/fees?id=${id}`);
         updateAllViews();
-        showNotification('Đã xóa khoản thu trên máy chủ Java!');
+        showNotification('Đã xóa khoản thu!');
       }
     });
   });
@@ -319,7 +319,7 @@ async function renderPeriodsTable() {
   tbody.querySelectorAll('.btn-close-period').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-id');
-      if (confirm('Bạn có muốn ĐÓNG đợt thu này trên Java Server không?')) {
+      if (confirm('Bạn có muốn ĐÓNG đợt thu này không?')) {
         await apiCall('POST', `/api/periods/close`, { id });
         updateAllViews();
         showNotification('Đã đóng đợt thu thành công!');
@@ -505,7 +505,7 @@ async function handleAssignOptionalFeeSubmit(e) {
   }
 
   await apiCall('POST', `/api/assign`, { householdId: hhId, periodId: selectedPeriodId, feeId, quantity });
-  showNotification('Đăng ký khoản thu tự nguyện lên Java Server thành công!');
+  showNotification('Đăng ký khoản thu tự nguyện thành công!');
   
   // Tải lại
   openBillModal(hhId);
@@ -595,7 +595,7 @@ async function openBillModal(hhId) {
                  min="0" 
                  data-fee-id="${item.feeId}" 
                  data-hh-id="${hhId}"
-                 title="Nhập lượng tiêu thụ và nhấn Enter để Java tính toán lại"> m³
+                 title="Nhập lượng tiêu thụ và nhấn Enter để tính toán lại"> m³
         `;
       }
 
@@ -667,7 +667,7 @@ async function openBillModal(hhId) {
       
       openBillModal(hhId);
       updateAllViews();
-      showNotification('Đã lưu lượng đo đạc mới lên Java Server và tự động tính toán lại hóa đơn!');
+      showNotification('Đã lưu lượng đo đạc mới và tự động tính toán lại hóa đơn!');
     });
 
     input.addEventListener('keydown', (e) => {
@@ -682,7 +682,7 @@ async function openBillModal(hhId) {
       await apiCall('POST', `/api/pay`, { assignedFeeId: asfId });
       openBillModal(hhId);
       updateAllViews();
-      showNotification('Hệ thống Java đã xác nhận thanh toán thành công!');
+      showNotification('Hệ thống đã xác nhận thanh toán thành công!');
     });
   });
 
@@ -693,7 +693,7 @@ async function openBillModal(hhId) {
       await apiCall('POST', `/api/unpay`, { assignedFeeId: asfId });
       openBillModal(hhId);
       updateAllViews();
-      showNotification('Đã hoàn tác trạng thái thanh toán trên Java Server!');
+      showNotification('Đã hoàn tác trạng thái thanh toán!');
     });
   });
 
