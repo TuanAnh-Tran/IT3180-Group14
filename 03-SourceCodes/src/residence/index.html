@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Household, Resident and Apartment Management</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>BlueMoon Resident Manager</h1>
+      <p>Household, resident and apartment management</p>
+    </div>
+    <button id="resetDataBtn" class="danger-outline">Reset sample data</button>
+  </header>
+
+  <main class="container">
+    <section class="stats">
+      <div class="stat-card">
+        <span id="totalHouseholds">0</span>
+        <p>Households</p>
+      </div>
+      <div class="stat-card">
+        <span id="totalResidents">0</span>
+        <p>Residents</p>
+      </div>
+      <div class="stat-card">
+        <span id="occupiedApartments">0</span>
+        <p>Occupied apartments</p>
+      </div>
+      <div class="stat-card">
+        <span id="temporaryResidents">0</span>
+        <p>Temporary residents</p>
+      </div>
+    </section>
+
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="householdTab">Households / Apartments</button>
+      <button class="tab-btn" data-tab="residentTab">Residents</button>
+      <button class="tab-btn" data-tab="searchTab">Search</button>
+    </nav>
+
+    <!-- HOUSEHOLDS -->
+    <section id="householdTab" class="tab-panel active">
+      <div class="grid-2">
+        <div class="card">
+          <h2 id="householdFormTitle">Add household</h2>
+
+          <form id="householdForm">
+            <input type="hidden" id="householdId" />
+
+            <label>Household code</label>
+            <input id="householdCode" placeholder="Example: HH-A1201" required />
+
+            <label>Apartment number</label>
+            <input id="apartmentNo" placeholder="Example: A1201" required />
+
+            <label>Floor</label>
+            <input id="floor" type="number" min="1" placeholder="Example: 12" />
+
+            <label>Apartment area m²</label>
+            <input id="area" type="number" min="1" step="0.1" placeholder="Example: 72.5" />
+
+            <label>Household head</label>
+            <input id="headName" placeholder="Example: Nguyen Van An" required />
+
+            <label>Phone number</label>
+            <input id="householdPhone" placeholder="Example: 0987654321" />
+
+            <label>Apartment status</label>
+            <select id="householdStatus">
+              <option value="Occupied">Occupied</option>
+              <option value="Temporarily away">Temporarily away</option>
+              <option value="Moved out">Moved out</option>
+              <option value="Vacant">Vacant</option>
+            </select>
+
+            <label>Note</label>
+            <textarea id="householdNote" rows="3" placeholder="Additional information..."></textarea>
+
+            <div class="form-actions">
+              <button type="submit">Save household</button>
+              <button type="button" id="cancelHouseholdBtn" class="secondary">Cancel</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>Household list</h2>
+            <input id="householdQuickSearch" placeholder="Filter by apartment, head..." />
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Apartment</th>
+                  <th>Household head</th>
+                  <th>Members</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="householdTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Household member management</h2>
+        <p id="selectedHouseholdTitle" class="muted">
+          Select a household to view, add or remove members.
+        </p>
+
+        <div class="member-toolbar">
+          <select id="residentToAdd"></select>
+          <button id="addMemberBtn">Add to household</button>
+        </div>
+
+        <div id="memberList" class="member-list"></div>
+      </div>
+    </section>
+
+    <!-- RESIDENTS -->
+    <section id="residentTab" class="tab-panel">
+      <div class="grid-2">
+        <div class="card">
+          <h2 id="residentFormTitle">Add resident</h2>
+
+          <form id="residentForm">
+            <input type="hidden" id="residentId" />
+
+            <label>Full name</label>
+            <input id="fullName" placeholder="Example: Tran Minh Anh" required />
+
+            <label>Gender</label>
+            <select id="gender">
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
+
+            <label>Date of birth</label>
+            <input id="dob" type="date" />
+
+            <label>Citizen ID</label>
+            <input id="identityNo" placeholder="Example: 001203000999" required />
+
+            <label>Phone number</label>
+            <input id="phone" placeholder="Example: 0912345678" />
+
+            <label>Hometown</label>
+            <input id="hometown" placeholder="Example: Hanoi" />
+
+            <label>Occupation</label>
+            <input id="occupation" placeholder="Example: Engineer" />
+
+            <label>Residence status</label>
+            <select id="residentStatus">
+              <option value="Permanent resident">Permanent resident</option>
+              <option value="Temporary resident">Temporary resident</option>
+              <option value="Temporarily away">Temporarily away</option>
+              <option value="Moved out">Moved out</option>
+            </select>
+
+            <label>Household</label>
+            <select id="residentHousehold"></select>
+
+            <div class="form-actions">
+              <button type="submit">Save resident</button>
+              <button type="button" id="cancelResidentBtn" class="secondary">Cancel</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>Resident list</h2>
+            <input id="residentQuickSearch" placeholder="Filter by name, citizen ID..." />
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Full name</th>
+                  <th>Citizen ID</th>
+                  <th>Apartment</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="residentTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SEARCH -->
+    <section id="searchTab" class="tab-panel">
+      <div class="card">
+        <h2>Search residents / apartments</h2>
+
+        <div class="search-box">
+          <input id="globalSearchInput" placeholder="Enter resident name, citizen ID, phone, apartment, household head..." />
+          <select id="globalSearchType">
+            <option value="all">All</option>
+            <option value="resident">Residents</option>
+            <option value="apartment">Apartments / Households</option>
+          </select>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Main information</th>
+                <th>Details</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="searchResultBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+</body>
+</html>
