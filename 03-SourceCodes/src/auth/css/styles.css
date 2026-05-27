@@ -1,0 +1,1203 @@
+@import url('variables.css');
+
+/* 
+   1. HIỆU ỨNG NỀN TRÔI LƠ LỬNG (Background Glow Float Effects - Rich Aesthetic)
+ */
+.bg-glow-1, .bg-glow-2 {
+  position: fixed;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  filter: blur(150px);
+  opacity: 0.15;
+  z-index: -1;
+  pointer-events: none; /* Tránh cản trở click chuột vào các thẻ phía trước */
+}
+.bg-glow-1 {
+  background: var(--color-primary);
+  top: -100px;
+  left: -100px;
+  animation: float 20s infinite ease-in-out alternate;
+}
+.bg-glow-2 {
+  background: var(--color-accent);
+  bottom: -100px;
+  right: -100px;
+  animation: float 25s infinite ease-in-out alternate-reverse;
+}
+
+/* Hoạt ảnh nổi trôi lơ lửng chậm rãi cho các đốm màu nền */
+@keyframes float {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(50px, 30px) scale(1.1); }
+  100% { transform: translate(-20px, 50px) scale(0.95); }
+}
+
+/*
+   2. GIAO DIỆN ĐĂNG NHẬP / ĐĂNG KÝ (Glassmorphic Auth Card)
+ */
+.auth-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+  background: radial-gradient(circle at center, #111827 0%, #030712 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+  background: var(--bg-glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur); /* Hỗ trợ trình duyệt Safari */
+  border: 1px solid var(--border-glass);
+  border-radius: var(--border-radius-lg);
+  padding: 40px;
+  box-shadow: var(--shadow-lg);
+  z-index: 10;
+  transform: translateY(0);
+  transition: var(--transition-normal);
+  animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Hoạt ảnh trượt nhẹ từ dưới lên khi tải trang Auth */
+@keyframes slideUp {
+  from { transform: translateY(30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.auth-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 30px;
+}
+
+.auth-logo svg {
+  width: 40px;
+  height: 40px;
+  color: var(--color-primary);
+}
+
+.auth-logo span {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, #ffffff 30%, #a5b4fc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.auth-header {
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.auth-header h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  letter-spacing: -0.3px;
+}
+
+.auth-header p {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+/* Biểu mẫu và Ô Nhập liệu (Form Controls) */
+.form-group {
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  transition: var(--transition-fast);
+}
+
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon {
+  position: absolute;
+  left: 14px;
+  color: var(--text-muted);
+  pointer-events: none;
+  transition: var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.form-control {
+  width: 100%;
+  padding: 12px 16px 12px 42px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--border-radius-md);
+  color: var(--text-primary);
+  font-size: 14.5px;
+  font-family: inherit;
+  outline: none;
+  transition: var(--transition-fast);
+}
+
+/* Hiệu ứng nổi bần bật khi focus vào ô nhập liệu */
+.form-control:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  background: rgba(15, 23, 42, 0.85);
+}
+
+.form-control:focus ~ .input-icon {
+  color: var(--color-primary); /* Đổi màu icon đồng bộ khi focus */
+}
+
+/* Hệ thống các Nút bấm (Button Tokens) */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  font-size: 14.5px;
+  font-weight: 600;
+  border-radius: var(--border-radius-md);
+  border: none;
+  cursor: pointer;
+  outline: none;
+  transition: var(--transition-fast);
+  width: 100%;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--color-primary) 0%, #4f46e5 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+  transform: translateY(-1px); /* Nổi nhẹ lên trên */
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-glass);
+}
+
+.btn-secondary:hover {
+  background: rgba(255,255,255,0.05);
+  border-color: var(--border-glass-hover);
+}
+
+.auth-footer {
+  margin-top: 24px;
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+}
+
+.auth-footer a {
+  color: var(--color-primary);
+  text-decoration: none;
+  font-weight: 600;
+  transition: var(--transition-fast);
+}
+
+.auth-footer a:hover {
+  color: #818cf8;
+  text-decoration: underline;
+}
+
+/* 
+   3. KHUNG APP SHELL CHÍNH (Sidebar + Header + Content Layout)
+ */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--bg-primary);
+  position: relative;
+}
+
+/* Thanh Sidebar Điều Hướng Cố Định Bên Trái */
+.app-sidebar {
+  width: var(--sidebar-width);
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-glass);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 50;
+  transition: var(--transition-normal);
+}
+
+.sidebar-logo {
+  height: var(--header-height);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--border-glass);
+}
+
+.sidebar-logo svg {
+  width: 32px;
+  height: 32px;
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.sidebar-logo span {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, #ffffff 40%, #c7d2fe 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  white-space: nowrap;
+  transition: var(--transition-normal);
+}
+
+.sidebar-nav {
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  overflow-y: auto; /* Tự cuộn đứng nếu menu quá dài */
+}
+
+.nav-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 12px 12px 6px;
+  white-space: nowrap;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  border: 1px solid transparent;
+}
+
+.nav-item svg {
+  width: 20px;
+  height: 20px;
+  color: var(--text-muted);
+  transition: var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.nav-item:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.nav-item:hover svg {
+  color: var(--text-primary);
+}
+
+/* Kiểu dáng cho thẻ menu đang được kích hoạt (Active State) */
+.nav-item.active {
+  background: var(--color-primary-light);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.nav-item.active svg {
+  color: #818cf8;
+}
+
+/* Sidebar Footer: Hiển thị Profile cá nhân thu gọn & nút Logout */
+.sidebar-footer {
+  padding: 16px;
+  border-top: 1px solid var(--border-glass);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--border-radius-full);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #ffffff;
+  font-size: 15px;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
+  flex-shrink: 0;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0; /* Cho phép chữ viết dài tự co ngắn */
+}
+
+.user-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-role {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.role-badge {
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.role-admin {
+  background: var(--color-danger-light);
+  color: #f87171;
+}
+
+.role-user {
+  background: var(--color-accent-light);
+  color: #22d3ee;
+}
+
+.btn-icon-logout {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--border-radius-sm);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-fast);
+}
+
+.btn-icon-logout:hover {
+  color: var(--color-danger);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Vùng Container chính chiếm không gian bên phải Sidebar */
+.app-container {
+  flex: 1;
+  margin-left: var(--sidebar-width); /* Cách trái đúng bằng độ rộng Sidebar */
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  transition: var(--transition-normal);
+  position: relative;
+  z-index: 10;
+}
+
+/* Thanh Header mờ kính phía trên cùng của Dashboard */
+.app-header {
+  height: var(--header-height);
+  background: var(--bg-glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid var(--border-glass);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.header-title-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Nút Hamburger bật Sidebar trên Mobile (mặc định ẩn ở màn hình Desktop) */
+.btn-menu-toggle {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 20px;
+  padding: 6px;
+  border-radius: var(--border-radius-sm);
+}
+
+.header-title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.notifications-widget {
+  position: relative;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: var(--transition-fast);
+  padding: 8px;
+  border-radius: var(--border-radius-sm);
+}
+
+.notifications-widget:hover {
+  color: var(--text-primary);
+  background: rgba(255,255,255,0.03);
+}
+
+/* Dấu chấm đỏ thông báo hệ thống */
+.notif-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  background: var(--color-danger);
+  border-radius: 50%;
+  border: 1px solid var(--bg-secondary);
+}
+
+/* Khu vực hiển thị nội dung chính */
+.app-content {
+  flex: 1;
+  padding: 32px;
+  position: relative;
+}
+
+/* 
+   4. THIẾT KẾ CÁC THẺ CARD & BIỂU ĐỒ TRÊN DASHBOARD
+ */
+
+/* Lưới hiển thị các thẻ thông số thống kê hàng đầu */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.metric-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--border-radius-md);
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+}
+
+.metric-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-glass-hover);
+  box-shadow: var(--shadow-md);
+}
+
+/* Dải màu đánh dấu bên trái của mỗi loại thẻ thông số */
+.metric-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--color-primary);
+}
+
+.metric-card.accent::before { background: var(--color-accent); }
+.metric-card.success::before { background: var(--color-success); }
+.metric-card.warning::before { background: var(--color-warning); }
+
+.metric-info h3 {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.metric-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.metric-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.metric-icon-box {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--border-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  flex-shrink: 0;
+}
+
+.metric-card.accent .metric-icon-box {
+  color: var(--color-accent);
+  background: var(--color-accent-light);
+}
+
+.metric-card.success .metric-icon-box {
+  color: var(--color-success);
+  background: var(--color-success-light);
+}
+
+.metric-card.warning .metric-icon-box {
+  color: var(--color-warning);
+  background: var(--color-warning-light);
+}
+
+/* Lưới hiển thị biểu đồ SVG và nhật ký hệ thống */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr; /* Tràn hàng khi màn hình nhỏ */
+  }
+}
+
+.chart-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--border-radius-md);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.card-title-muted {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Vùng chứa Biểu đồ SVG co giãn tự do (Responsive SVG Container) */
+.svg-chart-container {
+  width: 100%;
+  height: 220px;
+  display: flex;
+  align-items: flex-end;
+  position: relative;
+  padding: 10px 0;
+}
+
+/* Lịch sử nhật ký hoạt động hệ thống */
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.activity-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+.activity-item.success .activity-dot { background: var(--color-success); }
+.activity-item.warning .activity-dot { background: var(--color-warning); }
+.activity-item.danger .activity-dot { background: var(--color-danger); }
+
+.activity-details {
+  flex: 1;
+}
+
+.activity-text {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.activity-time {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+/* 
+   5. BẢNG BIỂU HIỂN THỊ DỮ LIỆU CƯ DÂN (Premium Data Tables)
+ */
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap; /* Hỗ trợ dồn dòng khi màn hình co hẹp */
+}
+
+.search-box {
+  position: relative;
+  max-width: 320px;
+  width: 100%;
+}
+
+.search-control {
+  width: 100%;
+  padding: 10px 16px 10px 38px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--border-radius-sm);
+  color: var(--text-primary);
+  font-size: 13.5px;
+  outline: none;
+  transition: var(--transition-fast);
+}
+
+.search-control:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-light);
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.select-filter {
+  padding: 10px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--border-radius-sm);
+  color: var(--text-primary);
+  font-size: 13.5px;
+  outline: none;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.select-filter:focus {
+  border-color: var(--color-primary);
+}
+
+.btn-add {
+  padding: 10px 18px;
+  width: auto;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto; /* Cho phép cuộn ngang bảng dữ liệu trên điện thoại */
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--border-glass);
+  background: var(--bg-secondary);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 14px;
+}
+
+.data-table th {
+  background: rgba(0, 0, 0, 0.15);
+  padding: 14px 20px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border-glass);
+}
+
+.data-table td {
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.data-table tbody tr {
+  transition: var(--transition-fast);
+}
+
+.data-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* User Identity Cell: hiển thị Avatar tròn nhỏ cạnh Họ tên cư dân */
+.user-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-cell-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13.5px;
+  color: var(--text-primary);
+  border: 1px solid var(--border-glass);
+}
+
+.user-cell-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-cell-fullname {
+  font-weight: 600;
+}
+
+.user-cell-username {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+/* Dropdown sửa đổi quyền hạn (Role Select) trực tiếp trong hàng của bảng */
+.table-role-select {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-glass);
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 4px 8px;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.table-role-select:focus {
+  border-color: var(--color-primary);
+}
+
+.table-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--border-radius-sm);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-fast);
+}
+
+.btn-icon-delete {
+  color: var(--text-muted);
+}
+
+.btn-icon-delete:hover {
+  color: var(--color-danger);
+  background: var(--color-danger-light);
+}
+
+/* 
+   6. GIAO DIỆN HỒ SƠ CÁ NHÂN (My Profile Page)
+*/
+.profile-card-layout {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 32px;
+}
+
+@media (max-width: 768px) {
+  .profile-card-layout {
+    grid-template-columns: 1fr; /* Dồn dòng khi xem trên Mobile */
+  }
+}
+
+.profile-sidebar-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--border-radius-md);
+  padding: 32px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+}
+
+.profile-avatar-big {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 auto 20px;
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+}
+
+.profile-title-name {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.profile-role-display {
+  display: inline-block;
+  margin-bottom: 24px;
+}
+
+.profile-meta-details {
+  border-top: 1px solid var(--border-glass);
+  padding-top: 24px;
+  text-align: left;
+}
+
+.profile-meta-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  font-size: 13.5px;
+}
+
+.profile-meta-label {
+  color: var(--text-secondary);
+}
+
+.profile-meta-value {
+  font-weight: 600;
+}
+
+.profile-form-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--border-radius-md);
+  padding: 32px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.panel-section-title {
+  font-size: 16px;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border-glass);
+  padding-bottom: 12px;
+}
+
+/*
+   7. HỘP THOẠI HỘP THOẠI DIALOG (Custom Dialog Modals)
+*/
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(3, 7, 18, 0.8);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.dialog-overlay.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.dialog-box {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--border-radius-lg);
+  max-width: 480px;
+  width: 100%;
+  padding: 32px;
+  box-shadow: var(--shadow-lg);
+  transform: translateY(20px);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dialog-overlay.active .dialog-box {
+  transform: translateY(0);
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.dialog-title {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.btn-close-dialog {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-fast);
+  padding: 4px;
+  border-radius: var(--border-radius-sm);
+}
+
+.btn-close-dialog:hover {
+  color: var(--text-primary);
+  background: rgba(255,255,255,0.03);
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.dialog-actions .btn {
+  width: auto;
+}
+
+/*
+   8. HỆ THỐNG TOAST THÔNG BÁO BAY (Floating Toast Alerts)
+*/
+.toast-container {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.toast {
+  background: rgba(19, 26, 43, 0.95);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--border-radius-md);
+  padding: 14px 20px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 280px;
+  max-width: 400px;
+  pointer-events: all;
+  backdrop-filter: var(--glass-blur);
+  transform: translateX(120%); /* Đẩy bay ra ngoài rìa phải màn hình */
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+
+.toast.show {
+  transform: translateX(0); /* Trượt vào vị trí hiển thị */
+}
+
+/* Thanh chạy chỉ thị thời hạn tồn tại phía dưới đáy của Toast */
+.toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: var(--color-primary);
+  width: 100%;
+}
+
+.toast.success .toast-progress { background: var(--color-success); }
+.toast.error .toast-progress { background: var(--color-danger); }
+.toast.warning .toast-progress { background: var(--color-warning); }
+
+.toast-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.toast.success .toast-icon { color: var(--color-success); }
+.toast.error .toast-icon { color: var(--color-danger); }
+.toast.warning .toast-icon { color: var(--color-warning); }
+
+/*
+   9. HỖ TRỢ HIỂN THỊ RESPONSIVE & MOBILE OVERRIDES
+*/
+@media (max-width: 768px) {
+  /* Kích hoạt nút Hamburger Menu trên Header di động */
+  .btn-menu-toggle {
+    display: block;
+  }
+
+  /* Thu gọn và ẩn hoàn toàn Sidebar sang lề trái màn hình */
+  .app-sidebar {
+    transform: translateX(-100%);
+    box-shadow: none;
+  }
+
+  /* Khi active, trượt Sidebar từ trái qua */
+  .app-sidebar.active {
+    transform: translateX(0);
+    box-shadow: var(--shadow-lg);
+  }
+
+  /* Container chiếm toàn chiều rộng màn hình, không cách lề trái nữa */
+  .app-container {
+    margin-left: 0;
+  }
+
+  .app-header {
+    padding: 0 16px;
+  }
+
+  .app-content {
+    padding: 20px 16px;
+  }
+
+  .metrics-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+/* Lớp phủ làm tối mờ màn hình phía sau khi Sidebar di động được bật ra */
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(3, 7, 18, 0.6);
+  backdrop-filter: blur(2px);
+  z-index: 45;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.sidebar-overlay.active {
+  opacity: 1;
+  pointer-events: all;
+}
