@@ -3,14 +3,14 @@
  * Điều phối đăng nhập, điều hướng, và render tất cả các module.
  */
 
-import { AuthService }      from './auth.js';
-import { ApartmentDB }      from './db.js';
-import { Sidebar }          from './components/sidebar.js';
-import { Dashboard }        from './components/dashboard.js';
-import { UsersManager }     from './components/users.js';
-import { ProfileView }      from './components/profile.js';
+import { AuthService } from './auth.js';
+import { ApartmentDB } from './db.js';
+import { Sidebar } from './components/sidebar.js';
+import { Dashboard } from './components/dashboard.js';
+import { UsersManager } from './components/users.js';
+import { ProfileView } from './components/profile.js';
 import { ResidentsManager } from './components/residents.js';
-import { FeeManagerView, FM }  from './components/fees.js';
+import { FeeManagerView, FM } from './components/fees.js';
 import { PaymentView, bridgeFM } from './components/payment.js';
 
 const app = document.getElementById('app');
@@ -25,7 +25,7 @@ function showToast(message, type = 'info') {
   const colors = { success: '#10b981', error: '#ef4444', warning: '#f59e0b', info: '#6366f1' };
   toast.style.cssText = `
     position:fixed; bottom:24px; right:24px; z-index:9999;
-    background:${colors[type]||colors.info}; color:#fff;
+    background:${colors[type] || colors.info}; color:#fff;
     padding:14px 20px; border-radius:14px;
     box-shadow:0 10px 25px rgba(0,0,0,0.35);
     font-size:14px; font-weight:500; font-family:var(--font-family);
@@ -54,12 +54,12 @@ function renderAuthScreen(tab = 'login') {
 
         <!-- Tab switcher -->
         <div style="display:flex; gap:8px; background:var(--bg-secondary); border-radius:14px; padding:6px; margin-bottom:24px; border:1px solid var(--border-glass);">
-          <button id="tab-login" onclick="window.__switchAuthTab('login')" style="flex:1;border:none;padding:10px;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;background:${tab==='login'?'var(--color-primary)':'transparent'};color:${tab==='login'?'#fff':'var(--text-secondary)'};transition:var(--transition-fast);">Sign In</button>
-          <button id="tab-register" onclick="window.__switchAuthTab('register')" style="flex:1;border:none;padding:10px;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;background:${tab==='register'?'var(--color-primary)':'transparent'};color:${tab==='register'?'#fff':'var(--text-secondary)'};transition:var(--transition-fast);">Register</button>
+          <button id="tab-login" onclick="window.__switchAuthTab('login')" style="flex:1;border:none;padding:10px;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;background:${tab === 'login' ? 'var(--color-primary)' : 'transparent'};color:${tab === 'login' ? '#fff' : 'var(--text-secondary)'};transition:var(--transition-fast);">Sign In</button>
+          <button id="tab-register" onclick="window.__switchAuthTab('register')" style="flex:1;border:none;padding:10px;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;background:${tab === 'register' ? 'var(--color-primary)' : 'transparent'};color:${tab === 'register' ? '#fff' : 'var(--text-secondary)'};transition:var(--transition-fast);">Register</button>
         </div>
 
         <!-- Login form -->
-        <div id="auth-login" style="display:${tab==='login'?'block':'none'};">
+        <div id="auth-login" style="display:${tab === 'login' ? 'block' : 'none'};">
           <div style="background:var(--bg-secondary); border:1px solid var(--border-glass); border-radius:20px; padding:28px;">
             <h2 style="font-size:18px; font-weight:700; color:var(--text-primary); margin:0 0 20px;">Welcome back</h2>
             <form id="loginForm">
@@ -84,7 +84,7 @@ function renderAuthScreen(tab = 'login') {
         </div>
 
         <!-- Register form -->
-        <div id="auth-register" style="display:${tab==='register'?'block':'none'};">
+        <div id="auth-register" style="display:${tab === 'register' ? 'block' : 'none'};">
           <div style="background:var(--bg-secondary); border:1px solid var(--border-glass); border-radius:20px; padding:28px;">
             <h2 style="font-size:18px; font-weight:700; color:var(--text-primary); margin:0 0 20px;">Create resident account</h2>
             <form id="registerForm">
@@ -166,7 +166,7 @@ function renderAuthScreen(tab = 'login') {
 // ========== MAIN APP ==========
 function renderMainApp(user) {
   // Nav items: dashboard, users (admin only), residents, profile
-  const navItems = ['dashboard', ...(user.role==='admin'?['users']:[]), 'residents', 'fees', 'payment', 'profile'];
+  const navItems = ['dashboard', ...(user.role === 'admin' ? ['users'] : []), 'residents', 'fees', 'payment', 'profile'];
 
   // Expose FM globally for PaymentView
   window.__FM__ = FM;
@@ -190,7 +190,7 @@ function renderMainApp(user) {
           </div>
           <div class="topbar-right">
             <div class="topbar-user">
-              <div class="user-avatar" style="width:36px;height:36px;font-size:14px;">${(user.fullname||'?').trim().split(' ').pop().charAt(0).toUpperCase()}</div>
+              <div class="user-avatar" style="width:36px;height:36px;font-size:14px;">${(user.fullname || '?').trim().split(' ').pop().charAt(0).toUpperCase()}</div>
               <span style="font-size:14px;color:var(--text-secondary);">${user.fullname}</span>
             </div>
           </div>
@@ -201,8 +201,8 @@ function renderMainApp(user) {
   `;
 
   let activeTab = 'dashboard';
-  const sidebar  = document.getElementById('sidebar');
-  const content  = document.getElementById('content');
+  const sidebar = document.getElementById('sidebar');
+  const content = document.getElementById('content');
 
   // Sidebar mobile toggle
   document.getElementById('menuToggle').addEventListener('click', () => {
@@ -211,11 +211,11 @@ function renderMainApp(user) {
 
   const tabTitles = {
     dashboard: ['Dashboard', 'Overview'],
-    users:     ['User Management', 'Accounts & Roles'],
+    users: ['User Management', 'Accounts & Roles'],
     residents: ['Resident Manager', 'Households & Apartments'],
-    fees:      ['Fee Manager', 'Thu phí hộ gia đình — Java Backend'],
-    payment:   ['Thanh Toán & Thống Kê', 'Payment · Receipt · Statistics — Java Backend'],
-    profile:   ['My Profile', 'Account Settings'],
+    fees: ['Fee Manager', 'Household fee management — Java Backend'],
+    payment: ['Payment & Stats', 'Payment · Receipt · Statistics — Java Backend'],
+    profile: ['My Profile', 'Account Settings'],
   };
 
   function switchTab(tab) {
@@ -233,17 +233,17 @@ function renderMainApp(user) {
 
     // Render content
     content.innerHTML = '';
-    if (tab === 'dashboard')  Dashboard.render(content, user);
-    if (tab === 'users')      UsersManager.render(content, user, showToast);
-    if (tab === 'residents')  ResidentsManager.render(content, showToast);
-    if (tab === 'fees')       FeeManagerView.render(content, user, showToast);
-    if (tab === 'payment')    PaymentView.render(content, user, showToast);
-    if (tab === 'profile')    ProfileView.render(content, user, showToast, (updated) => {
+    if (tab === 'dashboard') Dashboard.render(content, user);
+    if (tab === 'users') UsersManager.render(content, user, showToast);
+    if (tab === 'residents') ResidentsManager.render(content, showToast);
+    if (tab === 'fees') FeeManagerView.render(content, user, showToast);
+    if (tab === 'payment') PaymentView.render(content, user, showToast);
+    if (tab === 'profile') ProfileView.render(content, user, showToast, (updated) => {
       user = updated;
       // Update topbar avatar/name
       document.querySelector('.topbar-user span').textContent = user.fullname;
       document.querySelector('.topbar-user .user-avatar').textContent =
-        (user.fullname||'?').trim().split(' ').pop().charAt(0).toUpperCase();
+        (user.fullname || '?').trim().split(' ').pop().charAt(0).toUpperCase();
       Sidebar.render(sidebar, activeTab, user, switchTab, handleLogout);
     });
   }
@@ -261,7 +261,7 @@ function renderMainApp(user) {
 // ========== SIDEBAR — thêm nav item "residents" ==========
 // Patch Sidebar to include residents tab
 const _origSidebarRender = Sidebar.render.bind(Sidebar);
-Sidebar.render = function(container, activeTab, user, onTabChange, onLogout) {
+Sidebar.render = function (container, activeTab, user, onTabChange, onLogout) {
   _origSidebarRender(container, activeTab, user, onTabChange, onLogout);
 
   // Inject "Resident Manager" nav item before Profile
@@ -309,7 +309,7 @@ Sidebar.render = function(container, activeTab, user, onTabChange, onLogout) {
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"/>
     </svg>
-    <span>Thanh Toán & TK</span>
+    <span>Payment & Stats</span>
   `;
   payItem.addEventListener('click', (e) => {
     e.preventDefault();
