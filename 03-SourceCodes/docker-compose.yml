@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # Database Service (MySQL)
+  # ==========================================
+  db:
+    image: mysql:8.0
+    container_name: apartment-db
+    restart: always
+    environment:
+      MYSQL_DATABASE: apartment_db
+      MYSQL_ROOT_PASSWORD: your_password_here
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ==========================================
+  # Backend Service (Spring Boot)
+  # ==========================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: apartment-backend
+    restart: always
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Automatically overrides values in application.properties when running in Docker
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/apartment_db?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=UTF-8
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: your_password_here
+      # If you need to override JWT secrets or file directories
+      APP_EXPORT_DIRECTORY: /app/exports
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+
+  # ==========================================
+  # Frontend Service (Nginx)
+  # ==========================================
+  frontend:
+    image: nginx:alpine
+    container_name: apartment-frontend
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:
+    driver: local
