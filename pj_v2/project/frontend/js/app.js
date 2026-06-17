@@ -1,0 +1,608 @@
+/**
+ * APP.JS — Cyberspace + BlueMoon Unified SPA
+ * Điều phối đăng nhập, điều hướng, và render tất cả các module.
+ */
+
+import { AuthService }      from './auth.js';
+import { ApartmentDB }      from './db.js';
+import { AuthAPI }             from './api.js';
+import { Sidebar }          from './components/sidebar.js';
+import { Dashboard }        from './components/dashboard.js';
+import { UsersManager }     from './components/users.js';
+import { ProfileView }      from './components/profile.js';
+import { ResidentsManager } from './components/residents.js';
+import { FeeManagerView, FM }  from './components/fees.js';
+import { PaymentView, bridgeFM } from './components/payment.js';
+
+const app = document.getElementById('app');
+
+// ========== TOAST ==========
+function showToast(message, type = 'info') {
+  const existing = document.getElementById('cs-toast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.id = 'cs-toast';
+  const colors = { success: '#10b981', error: '#ef4444', warning: '#f59e0b', info: '#6366f1' };
+  toast.style.cssText = `
+    position:fixed; bottom:24px; right:24px; z-index:9999;
+    background:${colors[type]||colors.info}; color:#fff;
+    padding:14px 20px; border-radius:14px;
+    box-shadow:0 10px 25px rgba(0,0,0,0.35);
+    font-size:14px; font-weight:500; font-family:var(--font-family);
+    animation:slideUp .25s ease; max-width:360px;
+  `;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+// ========== AUTH SCREENS ==========
+// ========== AUTH SCREENS ==========
+function renderAuthScreen(tab = 'login') {
+  const remembered = localStorage.getItem('apartment_mgmt_remember_username') || '';
+
+  app.innerHTML = `
+    <div style="min-height:100vh; display:flex; align-items:center; justify-content:center; background:var(--bg-primary); padding:24px;">
+      <div style="width:100%; max-width:${tab==='register'?'800px':'420px'}; transition: max-width var(--transition-normal);">
+        <!-- Logo -->
+        <div style="text-align:center; margin-bottom:32px;">
+          <div style="width:64px;height:64px;border-radius:20px;background:linear-gradient(135deg,var(--color-primary),var(--color-accent));display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="white" style="width:32px;height:32px;">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h18" />
+            </svg>
+          </div>
+          <h1 style="font-size:22px; font-weight:800; color:var(--text-primary); margin:0;">Cyberspace Portal</h1>
+          <p style="color:var(--text-secondary); font-size:14px; margin:6px 0 0;">Resident & Apartment Management System</p>
+        </div>
+
+        <!-- Tab switcher -->
+        <div style="display:flex; gap:8px; background:var(--bg-secondary); border-radius:14px; padding:6px; margin-bottom:24px; border:1px solid var(--border-glass);">
+          <button id="tab-login" onclick="window.__switchAuthTab('login')" style="flex:1;border:none;padding:10px;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;background:${tab==='login'?'var(--color-primary)':'transparent'};color:${tab==='login'?'#fff':'var(--text-secondary)'};transition:var(--transition-fast);">Sign In</button>
+          <button id="tab-register" onclick="window.__switchAuthTab('register')" style="flex:1;border:none;padding:10px;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;background:${tab==='register'?'var(--color-primary)':'transparent'};color:${tab==='register'?'#fff':'var(--text-secondary)'};transition:var(--transition-fast);">Register</button>
+        </div>
+
+        <!-- Login form -->
+        <div id="auth-login" style="display:${tab==='login'?'block':'none'};">
+          <div style="background:var(--bg-secondary); border:1px solid var(--border-glass); border-radius:20px; padding:28px;">
+            <h2 style="font-size:18px; font-weight:700; color:var(--text-primary); margin:0 0 20px;">Welcome back</h2>
+            <form id="loginForm">
+              <div class="form-group">
+                <label class="form-label">Username</label>
+                <div class="input-wrapper">
+                  <span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg></span>
+                  <input type="text" class="form-control" id="loginUsername" placeholder="Enter username" autocomplete="username" value="${remembered}" required>
+                </div>
+              </div>
+              <div class="form-group" style="position:relative;">
+                <label class="form-label">Password</label>
+                <div class="input-wrapper">
+                  <span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg></span>
+                  <input type="password" class="form-control" id="loginPassword" placeholder="Enter password" autocomplete="current-password" required style="padding-right:45px;">
+                  <button type="button" onclick="window.__toggleRegPassword('loginPassword')" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--text-muted); cursor:pointer; padding:6px; font-size:14px; z-index:10;">👁️</button>
+                </div>
+              </div>
+
+              <!-- Remember Me Checkbox -->
+              <div class="form-group" style="display:flex; align-items:center; gap:8px; margin-top:12px; margin-bottom:16px;">
+                <input type="checkbox" id="loginRememberMe" style="width:16px; height:16px; accent-color:var(--color-primary); cursor:pointer;" ${remembered ? 'checked' : ''}>
+                <label for="loginRememberMe" style="font-size:13px; color:var(--text-secondary); cursor:pointer; font-weight:500; user-select:none;">Remember me</label>
+              </div>
+
+              <button type="submit" class="btn btn-primary" style="width:100%;margin-top:8px;" id="loginBtn">Sign In</button>
+            </form>
+            <p style="text-align:center;margin-top:16px;font-size:13px;color:var(--text-muted);">Demo: <strong style="color:var(--color-primary);">admin</strong> / admin123 &nbsp;|&nbsp; <strong style="color:var(--color-accent);">resident1</strong> / user123</p>
+          </div>
+        </div>
+
+        <!-- Register form -->
+        <div id="auth-register" style="display:${tab==='register'?'block':'none'};">
+          <div style="background:var(--bg-secondary); border:1px solid var(--border-glass); border-radius:20px; padding:28px;">
+            <h2 style="font-size:18px; font-weight:700; color:var(--text-primary); margin:0 0 20px;">Create resident account</h2>
+            <form id="registerForm">
+              <div style="display:grid; grid-template-columns: 1fr; gap: 20px;">
+                
+                <!-- Section 1: Account Credentials -->
+                <div style="background:var(--bg-tertiary); border:1px solid var(--border-glass); border-radius:14px; padding:18px;">
+                  <h3 style="font-size:12px; color:var(--color-primary); margin:0 0 14px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">1. Account Credentials & Room Info</h3>
+                  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+                    <div class="form-group" style="margin-bottom:0;">
+                      <label class="form-label">Username *</label>
+                      <div class="input-wrapper">
+                        <span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg></span>
+                        <input type="text" class="form-control" id="regUsername" placeholder="Min 4 chars" required>
+                      </div>
+                    </div>
+                    
+                    <div class="form-group" style="margin-bottom:0; position:relative;">
+                      <label class="form-label">Password *</label>
+                      <div class="input-wrapper">
+                        <span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg></span>
+                        <input type="password" class="form-control" id="regPassword" placeholder="Min 6 chars" required minlength="6" style="padding-right:45px;">
+                        <button type="button" onclick="window.__toggleRegPassword('regPassword')" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--text-muted); cursor:pointer; padding:6px; font-size:14px; z-index:10;">👁️</button>
+                      </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:0; position:relative;">
+                      <label class="form-label">Confirm Password *</label>
+                      <div class="input-wrapper">
+                        <span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg></span>
+                        <input type="password" class="form-control" id="regConfirmPassword" placeholder="Re-enter password" required minlength="6" style="padding-right:45px;">
+                        <button type="button" onclick="window.__toggleRegPassword('regConfirmPassword')" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--text-muted); cursor:pointer; padding:6px; font-size:14px; z-index:10;">👁️</button>
+                      </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:0;">
+                      <label class="form-label">Room Number *</label>
+                      <div class="input-wrapper">
+                        <span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75"/></svg></span>
+                        <input type="text" class="form-control" id="regRoom" placeholder="e.g. A1201" required>
+                      </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:0;">
+                      <label class="form-label">Account Role *</label>
+                      <div class="input-wrapper">
+                        <span class="input-icon">🔑</span>
+                        <select class="form-control" id="regRole" onchange="window.__onRoleChange()" style="cursor:pointer;">
+                          <option value="user">Resident (Cư dân)</option>
+                          <option value="admin">Admin (Quản lý)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:0; display:none;" id="adminSecretGroup">
+                      <label class="form-label">Admin Secret Key *</label>
+                      <div class="input-wrapper" style="position:relative;">
+                        <span class="input-icon">🛡️</span>
+                        <input type="password" class="form-control" id="regAdminSecret" placeholder="Enter admin secret key" style="padding-right:45px;">
+                        <button type="button" onclick="window.__toggleRegPassword('regAdminSecret')" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--text-muted); cursor:pointer; padding:6px; font-size:14px; z-index:10;">👁️</button>
+                      </div>
+                      <p style="font-size:11px; color:var(--text-muted); margin-top:6px; padding-left:2px;">⚠️ Admin key is required and issued by the system operator only.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Section 2: Household Info -->
+                <div style="background:var(--bg-tertiary); border:1px solid var(--border-glass); border-radius:14px; padding:18px;">
+                  <h3 style="font-size:12px; color:var(--color-accent); margin:0 0 14px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">2. Household Registration (Sổ Hộ Khẩu)</h3>
+                  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+                    <div class="form-group" style="margin-bottom:0;">
+                      <label class="form-label">Household Code (Số hộ khẩu) *</label>
+                      <div class="input-wrapper">
+                        <span class="input-icon">📑</span>
+                        <input type="text" class="form-control" id="regHhCode" placeholder="e.g. HH-A1201" required>
+                      </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                      <label class="form-label">Head of Household (Chủ hộ) *</label>
+                      <div class="input-wrapper">
+                        <span class="input-icon">👤</span>
+                        <input type="text" class="form-control" id="regHhHeadName" placeholder="e.g. Nguyen Van An" required>
+                      </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                      <label class="form-label">House Number (Số nhà) *</label>
+                      <div class="input-wrapper">
+                        <span class="input-icon">🏠</span>
+                        <input type="text" class="form-control" id="regHouseNo" placeholder="e.g. A1201" required>
+                      </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                      <label class="form-label">Street / Hamlet (Đường/Thôn) *</label>
+                      <div class="input-wrapper">
+                        <span class="input-icon">📍</span>
+                        <input type="text" class="form-control" id="regStreet" placeholder="e.g. BlueMoon St" required>
+                      </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                      <label class="form-label">Ward / Commune (Phường/Xã) *</label>
+                      <div class="input-wrapper">
+                        <span class="input-icon">🏢</span>
+                        <input type="text" class="form-control" id="regWard" placeholder="e.g. Me Tri Ward" required>
+                      </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                      <label class="form-label">District (Quận/Huyện) *</label>
+                      <div class="input-wrapper">
+                        <span class="input-icon">🗺️</span>
+                        <input type="text" class="form-control" id="regDistrict" placeholder="e.g. Nam Tu Liem" required>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Section 3: Personal Resident Info -->
+                <div style="background:var(--bg-tertiary); border:1px solid var(--border-glass); border-radius:14px; padding:18px;">
+                  <h3 style="font-size:12px; color:var(--color-success); margin:0 0 14px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">3. Identity & Resident Details</h3>
+                  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+                    <div class="form-group" style="margin-bottom:0;">
+                      <label class="form-label">Full Name (Họ tên) *</label>
+                      <div class="input-wrapper">
+                        <span class="input-icon">👤</span>
+                        <input type="text" class="form-control" id="regFullname" placeholder="Full Name" required>
+                      </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                      <label class="form-label">Alias (Bí danh) *</label>
+                      <div class="input-wrapper">
+                        <span class="input-icon">🏷️</span>
+                        <input type="text" class="form-control" id="regAlias" placeholder="Alias or N/A" required>
+                      </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                      <label class="form-label">Citizen ID (CCCD/CMND) *</label>
+                      <div class="input-wrapper">
+                        <span class="input-icon">🪪</span>
+                        <input type="text" class="form-control" id="regIdentityNo" placeholder="Digits only" pattern="\\d+" title="Only digits allowed" required>
+                      </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                      <label class="form-label">Phone Number (Số điện thoại) *</label>
+                      <div class="input-wrapper">
+                        <span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-1.514 2.018a11.233 11.233 0 01-5.111-5.111l2.018-1.514c.361-.272.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"/></svg></span>
+                        <input type="tel" class="form-control" id="regPhone" placeholder="Digits only" pattern="\\d+" title="Only digits allowed" required>
+                      </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                      <label class="form-label">Date of Birth *</label>
+                      <div class="input-wrapper">
+                        <input type="date" class="form-control" id="regDob" style="padding-left:14px;" required>
+                      </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                      <label class="form-label">Birth Place (Nơi sinh) *</label>
+                      <div class="input-wrapper">
+                        <span class="input-icon">📍</span>
+                        <input type="text" class="form-control" id="regBirthPlace" placeholder="Place of birth" required>
+                      </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                      <label class="form-label">Hometown (Nguyên quán) *</label>
+                      <div class="input-wrapper">
+                        <span class="input-icon">🏡</span>
+                        <input type="text" class="form-control" id="regHometown" placeholder="Hometown" required>
+                      </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                      <label class="form-label">Ethnicity (Dân tộc) *</label>
+                      <div class="input-wrapper">
+                        <span class="input-icon">👥</span>
+                        <input type="text" class="form-control" id="regEthnicity" placeholder="e.g. Kinh" required>
+                      </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                      <label class="form-label">Occupation (Nghề nghiệp) *</label>
+                      <div class="input-wrapper">
+                        <span class="input-icon">💼</span>
+                        <input type="text" class="form-control" id="regOccupation" placeholder="Occupation" required>
+                      </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                      <label class="form-label">Workplace (Nơi làm việc) *</label>
+                      <div class="input-wrapper">
+                        <span class="input-icon">🏢</span>
+                        <input type="text" class="form-control" id="regWorkplace" placeholder="Company / school" required>
+                      </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                      <label class="form-label">Issue Date (Ngày cấp CCCD) *</label>
+                      <div class="input-wrapper">
+                        <input type="date" class="form-control" id="regIssueDate" style="padding-left:14px;" required>
+                      </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                      <label class="form-label">Issue Place (Nơi cấp) *</label>
+                      <div class="input-wrapper">
+                        <span class="input-icon">🏛️</span>
+                        <input type="text" class="form-control" id="regIssuePlace" placeholder="Issue place" required>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="form-group" style="margin-top:12px; margin-bottom:0;">
+                    <label class="form-label">Previous Residence Info (Thông tin cư trú cũ) *</label>
+                    <div class="input-wrapper">
+                      <span class="input-icon">📍</span>
+                      <input type="text" class="form-control" id="regPreviousResidence" placeholder="Previous address" required>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+              <button type="submit" class="btn btn-primary" style="width:100%;margin-top:20px;" id="registerBtn">Create Account</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  window.__switchAuthTab = (tab) => renderAuthScreen(tab);
+
+  window.__toggleRegPassword = (id) => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    input.type = input.type === 'password' ? 'text' : 'password';
+  };
+
+  window.__onRoleChange = () => {
+    const role = document.getElementById('regRole')?.value;
+    const secretGroup = document.getElementById('adminSecretGroup');
+    const secretInput = document.getElementById('regAdminSecret');
+    if (!secretGroup || !secretInput) return;
+    if (role === 'admin') {
+      secretGroup.style.display = 'block';
+      secretInput.required = true;
+    } else {
+      secretGroup.style.display = 'none';
+      secretInput.required = false;
+      secretInput.value = '';
+    }
+  };
+
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('loginBtn');
+    btn.textContent = 'Signing in...'; btn.disabled = true;
+    
+    const usernameVal = document.getElementById('loginUsername').value;
+    const rememberMeVal = document.getElementById('loginRememberMe').checked;
+
+    try {
+      const user = await AuthService.login(
+        usernameVal,
+        document.getElementById('loginPassword').value
+      );
+      
+      if (rememberMeVal) {
+        localStorage.setItem('apartment_mgmt_remember_username', usernameVal);
+      } else {
+        localStorage.removeItem('apartment_mgmt_remember_username');
+      }
+
+      renderMainApp(user);
+    } catch (err) {
+      showToast(err.message, 'error');
+      btn.textContent = 'Sign In'; btn.disabled = false;
+    }
+  });
+
+  document.getElementById('registerForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const password = document.getElementById('regPassword').value;
+    const confirmPassword = document.getElementById('regConfirmPassword').value;
+    const selectedRole = document.getElementById('regRole')?.value || 'user';
+    const adminSecret = document.getElementById('regAdminSecret')?.value || '';
+
+    if (password !== confirmPassword) {
+      showToast('Confirm password does not match password!', 'error');
+      return;
+    }
+
+    // Validate admin secret key if role is admin
+    const ADMIN_SECRET = 'CYBER@ADMIN2025';
+    if (selectedRole === 'admin') {
+      if (!adminSecret) {
+        showToast('Please enter the Admin Secret Key!', 'error');
+        return;
+      }
+      if (adminSecret !== ADMIN_SECRET) {
+        showToast('Invalid Admin Secret Key! Contact your system operator.', 'error');
+        return;
+      }
+    }
+
+    const btn = document.getElementById('registerBtn');
+    btn.textContent = 'Creating...'; btn.disabled = true;
+    try {
+      const user = await AuthService.register({
+        username: document.getElementById('regUsername').value,
+        password: password,
+        role: selectedRole,
+        fullname: document.getElementById('regFullname').value,
+        room: document.getElementById('regRoom').value,
+        phone: document.getElementById('regPhone').value,
+        
+        householdCode: document.getElementById('regHhCode').value,
+        householdHeadName: document.getElementById('regHhHeadName').value,
+        houseNo: document.getElementById('regHouseNo').value,
+        street: document.getElementById('regStreet').value,
+        ward: document.getElementById('regWard').value,
+        district: document.getElementById('regDistrict').value,
+        
+        alias: document.getElementById('regAlias').value,
+        dob: document.getElementById('regDob').value,
+        birthPlace: document.getElementById('regBirthPlace').value,
+        hometown: document.getElementById('regHometown').value,
+        ethnicity: document.getElementById('regEthnicity').value,
+        occupation: document.getElementById('regOccupation').value,
+        workplace: document.getElementById('regWorkplace').value,
+        identityNo: document.getElementById('regIdentityNo').value,
+        issueDate: document.getElementById('regIssueDate').value,
+        issuePlace: document.getElementById('regIssuePlace').value,
+        previousResidence: document.getElementById('regPreviousResidence').value
+      });
+      renderMainApp(user);
+    } catch (err) {
+      showToast(err.message, 'error');
+      btn.textContent = 'Create Account'; btn.disabled = false;
+    }
+  });
+}
+
+// ========== MAIN APP ==========
+function renderMainApp(user) {
+  // Nav items: dashboard, users (admin only), residents, fees (admin only), payment, profile
+  const navItems = ['dashboard', ...(user.role==='admin'?['users', 'fees']:[]), 'residents', 'payment', 'profile'];
+
+  // Expose FM globally for PaymentView
+  window.__FM__ = FM;
+  bridgeFM(FM);
+
+  app.innerHTML = `
+    <div class="app-layout">
+      <aside class="sidebar" id="sidebar"></aside>
+      <div class="main-wrapper">
+        <header class="topbar" id="topbar">
+          <div class="topbar-left">
+            <button class="btn-icon-menu" id="menuToggle" title="Toggle sidebar">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:22px;height:22px;">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
+              </svg>
+            </button>
+            <div>
+              <div class="topbar-title" id="topbar-title">Dashboard</div>
+              <div class="topbar-sub" id="topbar-sub">Overview</div>
+            </div>
+          </div>
+          <div class="topbar-right">
+            <div class="topbar-user">
+              <div class="user-avatar" style="width:36px;height:36px;font-size:14px;">${(user.fullname||'?').trim().split(' ').pop().charAt(0).toUpperCase()}</div>
+              <span style="font-size:14px;color:var(--text-secondary);">${user.fullname}</span>
+            </div>
+          </div>
+        </header>
+        <main class="content-area" id="content"></main>
+      </div>
+    </div>
+  `;
+
+  let activeTab = 'dashboard';
+  const sidebar  = document.getElementById('sidebar');
+  const content  = document.getElementById('content');
+
+  // Sidebar mobile toggle
+  document.getElementById('menuToggle').addEventListener('click', () => {
+    sidebar.classList.toggle('sidebar-open');
+  });
+
+  const tabTitles = {
+    dashboard: ['Dashboard', 'Overview'],
+    users:     ['User Management', 'Accounts & Roles'],
+    residents: user.role === 'admin' ? ['Resident Manager', 'Households & Apartments'] : ['My Household', 'View household info & members'],
+    fees:      ['Fee Manager', 'Thu phí hộ gia đình — Java Backend'],
+    payment:   user.role === 'admin' ? ['Thanh Toán & Thống Kê', 'Payment · Receipt · Statistics — Java Backend'] : ['My Bills & Receipts', 'View unpaid bills and payment history'],
+    profile:   ['My Profile', 'Account Settings'],
+  };
+
+  function switchTab(tab) {
+    if (!navItems.includes(tab)) return;
+    activeTab = tab;
+    sidebar.classList.remove('sidebar-open');
+
+    // Update topbar
+    const [title, sub] = tabTitles[tab] || ['Portal', ''];
+    document.getElementById('topbar-title').textContent = title;
+    document.getElementById('topbar-sub').textContent = sub;
+
+    // Re-render sidebar with new active
+    Sidebar.render(sidebar, activeTab, user, switchTab, handleLogout);
+
+    // Render content
+    content.innerHTML = '';
+    if (tab === 'dashboard')  Dashboard.render(content, user);
+    if (tab === 'users')      UsersManager.render(content, user, showToast);
+    if (tab === 'residents')  ResidentsManager.render(content, user, showToast);
+    if (tab === 'fees')       FeeManagerView.render(content, showToast);
+    if (tab === 'payment')    PaymentView.render(content, user, showToast);
+    if (tab === 'profile')    ProfileView.render(content, user, showToast, (updated) => {
+      user = updated;
+      // Update topbar avatar/name
+      document.querySelector('.topbar-user span').textContent = user.fullname;
+      document.querySelector('.topbar-user .user-avatar').textContent =
+        (user.fullname||'?').trim().split(' ').pop().charAt(0).toUpperCase();
+      Sidebar.render(sidebar, activeTab, user, switchTab, handleLogout);
+    });
+  }
+
+  async function handleLogout() {
+    if (confirm('Are you sure you want to sign out?')) {
+      await AuthService.logout();
+      renderAuthScreen('login');
+    }
+  }
+
+  switchTab('dashboard');
+}
+
+// ========== SIDEBAR — thêm nav item "residents" ==========
+// Patch Sidebar to include residents tab
+const _origSidebarRender = Sidebar.render.bind(Sidebar);
+Sidebar.render = function(container, activeTab, user, onTabChange, onLogout) {
+  _origSidebarRender(container, activeTab, user, onTabChange, onLogout);
+
+  // Inject "Resident Manager" nav item before Profile
+  const nav = container.querySelector('.sidebar-nav');
+  if (!nav) return;
+  const profileItem = nav.querySelector('[data-tab="profile"]');
+  if (!profileItem) return;
+
+  const resItem = document.createElement('a');
+  resItem.className = `nav-item ${activeTab === 'residents' ? 'active' : ''}`;
+  resItem.setAttribute('data-tab', 'residents');
+  resItem.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21.75h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21.828V12a1.875 1.875 0 011.875-1.875h3.75A1.875 1.875 0 0115.75 12v9.828"/>
+    </svg>
+    <span>${user.role === 'admin' ? 'Resident Manager' : 'My Household'}</span>
+  `;
+  resItem.addEventListener('click', (e) => {
+    e.preventDefault();
+    onTabChange('residents');
+  });
+  nav.insertBefore(resItem, profileItem);
+
+  // Inject "Fee Manager" nav item before Profile (Only for Admin)
+  if (user.role === 'admin') {
+    const feeItem = document.createElement('a');
+    feeItem.className = `nav-item ${activeTab === 'fees' ? 'active' : ''}`;
+    feeItem.setAttribute('data-tab', 'fees');
+    feeItem.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <span>Fee Manager</span>
+    `;
+    feeItem.addEventListener('click', (e) => {
+      e.preventDefault();
+      onTabChange('fees');
+    });
+    nav.insertBefore(feeItem, profileItem);
+  }
+
+  // Inject "Payment & Stats" nav item before Profile
+  const payItem = document.createElement('a');
+  payItem.className = `nav-item ${activeTab === 'payment' ? 'active' : ''}`;
+  payItem.setAttribute('data-tab', 'payment');
+  payItem.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"/>
+    </svg>
+    <span>${user.role === 'admin' ? 'Thanh Toán & TK' : 'My Bills & Receipts'}</span>
+  `;
+  payItem.addEventListener('click', (e) => {
+    e.preventDefault();
+    onTabChange('payment');
+  });
+  nav.insertBefore(payItem, profileItem);
+};
+
+// ========== BOOT ==========
+async function boot() {
+  // Backend handles init
+
+  // Inject global animation keyframe
+  const style = document.createElement('style');
+  style.textContent = `@keyframes slideUp { from { transform:translateY(16px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+  .sidebar-open { transform: translateX(0) !important; }`;
+  document.head.appendChild(style);
+
+  const user = AuthService.getCurrentUser();
+  if (user) {
+    renderMainApp(user);
+  } else {
+    renderAuthScreen('login');
+  }
+}
+
+boot();
