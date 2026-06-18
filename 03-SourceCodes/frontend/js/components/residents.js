@@ -28,14 +28,14 @@ function bmSaveData() {
 
 function bmSeedData() {
   households = [
-    { id:'hh_1', code:'HH-A1201', apartmentNo:'A1201', floor:12, area:72.5, headName:'Nguyen Van An', phone:'0987654321', status:'Occupied', note:'Completed permanent residence registration.', members:['rs_1','rs_2'] },
-    { id:'hh_2', code:'HH-B0805', apartmentNo:'B0805', floor:8,  area:65,   headName:'Tran Thi Binh', phone:'0911222333', status:'Occupied', note:'One temporary resident.', members:['rs_3','rs_4'] },
+    { id:'hh_1', code:'HH-A1201', apartmentNo:'A1201', floor:12, area:72.5, headName:'Michael Scott', phone:'0912345678', status:'Occupied', note:'Completed permanent residence registration.', members:['rs_1','rs_2'] },
+    { id:'hh_2', code:'HH-B0805', apartmentNo:'B0805', floor:8,  area:65,   headName:'Jim Halpert', phone:'0987654321', status:'Occupied', note:'One temporary resident.', members:['rs_3','rs_4'] },
   ];
   residents = [
-    { id:'rs_1', fullName:'Nguyen Van An',  gender:'Male',   dob:'1985-04-12', identityNo:'001085000111', phone:'0987654321', hometown:'Hanoi',     occupation:'Engineer',   status:'Permanent resident', householdId:'hh_1' },
-    { id:'rs_2', fullName:'Le Thu Ha',      gender:'Female', dob:'1988-08-20', identityNo:'001188000222', phone:'0977000111', hometown:'Hanoi',     occupation:'Teacher',    status:'Permanent resident', householdId:'hh_1' },
-    { id:'rs_3', fullName:'Tran Thi Binh',  gender:'Female', dob:'1979-01-15', identityNo:'031079000333', phone:'0911222333', hometown:'Nam Dinh',  occupation:'Accountant', status:'Permanent resident', householdId:'hh_2' },
-    { id:'rs_4', fullName:'Pham Minh Duc',  gender:'Male',   dob:'1998-11-02', identityNo:'022098000444', phone:'0909090909', hometown:'Hai Phong', occupation:'Student',    status:'Temporary resident', householdId:'hh_2' },
+    { id:'rs_1', fullName:'Michael Scott',  gender:'Male',   dob:'1985-04-12', identityNo:'001085000111', phone:'0912345678', hometown:'Scranton',     occupation:'Manager',   status:'Permanent resident', householdId:'hh_1' },
+    { id:'rs_2', fullName:'Pam Beesly',      gender:'Female', dob:'1988-08-20', identityNo:'001188000222', phone:'0977000111', hometown:'Scranton',     occupation:'Receptionist',    status:'Permanent resident', householdId:'hh_1' },
+    { id:'rs_3', fullName:'Jim Halpert',  gender:'Male', dob:'1979-01-15', identityNo:'031079000333', phone:'0987654321', hometown:'Philadelphia',  occupation:'Sales', status:'Permanent resident', householdId:'hh_2' },
+    { id:'rs_4', fullName:'Dwight Schrute',  gender:'Male',   dob:'1998-11-02', identityNo:'022098000444', phone:'0909090909', hometown:'Scranton', occupation:'Assistant Manager',    status:'Temporary resident', householdId:'hh_2' },
   ];
   selectedHouseholdId = null;
 }
@@ -683,9 +683,18 @@ export class ResidentsManager {
       const id = q('bm-resId').value;
       const fullName = q('bm-fullName').value.trim();
       const identityNo = q('bm-identityNo').value.trim();
+      const phone = q('bm-phone').value.trim();
       if (!fullName||!identityNo) { showToast('Please fill in required fields','warning'); return; }
+      if (phone && !/^0\d{9}$/.test(phone)) {
+        showToast('Phone number must start with 0 and contain exactly 10 digits','warning');
+        return;
+      }
+      if (!/^\d{12}$/.test(identityNo)) {
+        showToast('Citizen ID (CCCD) must contain exactly 12 digits','warning');
+        return;
+      }
       if (residents.some(r=>bmNorm(r.identityNo)===bmNorm(identityNo)&&r.id!==id)) { showToast('Citizen ID already exists','warning'); return; }
-      const data = { fullName, gender:q('bm-gender').value, dob:q('bm-dob').value, identityNo, phone:q('bm-phone').value.trim(), hometown:q('bm-hometown').value.trim(), occupation:q('bm-occupation').value.trim(), status:q('bm-resStatus').value, householdId:q('bm-resHousehold').value };
+      const data = { fullName, gender:q('bm-gender').value, dob:q('bm-dob').value, identityNo, phone, hometown:q('bm-hometown').value.trim(), occupation:q('bm-occupation').value.trim(), status:q('bm-resStatus').value, householdId:q('bm-resHousehold').value };
       if (id) {
         const idx = residents.findIndex(r=>r.id===id);
         residents[idx] = {...residents[idx],...data};

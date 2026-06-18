@@ -421,12 +421,12 @@ export class UsersManager {
         showToast('Default password must be at least 6 characters long!', 'warning');
         return;
       }
-      if (!/^\d+$/.test(phone)) {
-        showToast('Phone number must contain only digits!', 'warning');
+      if (!/^0\d{9}$/.test(phone)) {
+        showToast('Phone number must start with 0 and contain exactly 10 digits!', 'warning');
         return;
       }
-      if (!/^\d+$/.test(identityNo)) {
-        showToast('Citizen ID (CCCD/CMND) must contain only digits!', 'warning');
+      if (!/^\d{12}$/.test(identityNo)) {
+        showToast('Citizen ID (CCCD) must contain exactly 12 digits!', 'warning');
         return;
       }
 

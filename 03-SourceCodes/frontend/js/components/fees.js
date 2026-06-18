@@ -48,8 +48,8 @@ function fmSeed() {
   const allFeeIds = fees.map(f => f.id);
 
   const households = [
-    { id: 'P101', ownerName: 'Nguyen Van Hung', membersCount: 4, area: 75.0, motorcycleCount: 2, carCount: 1 },
-    { id: 'P102', ownerName: 'Tran Thi Tuyet', membersCount: 2, area: 60.0, motorcycleCount: 1, carCount: 0 },
+    { id: 'A1201', ownerName: 'Michael Scott', membersCount: 2, area: 72.5, motorcycleCount: 2, carCount: 1 },
+    { id: 'B0805', ownerName: 'Jim Halpert', membersCount: 2, area: 65.0, motorcycleCount: 1, carCount: 0 },
     { id: 'P201', ownerName: 'Pham Minh Tuan', membersCount: 5, area: 110.0, motorcycleCount: 3, carCount: 1 },
     { id: 'P202', ownerName: 'Le Hoang Nam', membersCount: 3, area: 85.0, motorcycleCount: 2, carCount: 1 },
     { id: 'P301', ownerName: 'Hoang Duc Long', membersCount: 1, area: 45.0, motorcycleCount: 0, carCount: 0 },
@@ -59,8 +59,8 @@ function fmSeed() {
   const periods = [{ id: periodId, name: '2026 Collection Period', feeIds: allFeeIds, status: 'ACTIVE', createdAt: new Date().toISOString() }];
 
   const utilityRecords = [
-    { id: 'UT001', householdId: 'P101', periodId, type: 'WATER', oldIndex: 100, newIndex: 118 },
-    { id: 'UT002', householdId: 'P102', periodId, type: 'WATER', oldIndex: 200, newIndex: 208 },
+    { id: 'UT001', householdId: 'A1201', periodId, type: 'WATER', oldIndex: 100, newIndex: 118 },
+    { id: 'UT002', householdId: 'B0805', periodId, type: 'WATER', oldIndex: 200, newIndex: 208 },
     { id: 'UT003', householdId: 'P201', periodId, type: 'WATER', oldIndex: 150, newIndex: 175 },
     { id: 'UT004', householdId: 'P202', periodId, type: 'WATER', oldIndex: 120, newIndex: 132 },
     { id: 'UT005', householdId: 'P301', periodId, type: 'WATER', oldIndex: 80, newIndex: 85 },
@@ -106,9 +106,9 @@ function fmSeed() {
 
   households.forEach(hh => autoAssign(hh, periodId, allFeeIds));
 
-  // Seed P102 đã đóng một số phí
+  // Seed B0805 đã đóng một số phí
   assignedFees.forEach(af => {
-    if (af.householdId === 'P102' && (af.feeId === 'FEE001' || af.feeId === 'FEE006')) {
+    if (af.householdId === 'B0805' && (af.feeId === 'FEE001' || af.feeId === 'FEE006')) {
       af.status = 'PAID'; 
       const fee = fees.find(f => f.id === af.feeId);
       const hh = households.find(h => h.id === af.householdId);

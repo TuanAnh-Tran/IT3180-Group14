@@ -80,6 +80,11 @@ function renderAuthScreen(tab = 'login') {
               <button type="submit" class="btn btn-primary" style="width:100%;margin-top:8px;" id="loginBtn">Sign In</button>
             </form>
             <p style="text-align:center;margin-top:16px;font-size:13px;color:var(--text-muted);">Demo: <strong style="color:var(--color-primary);">admin</strong> / admin123 &nbsp;|&nbsp; <strong style="color:var(--color-primary);">accountant</strong> / accountant123 &nbsp;|&nbsp; <strong style="color:var(--color-accent);">resident1</strong> / user123</p>
+            <div style="text-align:center;margin-top:12px;">
+              <button id="btnResetMockDB" style="background:transparent;border:1px dashed var(--border-glass);color:var(--text-secondary);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;transition:all 0.2s;">
+                Reset Mock Database
+              </button>
+            </div>
           </div>
         </div>
 
@@ -100,16 +105,23 @@ function renderAuthScreen(tab = 'login') {
                   <input type="text" class="form-control" id="regFullname" placeholder="Your full name"></div>
                 </div>
               </div>
-              <div class="form-group">
-                <label class="form-label">Room Number</label>
-                <div class="input-wrapper"><span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75"/></svg></span>
-                <input type="text" class="form-control" id="regRoom" placeholder="e.g. Room 1204 - Block A"></div>
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
                 <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label">Phone</label>
+                  <label class="form-label">Room Number *</label>
+                  <div class="input-wrapper"><span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75"/></svg></span>
+                  <input type="text" class="form-control" id="regRoom" placeholder="e.g. A1201"></div>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">Citizen ID (CCCD) *</label>
+                  <div class="input-wrapper"><span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></span>
+                  <input type="text" class="form-control" id="regIdentityNo" placeholder="12 digits"></div>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">Phone *</label>
                   <div class="input-wrapper"><span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-1.514 2.018a11.233 11.233 0 01-5.111-5.111l2.018-1.514c.361-.272.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"/></svg></span>
-                  <input type="tel" class="form-control" id="regPhone" placeholder="Phone number"></div>
+                  <input type="tel" class="form-control" id="regPhone" placeholder="10 digits"></div>
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
                   <label class="form-label">Password *</label>
@@ -126,6 +138,18 @@ function renderAuthScreen(tab = 'login') {
   `;
 
   window.__switchAuthTab = (tab) => renderAuthScreen(tab);
+
+  const resetBtn = document.getElementById('btnResetMockDB');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (confirm('Are you sure you want to reset the mock database? All local changes will be lost.')) {
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.reload();
+      }
+    });
+  }
 
   document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -153,6 +177,7 @@ function renderAuthScreen(tab = 'login') {
         document.getElementById('regFullname').value,
         document.getElementById('regRoom').value,
         document.getElementById('regPhone').value,
+        document.getElementById('regIdentityNo').value,
         document.getElementById('regPassword').value
       );
       renderMainApp(user);

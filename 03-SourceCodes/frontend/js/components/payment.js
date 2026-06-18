@@ -372,7 +372,7 @@ export class PaymentView {
                 <thead><tr>
                   <th>Household</th><th>Collection Period</th><th>Fee Name</th>
                   <th>Amount</th><th>Status</th>
-                  ${currentUser.role !== 'user' ? `<th style="text-align:right;">Actions</th>` : ''}
+                  <th style="text-align:right;">Actions</th>
                 </tr></thead>
                 <tbody id="pv-pay-tbody"></tbody>
               </table>
@@ -592,11 +592,16 @@ export class PaymentView {
       if (isBackend) {
         try {
           const apiData = await API.getUnpaidFees(periodFilter, hhFilter);
-          afs = apiData.map(d => ({
+          const dataList = apiData.content || apiData || [];
+          afs = dataList.map(d => ({
             id: d.id,
             householdId: d.householdId,
             periodId: d.periodId,
             feeId: d.feeId,
+            feeName: d.feeName,
+            unitPrice: d.unitPrice,
+            periodName: d.periodName,
+            ownerName: d.ownerName,
             quantity: d.quantity,
             status: d.status,
             paidAt: d.paidAt,
@@ -637,18 +642,16 @@ export class PaymentView {
           <td>${fee?.name||'?'}</td>
           <td><strong>${vnd(amt)}</strong></td>
           <td>${badge}</td>
-          ${!isResident ? `
+          ${(!isResident || af.householdId === currentUser.room) ? `
           <td style="text-align:right;">
             <button class="pv-btn suc pv-do-pay" data-id="${af.id}" data-amt="${remaining}" data-fee="${fee?.name||''}" data-hh="${hh?.id||''}-${hh?.ownerName||''}">Pay</button>
-          </td>` : ''}
+          </td>` : '<td style="text-align:right;">—</td>'}
         </tr>`;
-      }).join('') || `<tr><td colspan="${isResident ? 5 : 6}" style="text-align:center;color:var(--text-muted);padding:20px;">No unpaid fees found.</td></tr>`;
+      }).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">No unpaid fees found.</td></tr>`;
 
-      if (!isResident) {
-        q('#pv-pay-tbody').querySelectorAll('.pv-do-pay').forEach(b => {
-          b.addEventListener('click', () => openPayModal(b.dataset.id, b.dataset.amt, b.dataset.fee, b.dataset.hh));
-        });
-      }
+      q('#pv-pay-tbody').querySelectorAll('.pv-do-pay').forEach(b => {
+        b.addEventListener('click', () => openPayModal(b.dataset.id, b.dataset.amt, b.dataset.fee, b.dataset.hh));
+      });
     }
 
     /* ── RENDER: receipts ── */

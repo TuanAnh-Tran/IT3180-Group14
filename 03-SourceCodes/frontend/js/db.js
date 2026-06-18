@@ -43,7 +43,7 @@ export class ApartmentDB {
         fullname: 'System Administrator',
         role: 'admin',
         room: 'BQL-01',
-        phone: '02412345678',
+        phone: '0941234567',
         passwordHash: await hashPassword('admin123'),
         createdAt: new Date().toISOString(),
         householdCode: 'HH-ADMIN',
@@ -69,7 +69,7 @@ export class ApartmentDB {
         fullname: 'Financial Accountant',
         role: 'accountant',
         room: 'TC-01',
-        phone: '02499998888',
+        phone: '0949999888',
         passwordHash: await hashPassword('accountant123'),
         createdAt: new Date().toISOString(),
         householdCode: 'HH-ACCOUNTANT',
@@ -99,7 +99,7 @@ export class ApartmentDB {
         passwordHash: await hashPassword('user123'),
         createdAt: new Date().toISOString(),
         householdCode: 'HH-A1201',
-        householdHeadName: 'Nguyen Van An',
+        householdHeadName: 'Michael Scott',
         houseNo: 'A1201',
         street: 'BlueMoon Street',
         ward: 'Me Tri Ward',
@@ -117,6 +117,32 @@ export class ApartmentDB {
         previousResidence: 'Pennsylvania'
       },
       {
+        username: 'pam',
+        fullname: 'Pam Beesly',
+        role: 'user',
+        room: 'A1201',
+        phone: '0977000111',
+        passwordHash: await hashPassword('user123'),
+        createdAt: new Date().toISOString(),
+        householdCode: 'HH-A1201',
+        householdHeadName: 'Michael Scott',
+        houseNo: 'A1201',
+        street: 'BlueMoon Street',
+        ward: 'Me Tri Ward',
+        district: 'Nam Tu Liem District',
+        alias: 'Pam',
+        dob: '1988-08-20',
+        birthPlace: 'Scranton',
+        hometown: 'Hanoi',
+        ethnicity: 'Kinh',
+        occupation: 'Receptionist',
+        workplace: 'Dunder Mifflin',
+        identityNo: '001188000222',
+        issueDate: '2018-08-20',
+        issuePlace: 'Police Dept',
+        previousResidence: 'Pennsylvania'
+      },
+      {
         username: 'resident2',
         fullname: 'Jim Halpert',
         role: 'user',
@@ -125,7 +151,7 @@ export class ApartmentDB {
         passwordHash: await hashPassword('user123'),
         createdAt: new Date().toISOString(),
         householdCode: 'HH-B0805',
-        householdHeadName: 'Tran Thi Binh',
+        householdHeadName: 'Jim Halpert',
         houseNo: 'B0805',
         street: 'BlueMoon Street',
         ward: 'Me Tri Ward',
@@ -141,6 +167,32 @@ export class ApartmentDB {
         issueDate: '2017-07-15',
         issuePlace: 'Police Dept',
         previousResidence: 'Philadelphia'
+      },
+      {
+        username: 'dwight',
+        fullname: 'Dwight Schrute',
+        role: 'user',
+        room: 'B0805',
+        phone: '0909090909',
+        passwordHash: await hashPassword('user123'),
+        createdAt: new Date().toISOString(),
+        householdCode: 'HH-B0805',
+        householdHeadName: 'Jim Halpert',
+        houseNo: 'B0805',
+        street: 'BlueMoon Street',
+        ward: 'Me Tri Ward',
+        district: 'Nam Tu Liem District',
+        alias: 'Dwight',
+        dob: '1998-11-02',
+        birthPlace: 'Scranton',
+        hometown: 'Hanoi',
+        ethnicity: 'Kinh',
+        occupation: 'Assistant to the Regional Manager',
+        workplace: 'Dunder Mifflin',
+        identityNo: '022098000444',
+        issueDate: '2018-11-02',
+        issuePlace: 'Police Dept',
+        previousResidence: 'Pennsylvania'
       }
     ];
 
@@ -211,13 +263,13 @@ export class ApartmentDB {
     }
 
     const phone = String(userData.phone).trim();
-    if (!/^\d+$/.test(phone)) {
-      throw new Error('Phone number must contain only digits (0-9) and cannot be blank!');
+    if (!/^0\d{9}$/.test(phone)) {
+      throw new Error('Phone number must start with 0 and contain exactly 10 digits!');
     }
 
     const identityNo = String(userData.identityNo).trim();
-    if (!/^\d+$/.test(identityNo)) {
-      throw new Error('Citizen ID (CCCD/CMND) must contain only digits (0-9) and cannot be blank!');
+    if (!/^\d{12}$/.test(identityNo)) {
+      throw new Error('Citizen ID (CCCD) must contain exactly 12 digits!');
     }
   }
 
@@ -233,6 +285,19 @@ export class ApartmentDB {
     
     if (!isSelfRegistration) {
       this.validateUserData(userData, false);
+    } else {
+      // Validate minimal fields for self-registration
+      if (!userData.username || !userData.fullname || !userData.phone || !userData.identityNo) {
+        throw new Error('Username, Full Name, Phone, and Citizen ID (CCCD) are required!');
+      }
+      const phone = String(userData.phone).trim();
+      if (!/^0\d{9}$/.test(phone)) {
+        throw new Error('Phone number must start with 0 and contain exactly 10 digits!');
+      }
+      const identityNo = String(userData.identityNo).trim();
+      if (!/^\d{12}$/.test(identityNo)) {
+        throw new Error('Citizen ID (CCCD) must contain exactly 12 digits!');
+      }
     }
 
     // Kiểm tra tính duy nhất của Username
@@ -245,7 +310,7 @@ export class ApartmentDB {
     if (userData.identityNo) {
       const cccdExists = users.some(u => u.identityNo === userData.identityNo.trim());
       if (cccdExists) {
-        throw new Error('Citizen ID (CCCD/CMND) already registered to another account!');
+        throw new Error('Citizen ID (CCCD) already registered to another account!');
       }
     }
 
