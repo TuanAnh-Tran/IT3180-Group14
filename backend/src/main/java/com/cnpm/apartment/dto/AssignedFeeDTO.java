@@ -3,7 +3,7 @@ package com.cnpm.apartment.dto;
 import com.cnpm.apartment.model.enums.FeeStatus;
 import lombok.Builder;
 import lombok.Data;
-
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -32,11 +32,12 @@ public class AssignedFeeDTO {
     private String feeName;
     private String feeType;
     private String calcMethod;
-    private double unitPrice;
+    private BigDecimal unitPrice;
 
     // Tính toán
     private double quantity;
-    private double amountRequired;   // Số tiền phải nộp (tính theo calcMethod)
+    private BigDecimal amountRequired;   // Số tiền phải nộp (tính theo calcMethod)
+    private BigDecimal amountPaidAccumulated;
 
     // Trạng thái
     private FeeStatus status;

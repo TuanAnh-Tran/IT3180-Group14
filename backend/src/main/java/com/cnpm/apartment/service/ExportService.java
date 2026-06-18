@@ -34,7 +34,7 @@ public class ExportService {
 
     public byte[] exportReceiptsByPeriod(String periodId) throws IOException {
         List<Receipt> receipts = receiptRepository.findAllByPeriodIdForExport(periodId);
-        return buildReceiptExcel(receipts, "Biên lai đợt thu");
+        return buildReceiptExcel(receipts, "Period Receipts");
     }
 
     // =========================================================
@@ -43,7 +43,7 @@ public class ExportService {
 
     public byte[] exportReceiptsByDateRange(LocalDateTime from, LocalDateTime to) throws IOException {
         List<Receipt> receipts = receiptRepository.findAllByDateRangeForExport(from, to);
-        return buildReceiptExcel(receipts, "Biên lai " + from.format(DATE_FMT) + " - " + to.format(DATE_FMT));
+        return buildReceiptExcel(receipts, "Receipts " + from.format(DATE_FMT) + " - " + to.format(DATE_FMT));
     }
 
     // =========================================================
@@ -66,7 +66,7 @@ public class ExportService {
         try (XSSFWorkbook workbook = new XSSFWorkbook();
              ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 
-            Sheet sheet = workbook.createSheet("Biên lai");
+            Sheet sheet = workbook.createSheet("Receipts");
 
             // === Style: Tiêu đề lớn ===
             CellStyle titleStyle = workbook.createCellStyle();
@@ -106,16 +106,16 @@ public class ExportService {
             // Row 0: Tiêu đề
             Row titleRow = sheet.createRow(0);
             Cell titleCell = titleRow.createCell(0);
-            titleCell.setCellValue("CHUNG CƯ - " + sheetTitle.toUpperCase());
+            titleCell.setCellValue("APARTMENT - " + sheetTitle.toUpperCase());
             titleCell.setCellStyle(titleStyle);
             sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 7));
 
             // Row 1: Ngày xuất
             Row dateRow = sheet.createRow(1);
-            dateRow.createCell(0).setCellValue("Ngày xuất: " + LocalDateTime.now().format(FMT));
+            dateRow.createCell(0).setCellValue("Export Date: " + LocalDateTime.now().format(FMT));
 
             // Row 3: Header bảng
-            String[] headers = {"STT", "Hộ", "Chủ hộ", "Đợt thu", "Khoản phí", "Số tiền (VNĐ)", "Ngày nộp", "Người thu"};
+            String[] headers = {"No.", "Household ID", "Owner", "Collection Period", "Fee Name", "Amount (VND)", "Paid Date", "Collector"};
             Row headerRow = sheet.createRow(3);
             for (int i = 0; i < headers.length; i++) {
                 Cell cell = headerRow.createCell(i);
@@ -125,7 +125,7 @@ public class ExportService {
 
             // Row 4+: Dữ liệu
             int rowNum = 4;
-            double grandTotal = 0;
+            java.math.BigDecimal grandTotal = java.math.BigDecimal.ZERO;
             for (int i = 0; i < receipts.size(); i++) {
                 Receipt r = receipts.get(i);
                 AssignedFee af = r.getAssignedFee();
@@ -138,14 +138,14 @@ public class ExportService {
                 createCell(row, 4, af.getFee().getName(), dataStyle);
 
                 Cell moneyCell = row.createCell(5);
-                moneyCell.setCellValue(r.getAmountPaid());
+                moneyCell.setCellValue(r.getAmountPaid().doubleValue());
                 moneyCell.setCellStyle(moneyStyle);
 
                 createCell(row, 6,
                         r.getPaidAt() != null ? r.getPaidAt().format(FMT) : "", dataStyle);
                 createCell(row, 7, r.getCreatedBy() != null ? r.getCreatedBy() : "", dataStyle);
 
-                grandTotal += r.getAmountPaid();
+                grandTotal = grandTotal.add(r.getAmountPaid());
             }
 
             // Row tổng cộng
@@ -160,7 +160,7 @@ public class ExportService {
             totalStyle.setBorderTop(BorderStyle.MEDIUM);
 
             Cell totalLabel = totalRow.createCell(4);
-            totalLabel.setCellValue("TỔNG CỘNG:");
+            totalLabel.setCellValue("TOTAL:");
             CellStyle labelStyle = workbook.createCellStyle();
             Font labelFont = workbook.createFont();
             labelFont.setBold(true);
@@ -168,7 +168,7 @@ public class ExportService {
             totalLabel.setCellStyle(labelStyle);
 
             Cell totalValue = totalRow.createCell(5);
-            totalValue.setCellValue(grandTotal);
+            totalValue.setCellValue(grandTotal.doubleValue());
             totalValue.setCellStyle(totalStyle);
 
             // Auto-size columns
@@ -189,7 +189,7 @@ public class ExportService {
         try (XSSFWorkbook workbook = new XSSFWorkbook();
              ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 
-            Sheet sheet = workbook.createSheet("Danh sách nợ");
+            Sheet sheet = workbook.createSheet("Debt List");
 
             CellStyle headerStyle = workbook.createCellStyle();
             Font headerFont = workbook.createFont();
@@ -217,10 +217,10 @@ public class ExportService {
 
             // Tiêu đề
             Row titleRow = sheet.createRow(0);
-            titleRow.createCell(0).setCellValue("DANH SÁCH HỘ CHƯA NỘP PHÍ - Xuất ngày: " + LocalDateTime.now().format(DATE_FMT));
+            titleRow.createCell(0).setCellValue("UNPAID HOUSEHOLDS LIST - Export Date: " + LocalDateTime.now().format(DATE_FMT));
 
             // Header
-            String[] headers = {"STT", "Mã hộ", "Chủ hộ", "Đợt thu", "Khoản phí", "Số tiền cần nộp (VNĐ)", "Trạng thái"};
+            String[] headers = {"No.", "Household ID", "Owner", "Collection Period", "Fee Name", "Amount Required (VND)", "Status"};
             Row headerRow = sheet.createRow(2);
             for (int i = 0; i < headers.length; i++) {
                 Cell cell = headerRow.createCell(i);
@@ -232,7 +232,7 @@ public class ExportService {
             int rowNum = 3;
             for (int i = 0; i < unpaidList.size(); i++) {
                 AssignedFee af = unpaidList.get(i);
-                double required = paymentService.calculateAmount(af);
+                java.math.BigDecimal required = paymentService.calculateAmount(af);
                 Row row = sheet.createRow(rowNum++);
 
                 createCell(row, 0, String.valueOf(i + 1), dataStyle);
@@ -242,10 +242,10 @@ public class ExportService {
                 createCell(row, 4, af.getFee().getName(), dataStyle);
 
                 Cell moneyCell = row.createCell(5);
-                moneyCell.setCellValue(required);
+                moneyCell.setCellValue(required.doubleValue());
                 moneyCell.setCellStyle(moneyStyle);
 
-                createCell(row, 6, "Chưa nộp", dataStyle);
+                createCell(row, 6, "Unpaid", dataStyle);
             }
 
             for (int i = 0; i < headers.length; i++) {

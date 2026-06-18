@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Service
@@ -50,9 +51,9 @@ public class ReceiptService {
      */
     public ReceiptDTO getById(String receiptId) {
         Receipt receipt = receiptRepository.findById(receiptId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy biên lai: " + receiptId));
+                .orElseThrow(() -> new RuntimeException("Receipt not found: " + receiptId));
         AssignedFee af = receipt.getAssignedFee();
-        double amountRequired = paymentService.calculateAmount(af);
+        BigDecimal amountRequired = paymentService.calculateAmount(af);
         return mapToDTOWithRequired(receipt, amountRequired);
     }
 
@@ -62,11 +63,11 @@ public class ReceiptService {
 
     private ReceiptDTO mapToDTO(Receipt r) {
         AssignedFee af = r.getAssignedFee();
-        double amountRequired = paymentService.calculateAmount(af);
+        BigDecimal amountRequired = paymentService.calculateAmount(af);
         return mapToDTOWithRequired(r, amountRequired);
     }
 
-    private ReceiptDTO mapToDTOWithRequired(Receipt r, double amountRequired) {
+    private ReceiptDTO mapToDTOWithRequired(Receipt r, BigDecimal amountRequired) {
         AssignedFee af = r.getAssignedFee();
         return ReceiptDTO.builder()
                 .receiptId(r.getId())
@@ -79,6 +80,7 @@ public class ReceiptService {
                 .feeType(af.getFee().getType().name())
                 .amountRequired(amountRequired)
                 .amountPaid(r.getAmountPaid())
+                .amountPaidAccumulated(af.getAmountPaidAccumulated() != null ? af.getAmountPaidAccumulated() : BigDecimal.ZERO)
                 .paidAt(r.getPaidAt())
                 .status(af.getStatus())
                 .note(r.getNote())

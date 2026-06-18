@@ -4,6 +4,7 @@ import com.cnpm.apartment.model.enums.CalcMethod;
 import com.cnpm.apartment.model.enums.FeeType;
 import jakarta.persistence.*;
 import lombok.*;
+import java.math.BigDecimal;
 
 /**
  * Khoản phí (định nghĩa loại phí).
@@ -34,6 +35,6 @@ public class Fee {
     @Column(name = "calc_method", nullable = false)
     private CalcMethod calcMethod;
 
-    @Column(name = "price", nullable = false)
-    private double price;
+    @Column(name = "price", nullable = false, precision = 15, scale = 2)
+    private BigDecimal price;
 }

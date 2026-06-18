@@ -14,8 +14,8 @@ import java.util.Map;
 public class StatisticsDTO {
 
     // === Tổng quan ===
-    private double totalCollected;       // Tổng tiền đã thu
-    private double totalPending;         // Tổng tiền chưa thu
+    private java.math.BigDecimal totalCollected;       // Tổng tiền đã thu
+    private java.math.BigDecimal totalPending;         // Tổng tiền chưa thu
     private long totalHouseholds;        // Tổng số hộ
     private long paidHouseholds;         // Số hộ đã nộp đủ
     private long unpaidHouseholds;       // Số hộ chưa nộp
@@ -30,11 +30,11 @@ public class StatisticsDTO {
 
     // === Theo tháng (cho biểu đồ line/bar) ===
     // Key: "1" → "12" (tháng), Value: tổng tiền
-    private Map<String, Double> monthlyRevenue;
+    private Map<String, java.math.BigDecimal> monthlyRevenue;
 
     // === Theo loại phí (cho biểu đồ pie) ===
     // Key: FeeType, Value: tổng tiền
-    private Map<String, Double> revenueByFeeType;
+    private Map<String, java.math.BigDecimal> revenueByFeeType;
 
     // === Top hộ nợ nhiều nhất ===
     private List<DebtSummaryDTO> topDebtors;
@@ -44,7 +44,7 @@ public class StatisticsDTO {
     public static class DebtSummaryDTO {
         private String householdId;
         private String ownerName;
-        private double totalDebt;
+        private java.math.BigDecimal totalDebt;
         private long unpaidCount;
     }
 }

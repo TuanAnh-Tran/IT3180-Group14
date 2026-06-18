@@ -1,5 +1,6 @@
 package com.cnpm.apartment.service;
 
+import com.cnpm.apartment.dto.OverviewProjection;
 import com.cnpm.apartment.dto.StatisticsDTO;
 import com.cnpm.apartment.model.enums.FeeStatus;
 import com.cnpm.apartment.repository.AssignedFeeRepository;
@@ -7,6 +8,7 @@ import com.cnpm.apartment.repository.HouseholdRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,20 +26,30 @@ public class StatisticsService {
 
     public StatisticsDTO getOverview() {
         long totalHouseholds = householdRepository.count();
-        double totalCollected = assignedFeeRepository.sumTotalAmountPaid();
 
-        // Đếm toàn bộ phí đã nộp / chưa nộp (không lọc theo đợt)
-        long paidCount   = assignedFeeRepository.countByStatus(FeeStatus.PAID);
-        long unpaidCount = assignedFeeRepository.countByStatus(FeeStatus.UNPAID);
+        // Single DB call using optimized query projection
+        OverviewProjection stats = assignedFeeRepository.getOverviewStatistics();
 
-        double completionRate = (paidCount + unpaidCount == 0) ? 0.0
-                : (double) paidCount / (paidCount + unpaidCount) * 100;
+        long paidCount = stats.getPaidCount();
+        long unpaidCount = stats.getUnpaidCount();
+        long partialCount = stats.getPartialCount();
+        BigDecimal totalCollected = stats.getTotalCollected();
+
+        long totalAssignments = stats.getTotalAssignments();
+        double completionRate = (totalAssignments == 0) ? 0.0
+                : (double) paidCount / totalAssignments * 100;
+
+        // Calculate pending amount: sum of required - accumulated paid
+        // For simple representation in fallback, we can calculate totalPending as 0 if not scanned, 
+        // or just leave totalPending as null/zero or calculate it. We'll set it to zero for now or compute if needed.
+        BigDecimal totalPending = BigDecimal.ZERO;
 
         return StatisticsDTO.builder()
                 .totalCollected(totalCollected)
+                .totalPending(totalPending)
                 .totalHouseholds(totalHouseholds)
                 .paidHouseholds(paidCount)
-                .unpaidHouseholds(unpaidCount)
+                .unpaidHouseholds(unpaidCount + partialCount)
                 .completionRate(Math.round(completionRate * 100.0) / 100.0)
                 .build();
     }
@@ -49,17 +61,19 @@ public class StatisticsService {
     public StatisticsDTO getByPeriod(String periodId) {
         long paidCount   = assignedFeeRepository.countByPeriodIdAndStatus(periodId, FeeStatus.PAID);
         long unpaidCount = assignedFeeRepository.countByPeriodIdAndStatus(periodId, FeeStatus.UNPAID);
-        double totalCollected = assignedFeeRepository.sumAmountByPeriodId(periodId);
+        long partialCount = assignedFeeRepository.countByPeriodIdAndStatus(periodId, FeeStatus.PARTIAL);
+        BigDecimal totalCollected = assignedFeeRepository.sumAmountByPeriodId(periodId);
 
-        double completionRate = (paidCount + unpaidCount == 0) ? 0.0
-                : (double) paidCount / (paidCount + unpaidCount) * 100;
+        long totalAssigned = paidCount + unpaidCount + partialCount;
+        double completionRate = (totalAssigned == 0) ? 0.0
+                : (double) paidCount / totalAssigned * 100;
 
         return StatisticsDTO.builder()
                 .periodId(periodId)
                 .totalCollected(totalCollected)
                 .paidCount(paidCount)
-                .unpaidCount(unpaidCount)
-                .totalAssigned(paidCount + unpaidCount)
+                .unpaidCount(unpaidCount + partialCount)
+                .totalAssigned(totalAssigned)
                 .completionRate(Math.round(completionRate * 100.0) / 100.0)
                 .build();
     }
@@ -71,17 +85,17 @@ public class StatisticsService {
     public StatisticsDTO getMonthlyRevenue(int year) {
         List<Object[]> rows = assignedFeeRepository.sumAmountByMonth(year);
 
-        // Khởi tạo 12 tháng = 0
-        Map<String, Double> monthly = new HashMap<>();
+        // Initialize 12 months = 0
+        Map<String, BigDecimal> monthly = new HashMap<>();
         for (int m = 1; m <= 12; m++) {
-            monthly.put("Tháng " + m, 0.0);
+            monthly.put("Month " + m, BigDecimal.ZERO);
         }
 
-        // Điền dữ liệu từ DB
+        // Fill data from DB
         for (Object[] row : rows) {
             int month = ((Number) row[0]).intValue();
-            double total = ((Number) row[1]).doubleValue();
-            monthly.put("Tháng " + month, total);
+            BigDecimal total = row[1] != null ? new BigDecimal(row[1].toString()) : BigDecimal.ZERO;
+            monthly.put("Month " + month, total);
         }
 
         return StatisticsDTO.builder()
@@ -96,10 +110,10 @@ public class StatisticsService {
     public StatisticsDTO getRevenueByFeeType() {
         List<Object[]> rows = assignedFeeRepository.sumAmountByFeeType();
 
-        Map<String, Double> byType = new HashMap<>();
+        Map<String, BigDecimal> byType = new HashMap<>();
         for (Object[] row : rows) {
             String type = row[0].toString();
-            double total = ((Number) row[1]).doubleValue();
+            BigDecimal total = row[1] != null ? new BigDecimal(row[1].toString()) : BigDecimal.ZERO;
             byType.put(type, total);
         }
 

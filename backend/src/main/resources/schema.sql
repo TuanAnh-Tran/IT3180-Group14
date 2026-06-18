@@ -77,9 +77,9 @@ CREATE TABLE IF NOT EXISTS fee (
     name        VARCHAR(255)    NOT NULL COMMENT 'Tên khoản phí',
     type        ENUM('MANDATORY','VOLUNTARY','VEHICLE','UTILITY')
                 NOT NULL COMMENT 'Loại phí',
-    calc_method ENUM('FIXED','PER_PERSON','PER_M2','PER_VEHICLE')
+    calc_method ENUM('FIXED','PER_PERSON','PER_M2','PER_VEHICLE','PER_MOTORCYCLE','PER_CAR','CONSUMPTION')
                 NOT NULL COMMENT 'Phương thức tính',
-    price       DOUBLE          NOT NULL COMMENT 'Đơn giá (VNĐ)'
+    price       DECIMAL(15,2)   NOT NULL COMMENT 'Đơn giá (VNĐ)'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
@@ -105,6 +105,7 @@ CREATE TABLE IF NOT EXISTS assigned_fee (
     fee_id          VARCHAR(50)     NOT NULL,
     quantity        DOUBLE          NOT NULL DEFAULT 1 COMMENT 'Số lượng',
     status          ENUM('UNPAID','PAID','PARTIAL') NOT NULL DEFAULT 'UNPAID',
+    amount_paid_accumulated DECIMAL(15,2) NOT NULL DEFAULT 0.00 COMMENT 'Số tiền lũy kế đã nộp',
     paid_at         DATETIME        NULL COMMENT 'Thời điểm thanh toán',
 
     FOREIGN KEY (household_id) REFERENCES household(id),
@@ -118,13 +119,29 @@ CREATE TABLE IF NOT EXISTS assigned_fee (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
--- 5. RECEIPT (Biên lai)
+-- 5. UTILITY_RECORD (Chỉ số tiêu thụ điện nước)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS utility_record (
+    id              VARCHAR(50)     PRIMARY KEY,
+    household_id    VARCHAR(50)     NOT NULL,
+    period_id       VARCHAR(50)     NOT NULL,
+    type            VARCHAR(50)     NOT NULL COMMENT 'WATER, ELECTRICITY, etc.',
+    old_index       INT             NOT NULL DEFAULT 0,
+    new_index       INT             NOT NULL DEFAULT 0,
+
+    FOREIGN KEY (household_id) REFERENCES household(id),
+    FOREIGN KEY (period_id)    REFERENCES collection_period(id),
+    UNIQUE KEY uq_utility (household_id, period_id, type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- 6. RECEIPT (Biên lai)
 --    Module: Thu phí (Anh Hiếu) - Tạo và quản lý
 -- ============================================================
 CREATE TABLE IF NOT EXISTS receipt (
     id              VARCHAR(50)     PRIMARY KEY,
     assigned_fee_id VARCHAR(50)     NOT NULL,
-    amount_paid     DOUBLE          NOT NULL COMMENT 'Số tiền đã nộp',
+    amount_paid     DECIMAL(15,2)   NOT NULL COMMENT 'Số tiền đã nộp',
     paid_at         DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     note            VARCHAR(500)    NULL COMMENT 'Ghi chú',
     created_by      VARCHAR(100)    NULL COMMENT 'Người thu tiền',
@@ -144,61 +161,74 @@ CREATE TABLE IF NOT EXISTS receipt (
 INSERT IGNORE INTO household
 (id, apartment_no, floor, owner_name, phone, members_count, area, motorcycle_count, car_count, status, note)
 VALUES
-('HH-A1201', 'A1201', 12, 'Nguyen Van An',  '0987654321', 2, 72.5, 2, 0, 'OCCUPIED', 'Completed permanent residence registration.'),
-('HH-B0805', 'B0805',  8, 'Tran Thi Binh',  '0911222333', 2, 65.0, 1, 1, 'OCCUPIED', 'One temporary resident.'),
-('HH-C0302', 'C0302',  3, 'Le Hoang Nam',   '0901111222', 0, 58.0, 0, 0, 'VACANT',   'Ready for handover.'),
-('HH001',    'P101',   1, 'Nguyen Van Hung', '0900000101', 4, 75.0, 1, 0, 'OCCUPIED', 'Fee module sample household.'),
-('HH002',    'P102',   1, 'Tran Thi Tuyet',  '0900000102', 2, 60.0, 2, 1, 'OCCUPIED', 'Fee module sample household.'),
-('HH003',    'P201',   2, 'Pham Minh Tuan',  '0900000201', 5, 110.0, 1, 0, 'OCCUPIED', 'Fee module sample household.'),
-('HH004',    'P202',   2, 'Le Hoang Nam',    '0900000202', 3, 85.0, 0, 1, 'OCCUPIED', 'Fee module sample household.'),
-('HH005',    'P301',   3, 'Hoang Duc Long',  '0900000301', 1, 45.0, 1, 0, 'OCCUPIED', 'Fee module sample household.');
+('HH001', 'P101', 1, 'Nguyen Van An',  '0987654321', 3, 65.5, 1, 0, 'OCCUPIED', 'Completed permanent residence registration.'),
+('HH002', 'P102', 1, 'Tran Thi Binh',  '0911222333', 4, 80.0, 2, 1, 'OCCUPIED', 'One temporary resident.'),
+('HH003', 'P201', 2, 'Le Van Cuong',   '0901111222', 2, 50.0, 1, 0, 'OCCUPIED', 'Fee module sample household.'),
+('HH004', 'P202', 2, 'Pham Thi Dung',   '0900000202', 5, 90.0, 0, 1, 'OCCUPIED', 'Fee module sample household.'),
+('HH005', 'P301', 3, 'Hoang Van Emin',  '0900000301', 1, 45.0, 1, 0, 'OCCUPIED', 'Fee module sample household.');
 
+-- Nhân khẩu mẫu
 INSERT IGNORE INTO resident
 (id, full_name, gender, date_of_birth, identity_no, phone, hometown, occupation, relationship_to_head, status, household_id)
 VALUES
-('RES-AN001',   'Nguyen Van An', 'Male',   '1985-04-12', '001085000111', '0987654321', 'Hanoi',     'Engineer',   'Head',   'PERMANENT', 'HH-A1201'),
-('RES-HA002',   'Le Thu Ha',     'Female', '1988-08-20', '001188000222', '0977000111', 'Hanoi',     'Teacher',    'Spouse', 'PERMANENT', 'HH-A1201'),
-('RES-BINH003', 'Tran Thi Binh', 'Female', '1979-01-15', '031079000333', '0911222333', 'Nam Dinh',  'Accountant', 'Head',   'PERMANENT', 'HH-B0805'),
-('RES-DUC004',  'Pham Minh Duc', 'Male',   '1998-11-02', '022098000444', '0909090909', 'Hai Phong', 'Student',    'Tenant', 'TEMPORARY', 'HH-B0805');
+('RES-AN001',   'Nguyen Van An', 'Male',   '1985-04-12', '001085000111', '0987654321', 'Hanoi',     'Engineer',   'Head',   'PERMANENT', 'HH001'),
+('RES-HA002',   'Le Thu Ha',     'Female', '1988-08-20', '001188000222', '0977000111', 'Hanoi',     'Teacher',    'Spouse', 'PERMANENT', 'HH001'),
+('RES-BINH003', 'Tran Thi Binh', 'Female', '1979-01-15', '031079000333', '0911222333', 'Nam Dinh',  'Accountant', 'Head',   'PERMANENT', 'HH002'),
+('RES-DUC004',  'Pham Minh Duc', 'Male',   '1998-11-02', '022098000444', '0909090909', 'Hai Phong', 'Student',    'Tenant', 'TEMPORARY', 'HH002');
 
 -- Khoản phí mẫu
-INSERT IGNORE INTO fee VALUES
-('FEE001', 'Phí quản lý',    'MANDATORY', 'PER_M2',     15000),
-('FEE002', 'Phí vệ sinh',    'MANDATORY', 'FIXED',      80000),
-('FEE003', 'Phí xe máy',     'VEHICLE',   'PER_VEHICLE', 70000),
-('FEE004', 'Phí ô tô',       'VEHICLE',   'PER_VEHICLE', 150000),
-('FEE005', 'Quỹ phúc lợi',   'VOLUNTARY', 'PER_PERSON', 20000);
+INSERT IGNORE INTO fee (id, name, type, calc_method, price) VALUES
+('FEE001', 'Apartment Management Fee',    'MANDATORY', 'PER_M2',     15000),
+('FEE002', 'Waste Cleaning Fee',          'MANDATORY', 'PER_PERSON',  72000),
+('FEE003', 'Motorcycle Parking Fee',     'VEHICLE',   'PER_MOTORCYCLE', 70000),
+('FEE004', 'Car Parking Fee',            'VEHICLE',   'PER_CAR', 150000),
+('FEE005', 'Welfare Fund',                'VOLUNTARY', 'PER_PERSON',  20000),
+('FEE006', 'Invalids & Martyrs Day Contribution 27/07', 'VOLUNTARY', 'FIXED', 50000),
+('FEE007', 'Childrens Day Donation',     'VOLUNTARY', 'FIXED',       50000),
+('FEE008', 'Donation for the Poor',       'VOLUNTARY', 'FIXED',       50000),
+('FEE009', 'Running Water Fee',          'UTILITY',   'CONSUMPTION', 15000),
+('FEE_DEBT', 'Previous Period Debt',     'MANDATORY', 'FIXED', 1.00);
 
 -- Đợt thu mẫu
-INSERT IGNORE INTO collection_period VALUES
-('PER001', 'Đợt thu Tháng 5/2025', 'OPEN',   NOW()),
-('PER002', 'Đợt thu Tháng 4/2025', 'CLOSED', DATE_SUB(NOW(), INTERVAL 30 DAY));
+INSERT IGNORE INTO collection_period (id, name, status, created_at) VALUES
+('PER001', 'May 2025 Cycle', 'OPEN',   NOW()),
+('PER002', 'April 2025 Cycle', 'CLOSED', DATE_SUB(NOW(), INTERVAL 30 DAY));
 
--- Phí gán mẫu (UNPAID và PAID)
-INSERT IGNORE INTO assigned_fee (id, household_id, period_id, fee_id, quantity, status, paid_at) VALUES
--- Đợt 5/2025 - HH001
-('AF001', 'HH001', 'PER001', 'FEE001', 1, 'UNPAID', NULL),
-('AF002', 'HH001', 'PER001', 'FEE002', 1, 'UNPAID', NULL),
-('AF003', 'HH001', 'PER001', 'FEE003', 1, 'UNPAID', NULL),
--- Đợt 5/2025 - HH002
-('AF004', 'HH002', 'PER001', 'FEE001', 1, 'PAID',   NOW()),
-('AF005', 'HH002', 'PER001', 'FEE002', 1, 'PAID',   NOW()),
-('AF006', 'HH002', 'PER001', 'FEE003', 2, 'UNPAID', NULL),
-('AF007', 'HH002', 'PER001', 'FEE004', 1, 'UNPAID', NULL),
--- Đợt 5/2025 - HH003
-('AF008', 'HH003', 'PER001', 'FEE001', 1, 'UNPAID', NULL),
-('AF009', 'HH003', 'PER001', 'FEE002', 1, 'PAID',   NOW()),
--- Đợt 5/2025 - HH004
-('AF010', 'HH004', 'PER001', 'FEE001', 1, 'UNPAID', NULL),
-('AF011', 'HH004', 'PER001', 'FEE004', 1, 'UNPAID', NULL),
--- Đợt 4/2025 - HH001 (đã đóng)
-('AF012', 'HH001', 'PER002', 'FEE001', 1, 'PAID',   DATE_SUB(NOW(), INTERVAL 20 DAY)),
-('AF013', 'HH001', 'PER002', 'FEE002', 1, 'PAID',   DATE_SUB(NOW(), INTERVAL 20 DAY));
+-- Chỉ số điện nước tiêu thụ mẫu
+INSERT IGNORE INTO utility_record (id, household_id, period_id, type, old_index, new_index) VALUES
+('UT001', 'HH001', 'PER001', 'WATER', 100, 115), -- Consumption = 15
+('UT002', 'HH002', 'PER001', 'WATER', 200, 220), -- Consumption = 20
+('UT003', 'HH003', 'PER001', 'WATER', 150, 160); -- Consumption = 10
 
--- Biên lai mẫu (tương ứng với các PAID ở trên)
+-- Phí gán mẫu (UNPAID, PAID, PARTIAL)
+INSERT IGNORE INTO assigned_fee (id, household_id, period_id, fee_id, quantity, status, amount_paid_accumulated, paid_at) VALUES
+-- Period May 2025 - HH001
+('AF001', 'HH001', 'PER001', 'FEE001', 1, 'UNPAID', 0.00, NULL),
+('AF002', 'HH001', 'PER001', 'FEE002', 1, 'PARTIAL', 100000.00, NOW()), -- Required: 216000 (members: 3 * 72000)
+('AF003', 'HH001', 'PER001', 'FEE003', 1, 'UNPAID', 0.00, NULL),
+('AF009w', 'HH001', 'PER001', 'FEE009', 15, 'UNPAID', 0.00, NULL), -- Water: 15 * 15000 = 225000
+-- Period May 2025 - HH002
+('AF004', 'HH002', 'PER001', 'FEE001', 1, 'PAID', 1200000.00, NOW()), -- Required: 1200000 (area: 80 * 15000)
+('AF005', 'HH002', 'PER001', 'FEE002', 1, 'PAID', 288000.00, NOW()), -- Required: 288000 (members: 4 * 72000)
+('AF006', 'HH002', 'PER001', 'FEE003', 2, 'UNPAID', 0.00, NULL),
+('AF007', 'HH002', 'PER001', 'FEE004', 1, 'UNPAID', 0.00, NULL),
+('AF009x', 'HH002', 'PER001', 'FEE009', 20, 'UNPAID', 0.00, NULL),
+-- Period May 2025 - HH003
+('AF008', 'HH003', 'PER001', 'FEE001', 1, 'UNPAID', 0.00, NULL),
+('AF009', 'HH003', 'PER001', 'FEE002', 1, 'PAID', 144000.00, NOW()), -- Required: 144000 (members: 2 * 72000)
+('AF009y', 'HH003', 'PER001', 'FEE009', 10, 'UNPAID', 0.00, NULL),
+-- Period May 2025 - HH004
+('AF010', 'HH004', 'PER001', 'FEE001', 1, 'UNPAID', 0.00, NULL),
+('AF011', 'HH004', 'PER001', 'FEE004', 1, 'UNPAID', 0.00, NULL),
+-- Period April 2025 - HH001 (Closed)
+('AF012', 'HH001', 'PER002', 'FEE001', 1, 'PAID', 982500.00, DATE_SUB(NOW(), INTERVAL 20 DAY)), -- Required: 982500 (area: 65.5 * 15000)
+('AF013', 'HH001', 'PER002', 'FEE002', 1, 'PAID', 216000.00, DATE_SUB(NOW(), INTERVAL 20 DAY)); -- Required: 216000 (members: 3 * 72000)
+
+-- Biên lai thanh toán mẫu (tương ứng với các PAID ở trên)
 INSERT IGNORE INTO receipt (id, assigned_fee_id, amount_paid, paid_at, note, created_by) VALUES
-('RC001', 'AF004', 1200000, NOW(),                          'Chuyển khoản', 'admin'),
-('RC002', 'AF005',   80000, NOW(),                          NULL,            'admin'),
-('RC003', 'AF009',   80000, NOW(),                          'Tiền mặt',      'admin'),
-('RC004', 'AF012',  982500, DATE_SUB(NOW(), INTERVAL 20 DAY), NULL,          'admin'),
-('RC005', 'AF013',   80000, DATE_SUB(NOW(), INTERVAL 20 DAY), NULL,          'admin');
+('RC001', 'AF004', 1200000.00, NOW(),                          'Bank Transfer', 'admin'),
+('RC002', 'AF005',  288000.00, NOW(),                          NULL,            'admin'),
+('RC003', 'AF009',  144000.00, NOW(),                          'Cash',          'admin'),
+('RC004', 'AF012',  982500.00, DATE_SUB(NOW(), INTERVAL 20 DAY), NULL,            'admin'),
+('RC005', 'AF013',  216000.00, DATE_SUB(NOW(), INTERVAL 20 DAY), NULL,            'admin'),
+('RCP01', 'AF002',  100000.00, NOW(),                          'Partial Payment Test', 'admin');

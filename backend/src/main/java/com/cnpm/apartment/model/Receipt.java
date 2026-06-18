@@ -2,7 +2,7 @@ package com.cnpm.apartment.model;
 
 import jakarta.persistence.*;
 import lombok.*;
-
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -29,8 +29,8 @@ public class Receipt {
     private AssignedFee assignedFee;
 
     /** Số tiền thực tế đã nộp */
-    @Column(name = "amount_paid", nullable = false)
-    private double amountPaid;
+    @Column(name = "amount_paid", nullable = false, precision = 15, scale = 2)
+    private BigDecimal amountPaid;
 
     /** Thời điểm nộp tiền */
     @Column(name = "paid_at", nullable = false)

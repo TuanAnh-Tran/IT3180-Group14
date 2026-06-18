@@ -3,7 +3,7 @@ package com.cnpm.apartment.model;
 import com.cnpm.apartment.model.enums.FeeStatus;
 import jakarta.persistence.*;
 import lombok.*;
-
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -50,6 +50,10 @@ public class AssignedFee {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private FeeStatus status;
+
+    @Builder.Default
+    @Column(name = "amount_paid_accumulated", nullable = false, precision = 15, scale = 2)
+    private BigDecimal amountPaidAccumulated = BigDecimal.ZERO;
 
     /** Thời điểm thanh toán, null nếu chưa nộp */
     @Column(name = "paid_at")
