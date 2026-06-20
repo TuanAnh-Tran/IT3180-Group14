@@ -372,11 +372,7 @@ export class PaymentView {
                 <thead><tr>
                   <th>Household</th><th>Collection Period</th><th>Fee Name</th>
                   <th>Amount</th><th>Status</th>
-<<<<<<< HEAD:merge_final/final-project/js/components/payment.js
                   ${currentUser.role !== 'user' ? `<th style="text-align:right;">Actions</th>` : ''}
-=======
-                  <th style="text-align:right;">Actions</th>
->>>>>>> origin/v2-VietCuong:03-SourceCodes/frontend/js/components/payment.js
                 </tr></thead>
                 <tbody id="pv-pay-tbody"></tbody>
               </table>

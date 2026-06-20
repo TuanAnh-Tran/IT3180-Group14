@@ -77,7 +77,7 @@ export class AuthService {
    * Đăng ký tài khoản cư dân mới từ màn hình public.
    * Tự động kiểm tra trùng lặp tên đăng nhập thông qua ApartmentDB.
    */
-  static async register(username, fullname, room, phone, identityNo, password) {
+  static async register(username, fullname, room, phone, identityNo, password, role = 'user') {
     if (!username || !fullname || !identityNo || !password) {
       throw new Error('Please fill in all required fields (Username, Full Name, Citizen ID (CCCD), Password)!');
     }
@@ -98,6 +98,7 @@ export class AuthService {
       phone,
       identityNo,
       password,
+      role,
       creator: username // Người tạo chính là bản thân cư dân đăng ký
     });
 
