@@ -4,5 +4,6 @@ public enum ResidentStatus {
     PERMANENT,
     TEMPORARY,
     TEMPORARILY_AWAY,
-    MOVED_OUT
+    MOVED_OUT,
+    DECEASED
 }

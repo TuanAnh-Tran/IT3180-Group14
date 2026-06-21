@@ -42,11 +42,35 @@ public class Resident {
     @Column(name = "phone", length = 30)
     private String phone;
 
+    @Column(name = "alias", length = 100)
+    private String alias;
+
+    @Column(name = "birth_place", length = 255)
+    private String birthPlace;
+
     @Column(name = "hometown", length = 255)
     private String hometown;
 
+    @Column(name = "ethnicity", length = 100)
+    private String ethnicity;
+
+    @Column(name = "religion", length = 100)
+    private String religion;
+
     @Column(name = "occupation", length = 255)
     private String occupation;
+
+    @Column(name = "workplace", length = 255)
+    private String workplace;
+
+    @Column(name = "issue_date")
+    private LocalDate issueDate;
+
+    @Column(name = "issue_place", length = 255)
+    private String issuePlace;
+
+    @Column(name = "previous_residence", length = 500)
+    private String previousResidence;
 
     @Column(name = "relationship_to_head", length = 100)
     private String relationshipToHead;
@@ -58,6 +82,20 @@ public class Resident {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "household_id")
     private Household household;
+
+    @Builder.Default
+    @Column(name = "alive", nullable = false)
+    private boolean alive = true;
+
+    @Column(name = "date_of_death")
+    private LocalDate dateOfDeath;
+
+    @Builder.Default
+    @Column(name = "archived", nullable = false)
+    private boolean archived = false;
+
+    @Column(name = "archived_at")
+    private LocalDateTime archivedAt;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

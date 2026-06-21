@@ -9,12 +9,14 @@ import com.cnpm.apartment.repository.ResidentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 
 @Component
+@Order(1)
 @RequiredArgsConstructor
 public class ResidentDataSeeder implements ApplicationRunner {
 
@@ -32,6 +34,11 @@ public class ResidentDataSeeder implements ApplicationRunner {
                     .area(72.5)
                     .ownerName("Nguyen Van An")
                     .phone("0987654321")
+                    .houseNo("12")
+                    .street("Tran Duy Hung")
+                    .ward("Trung Hoa")
+                    .district("Cau Giay")
+                    .registrationDate(LocalDate.of(2024, 1, 10))
                     .membersCount(0)
                     .motorcycleCount(2)
                     .carCount(0)
@@ -45,6 +52,11 @@ public class ResidentDataSeeder implements ApplicationRunner {
                     .area(65.0)
                     .ownerName("Tran Thi Binh")
                     .phone("0911222333")
+                    .houseNo("8")
+                    .street("Pham Hung")
+                    .ward("My Dinh 1")
+                    .district("Nam Tu Liem")
+                    .registrationDate(LocalDate.of(2024, 3, 15))
                     .membersCount(0)
                     .motorcycleCount(1)
                     .carCount(1)
@@ -63,15 +75,22 @@ public class ResidentDataSeeder implements ApplicationRunner {
 
     private void seedResidents(Household hh1, Household hh2) {
         if (hh1 != null) {
-            residentRepository.save(Resident.builder()
+            Resident an = residentRepository.save(Resident.builder()
                     .id("RES-AN001")
                     .fullName("Nguyen Van An")
                     .gender("Male")
                     .dateOfBirth(LocalDate.of(1985, 4, 12))
                     .identityNo("001085000111")
                     .phone("0987654321")
+                    .birthPlace("Hanoi")
                     .hometown("Hanoi")
+                    .ethnicity("Kinh")
+                    .religion("None")
                     .occupation("Engineer")
+                    .workplace("Tech Company")
+                    .issueDate(LocalDate.of(2021, 5, 20))
+                    .issuePlace("Police Department")
+                    .previousResidence("Cau Giay, Hanoi")
                     .relationshipToHead("Head")
                     .status(ResidentStatus.PERMANENT)
                     .household(hh1)
@@ -83,25 +102,40 @@ public class ResidentDataSeeder implements ApplicationRunner {
                     .dateOfBirth(LocalDate.of(1988, 8, 20))
                     .identityNo("001188000222")
                     .phone("0977000111")
+                    .birthPlace("Hanoi")
                     .hometown("Hanoi")
+                    .ethnicity("Kinh")
+                    .religion("None")
                     .occupation("Teacher")
+                    .workplace("Secondary School")
+                    .issueDate(LocalDate.of(2021, 6, 11))
+                    .issuePlace("Police Department")
+                    .previousResidence("Cau Giay, Hanoi")
                     .relationshipToHead("Spouse")
                     .status(ResidentStatus.PERMANENT)
                     .household(hh1)
                     .build());
+            hh1.setHeadResident(an);
             hh1.setMembersCount(2);
             householdRepository.save(hh1);
         }
         if (hh2 != null) {
-            residentRepository.save(Resident.builder()
+            Resident binh = residentRepository.save(Resident.builder()
                     .id("RES-BINH003")
                     .fullName("Tran Thi Binh")
                     .gender("Female")
                     .dateOfBirth(LocalDate.of(1979, 1, 15))
                     .identityNo("031079000333")
                     .phone("0911222333")
+                    .birthPlace("Nam Dinh")
                     .hometown("Nam Dinh")
+                    .ethnicity("Kinh")
+                    .religion("None")
                     .occupation("Accountant")
+                    .workplace("Finance Office")
+                    .issueDate(LocalDate.of(2020, 9, 9))
+                    .issuePlace("Police Department")
+                    .previousResidence("Nam Dinh")
                     .relationshipToHead("Head")
                     .status(ResidentStatus.PERMANENT)
                     .household(hh2)
@@ -113,12 +147,20 @@ public class ResidentDataSeeder implements ApplicationRunner {
                     .dateOfBirth(LocalDate.of(1998, 11, 2))
                     .identityNo("022098000444")
                     .phone("0909090909")
+                    .birthPlace("Hai Phong")
                     .hometown("Hai Phong")
+                    .ethnicity("Kinh")
+                    .religion("None")
                     .occupation("Student")
+                    .workplace("University")
+                    .issueDate(LocalDate.of(2022, 2, 15))
+                    .issuePlace("Police Department")
+                    .previousResidence("Hai Phong")
                     .relationshipToHead("Tenant")
                     .status(ResidentStatus.TEMPORARY)
                     .household(hh2)
                     .build());
+            hh2.setHeadResident(binh);
             hh2.setMembersCount(2);
             householdRepository.save(hh2);
         }

@@ -2,6 +2,128 @@ import { ApartmentDB, hashPassword } from './db.js';
 
 // Khóa dùng để lưu trữ thông tin phiên làm việc trong sessionStorage
 const SESSION_KEY = 'apartment_mgmt_session';
+const RESIDENTS_API_ROOT = window.RESIDENTS_API_ROOT || 'http://localhost:8080/api/residents';
+
+function toSessionUser(user) {
+  return {
+    username: user.username,
+    fullname: user.fullname,
+    role: user.role,
+    room: user.room,
+    phone: user.phone,
+    householdCode: user.householdCode || '',
+    householdHeadName: user.householdHeadName || '',
+    houseNo: user.houseNo || '',
+    street: user.street || '',
+    ward: user.ward || '',
+    district: user.district || '',
+    alias: user.alias || '',
+    dob: user.dob || '',
+    birthPlace: user.birthPlace || '',
+    hometown: user.hometown || '',
+    ethnicity: user.ethnicity || '',
+    occupation: user.occupation || '',
+    workplace: user.workplace || '',
+    identityNo: user.identityNo || '',
+    issueDate: user.issueDate || '',
+    issuePlace: user.issuePlace || '',
+    previousResidence: user.previousResidence || ''
+  };
+}
+
+async function residentsApiJson(path, options = {}) {
+  const response = await fetch(`${RESIDENTS_API_ROOT}${path}`, {
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    ...options
+  });
+  if (!response.ok) {
+    let message = `Resident API failed with status ${response.status}`;
+    try {
+      const parsed = await response.json();
+      message = parsed.message || message;
+    } catch {
+      // Keep status message.
+    }
+    throw new Error(message);
+  }
+  const payload = await response.json();
+  return payload?.data ?? payload;
+}
+
+async function syncProfileToResident(previousUser, updatedUser, actor) {
+  try {
+    const oldIdentityNo = previousUser?.identityNo || '';
+    const newIdentityNo = updatedUser.identityNo || '';
+    if (!oldIdentityNo && !newIdentityNo) return;
+
+    const search = encodeURIComponent(oldIdentityNo || newIdentityNo);
+    const page = await residentsApiJson(`/residents?search=${search}&size=20`);
+    const residents = page?.content || [];
+    const resident = residents.find(item => item.identityNo === oldIdentityNo || item.identityNo === newIdentityNo) || residents[0] || null;
+
+    const residentPayload = {
+      fullName: updatedUser.fullname,
+      gender: resident?.gender || 'Other',
+      dateOfBirth: updatedUser.dob || resident?.dateOfBirth || null,
+      identityNo: newIdentityNo,
+      phone: updatedUser.phone || '',
+      alias: updatedUser.alias || '',
+      birthPlace: updatedUser.birthPlace || '',
+      hometown: updatedUser.hometown || '',
+      ethnicity: updatedUser.ethnicity || '',
+      religion: resident?.religion || '',
+      occupation: updatedUser.occupation || '',
+      workplace: updatedUser.workplace || '',
+      issueDate: updatedUser.issueDate || resident?.issueDate || null,
+      issuePlace: updatedUser.issuePlace || '',
+      previousResidence: updatedUser.previousResidence || '',
+      relationshipToHead: resident?.relationshipToHead || '',
+      status: resident?.status || 'PERMANENT',
+      householdId: resident?.householdId || updatedUser.householdCode || '',
+      alive: resident?.alive !== false,
+      dateOfDeath: resident?.dateOfDeath || null
+    };
+
+    if (resident?.id) {
+      await residentsApiJson(`/residents/${encodeURIComponent(resident.id)}?actor=${encodeURIComponent(actor)}`, {
+        method: 'PUT',
+        body: JSON.stringify(residentPayload)
+      });
+    } else if (residentPayload.householdId) {
+      await residentsApiJson(`/residents?actor=${encodeURIComponent(actor)}`, {
+        method: 'POST',
+        body: JSON.stringify(residentPayload)
+      });
+    }
+
+    if (resident?.householdId) {
+      const household = await residentsApiJson(`/households/${encodeURIComponent(resident.householdId)}`);
+      await residentsApiJson(`/households/${encodeURIComponent(resident.householdId)}?actor=${encodeURIComponent(actor)}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          code: household.id || household.code || resident.householdId,
+          apartmentNo: household.apartmentNo || updatedUser.room || resident.householdId,
+          floor: household.floor ?? 0,
+          area: household.area ?? 0,
+          headName: household.headName || household.ownerName || updatedUser.householdHeadName,
+          headIdentityNo: household.headIdentityNo || '',
+          phone: household.phone || updatedUser.phone || '',
+          houseNo: updatedUser.houseNo || household.houseNo || '',
+          street: updatedUser.street || household.street || '',
+          ward: updatedUser.ward || household.ward || '',
+          district: updatedUser.district || household.district || '',
+          registrationDate: household.registrationDate || null,
+          status: household.status || 'OCCUPIED',
+          note: household.note || '',
+          motorcycleCount: household.motorcycleCount ?? 0,
+          carCount: household.carCount ?? 0
+        })
+      });
+    }
+  } catch (error) {
+    console.warn('Profile saved locally, but resident sync was skipped:', error.message);
+  }
+}
 
 export class AuthService {
   /**
@@ -28,14 +150,7 @@ export class AuthService {
     }
 
     // Tạo thông tin Session an toàn để lưu vào bộ nhớ trình duyệt
-    const sessionUser = {
-      username: user.username,
-      fullname: user.fullname,
-      role: user.role,
-      room: user.room,
-      phone: user.phone,
-      identityNo: user.identityNo || ''
-    };
+    const sessionUser = toSessionUser(user);
 
     // Lưu thông tin phiên đăng nhập hiện tại vào sessionStorage
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionUser));
@@ -103,14 +218,7 @@ export class AuthService {
     });
 
     // Sau khi đăng ký thành công, tự động thiết lập phiên đăng nhập cho cư dân này
-    const sessionUser = {
-      username: newUser.username,
-      fullname: newUser.fullname,
-      role: newUser.role,
-      room: newUser.room,
-      phone: newUser.phone,
-      identityNo: newUser.identityNo || ''
-    };
+    const sessionUser = toSessionUser(newUser);
 
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionUser));
     return sessionUser;
@@ -166,17 +274,12 @@ export class AuthService {
     }
 
     // Cập nhật thông tin trong Database LocalStorage
+    const previousUser = await ApartmentDB.getUserByUsername(currentUser.username);
     const updatedUser = await ApartmentDB.updateProfile(currentUser.username, details, currentUser.username);
+    await syncProfileToResident(previousUser, updatedUser, currentUser.username);
 
     // Cập nhật lại thông tin Session hiện tại trong sessionStorage
-    const updatedSession = {
-      username: updatedUser.username,
-      fullname: updatedUser.fullname,
-      role: updatedUser.role,
-      room: updatedUser.room,
-      phone: updatedUser.phone,
-      identityNo: updatedUser.identityNo || ''
-    };
+    const updatedSession = toSessionUser(updatedUser);
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(updatedSession));
     
     return updatedSession;

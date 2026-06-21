@@ -25,11 +25,34 @@ public class ResidentRequest {
     @Size(max = 30, message = "Phone must be at most 30 characters")
     private String phone;
 
+    @Size(max = 100, message = "Alias must be at most 100 characters")
+    private String alias;
+
+    @Size(max = 255, message = "Birth place must be at most 255 characters")
+    private String birthPlace;
+
     @Size(max = 255, message = "Hometown must be at most 255 characters")
     private String hometown;
 
+    @Size(max = 100, message = "Ethnicity must be at most 100 characters")
+    private String ethnicity;
+
+    @Size(max = 100, message = "Religion must be at most 100 characters")
+    private String religion;
+
     @Size(max = 255, message = "Occupation must be at most 255 characters")
     private String occupation;
+
+    @Size(max = 255, message = "Workplace must be at most 255 characters")
+    private String workplace;
+
+    private LocalDate issueDate;
+
+    @Size(max = 255, message = "Issue place must be at most 255 characters")
+    private String issuePlace;
+
+    @Size(max = 500, message = "Previous residence must be at most 500 characters")
+    private String previousResidence;
 
     @Size(max = 100, message = "Relationship must be at most 100 characters")
     private String relationshipToHead;
@@ -37,4 +60,8 @@ public class ResidentRequest {
     private String status;
 
     private String householdId;
+
+    private Boolean alive;
+
+    private LocalDate dateOfDeath;
 }

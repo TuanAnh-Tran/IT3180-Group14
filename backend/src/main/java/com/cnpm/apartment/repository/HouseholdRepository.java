@@ -15,16 +15,23 @@ public interface HouseholdRepository extends JpaRepository<Household, String> {
 
     boolean existsByApartmentNoIgnoreCaseAndIdNot(String apartmentNo, String id);
 
-    long countByStatus(HouseholdStatus status);
+    long countByStatusAndArchivedFalse(HouseholdStatus status);
+
+    long countByArchivedFalse();
 
     @Query("""
             SELECT h FROM Household h
-            WHERE (:status IS NULL OR h.status = :status)
+            WHERE h.archived = false
+              AND (:status IS NULL OR h.status = :status)
               AND (:search IS NULL OR :search = ''
                    OR LOWER(h.id) LIKE LOWER(CONCAT('%', :search, '%'))
                    OR LOWER(COALESCE(h.apartmentNo, '')) LIKE LOWER(CONCAT('%', :search, '%'))
                    OR LOWER(h.ownerName) LIKE LOWER(CONCAT('%', :search, '%'))
-                   OR LOWER(COALESCE(h.phone, '')) LIKE LOWER(CONCAT('%', :search, '%')))
+                   OR LOWER(COALESCE(h.phone, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                   OR LOWER(COALESCE(h.houseNo, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                   OR LOWER(COALESCE(h.street, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                   OR LOWER(COALESCE(h.ward, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                   OR LOWER(COALESCE(h.district, '')) LIKE LOWER(CONCAT('%', :search, '%')))
             """)
     Page<Household> search(
             @Param("search") String search,

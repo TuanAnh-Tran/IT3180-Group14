@@ -14,4 +14,6 @@ public class ResidentStatsDTO {
     private long temporaryResidents;
     private long temporarilyAwayResidents;
     private long movedOutResidents;
+    private long deceasedResidents;
+    private long archivedResidents;
 }
