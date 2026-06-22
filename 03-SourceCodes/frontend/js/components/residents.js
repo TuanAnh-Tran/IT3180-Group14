@@ -906,17 +906,41 @@ export class ResidentsManager {
       try {
         let household = null;
         let members = [];
-        const roomCode = currentUser.room ? (currentUser.room.startsWith('HH-') ? currentUser.room : 'HH-' + currentUser.room) : '';
-        if (roomCode) {
-          household = await DataService.getHousehold(roomCode);
-        }
-        if (!household && currentUser.identityNo) {
-          const resPage = await DataService.loadResidents();
-          const resident = resPage.content.find(r => r.identityNo === currentUser.identityNo);
-          if (resident && resident.householdId) {
-            household = await DataService.getHousehold(resident.householdId);
+        
+        let roomCode = '';
+        if (currentUser.room) {
+          let r = currentUser.room.trim().toUpperCase().replace('-', '');
+          if (r.startsWith('HH')) {
+            roomCode = r;
+          } else if (/^\d+$/.test(r)) {
+            roomCode = 'HH' + r.padStart(3, '0');
+          } else {
+            roomCode = 'HH' + r;
           }
         }
+
+        if (roomCode) {
+          try {
+            household = await DataService.getHousehold(roomCode);
+          } catch (e) {
+            console.warn("Household lookup by roomCode failed, trying fallback:", e);
+          }
+        }
+
+        if (!household && currentUser.identityNo) {
+          try {
+            const resPage = await DataService.loadResidents();
+            if (resPage && resPage.content) {
+              const resident = resPage.content.find(r => r.identityNo === currentUser.identityNo);
+              if (resident && resident.householdId) {
+                household = await DataService.getHousehold(resident.householdId);
+              }
+            }
+          } catch (e) {
+            console.warn("Household lookup by identityNo failed:", e);
+          }
+        }
+
         if (household) {
           members = household.members || [];
           container.innerHTML = `
