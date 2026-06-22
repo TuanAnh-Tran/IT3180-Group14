@@ -71,8 +71,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        // Cho phép ReactJS dev server (port 3000 hoặc 5173)
+        // Cho phép ReactJS dev server và Nginx Frontend (cổng 80)
         config.setAllowedOrigins(List.of(
+            "http://localhost",
+            "http://127.0.0.1",
             "http://localhost:3000",
             "http://localhost:5173"
         ));

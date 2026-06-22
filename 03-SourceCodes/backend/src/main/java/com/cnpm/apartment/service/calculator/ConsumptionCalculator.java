@@ -23,6 +23,18 @@ public class ConsumptionCalculator implements FeeCalculator {
                 af.getPeriod().getId(),
                 type
         );
+        
+        if (record.isPresent()) {
+            UtilityRecord r = record.get();
+            if (r.getNewIndex() < r.getOldIndex()) {
+                String typeName = "WATER".equals(type) ? "nước" : "điện";
+                throw new IllegalArgumentException(String.format(
+                        "Chỉ số %s mới (%d) không được nhỏ hơn chỉ số cũ (%d) của hộ %s.",
+                        typeName, r.getNewIndex(), r.getOldIndex(), af.getHousehold().getId()
+                ));
+            }
+        }
+        
         int consumption = record.map(r -> r.getNewIndex() - r.getOldIndex()).orElse(0);
         return af.getFee().getPrice().multiply(BigDecimal.valueOf(consumption));
     }

@@ -3,6 +3,8 @@ package com.cnpm.apartment.service;
 import com.cnpm.apartment.dto.AssignedFeeDTO;
 import com.cnpm.apartment.dto.PaymentRequestDTO;
 import com.cnpm.apartment.dto.ReceiptDTO;
+import com.cnpm.apartment.dto.PeriodDTO;
+import com.cnpm.apartment.dto.PeriodSaveDTO;
 import com.cnpm.apartment.model.AssignedFee;
 import com.cnpm.apartment.model.CollectionPeriod;
 import com.cnpm.apartment.model.Fee;
@@ -117,6 +119,7 @@ public class PaymentService {
     // 2. XEM NỢ / CHƯA NỘP
     // =========================================================
 
+    @Transactional(readOnly = true)
     public Page<AssignedFeeDTO> getUnpaidFees(String periodId, String householdId, Pageable pageable) {
         Page<AssignedFee> page;
 
@@ -142,6 +145,7 @@ public class PaymentService {
     // 3. DANH SÁCH TẤT CẢ PHÍ THEO ĐỢT (bao gồm PAID + UNPAID)
     // =========================================================
 
+    @Transactional(readOnly = true)
     public Page<AssignedFeeDTO> getByPeriod(String periodId, Pageable pageable) {
         return assignedFeeRepository.findByPeriodId(periodId, pageable)
                 .map(this::mapToAssignedFeeDTO);
@@ -253,6 +257,58 @@ public class PaymentService {
         }
 
         return period;
+    }
+
+    // =========================================================
+    // 5. QUẢN LÝ ĐỢT THU PHÍ (CollectionPeriod) REST APIs
+    // =========================================================
+
+    /**
+     * Lấy toàn bộ danh sách đợt thu phí.
+     */
+    @Transactional(readOnly = true)
+    public List<PeriodDTO> getAllPeriods() {
+        return collectionPeriodRepository.findAll(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"))
+                .stream()
+                .map(this::mapToPeriodDTO)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * Lấy chi tiết đợt thu phí theo ID.
+     */
+    @Transactional(readOnly = true)
+    public PeriodDTO getPeriodById(String id) {
+        CollectionPeriod period = collectionPeriodRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đợt thu phí với ID: " + id));
+        return mapToPeriodDTO(period);
+    }
+
+    /**
+     * Đóng đợt thu phí.
+     */
+    @Transactional
+    public PeriodDTO closePeriod(String id) {
+        CollectionPeriod period = collectionPeriodRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đợt thu phí với ID: " + id));
+        period.setStatus(PeriodStatus.CLOSED);
+        CollectionPeriod saved = collectionPeriodRepository.save(period);
+        log.info("Đã đóng đợt thu phí thành công: {}", id);
+        return mapToPeriodDTO(saved);
+    }
+
+    /**
+     * Helper: Chuyển đổi CollectionPeriod sang PeriodDTO
+     */
+    public PeriodDTO mapToPeriodDTO(CollectionPeriod p) {
+        List<String> feeIds = assignedFeeRepository.findFeeIdsByPeriodId(p.getId());
+        return PeriodDTO.builder()
+                .id(p.getId())
+                .name(p.getName())
+                .status(p.getStatus())
+                .createdAt(p.getCreatedAt())
+                .feeIds(feeIds)
+                .build();
     }
 
     // =========================================================
