@@ -24,21 +24,21 @@ public class VehicleController {
     private final VehicleService vehicleService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
     public ResponseEntity<ApiResponse<VehicleDTO>> saveVehicle(@Valid @RequestBody VehicleSaveDTO request) {
         VehicleDTO saved = vehicleService.saveVehicle(request);
         return ResponseEntity.ok(ApiResponse.success("Lưu thông tin xe thành công", saved));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
     public ResponseEntity<ApiResponse<Void>> deleteVehicle(@PathVariable String id) {
         vehicleService.deleteVehicle(id);
         return ResponseEntity.ok(ApiResponse.success("Xóa đăng ký xe thành công", null));
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
     public ResponseEntity<ApiResponse<Page<VehicleDTO>>> searchVehicles(
             @RequestParam(required = false) String plateNumber,
             @RequestParam(required = false) String type,
@@ -51,9 +51,10 @@ public class VehicleController {
     }
 
     @GetMapping("/household/{householdId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT', 'USER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant', 'ROLE_user')")
     public ResponseEntity<ApiResponse<List<VehicleDTO>>> getVehiclesByHousehold(@PathVariable String householdId) {
         List<VehicleDTO> list = vehicleService.getVehiclesByHousehold(householdId);
         return ResponseEntity.ok(ApiResponse.success(list));
     }
 }
+

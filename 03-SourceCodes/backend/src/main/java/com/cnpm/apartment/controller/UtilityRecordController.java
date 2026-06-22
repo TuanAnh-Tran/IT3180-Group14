@@ -21,7 +21,7 @@ public class UtilityRecordController {
     private final UtilityRecordService utilityRecordService;
 
     @PostMapping("/update")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
     public ResponseEntity<ApiResponse<Void>> updateUtilityRecord(
             @Valid @RequestBody UtilityRecordUpdateDTO request) {
         utilityRecordService.updateUtilityRecord(request);
@@ -29,9 +29,10 @@ public class UtilityRecordController {
     }
 
     @GetMapping("/history")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
     public ResponseEntity<ApiResponse<List<UtilityRecordHistoryDTO>>> getUtilityHistory() {
         List<UtilityRecordHistoryDTO> history = utilityRecordService.getUtilityHistory();
         return ResponseEntity.ok(ApiResponse.success(history));
     }
 }
+

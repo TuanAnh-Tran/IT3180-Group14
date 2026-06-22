@@ -12,7 +12,26 @@ export const API = {
    */
   async checkHealth() {
     try {
-      const res = await fetch(`${API_BASE}/statistics/overview`, { method: 'GET', signal: AbortSignal.timeout(1500) });
+      const tokenStr = sessionStorage.getItem('apartment_mgmt_session');
+      let token = null;
+      if (tokenStr) {
+        try {
+          const sessionObj = JSON.parse(tokenStr);
+          token = sessionObj.token || sessionObj;
+          if (typeof token === 'object') token = token.token;
+        } catch (e) { }
+      }
+      
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(`${API_BASE}/statistics/overview`, { 
+        method: 'GET', 
+        headers,
+        signal: AbortSignal.timeout(1500) 
+      });
       return res.ok;
     } catch (e) {
       return false;
@@ -25,11 +44,25 @@ export const API = {
   async fetchJson(endpoint, options = {}) {
     const url = `${API_BASE}${endpoint}`;
     const defaultHeaders = { 'Content-Type': 'application/json' };
+    
+    // Include JWT token if available
+    const tokenStr = sessionStorage.getItem('apartment_mgmt_session');
+    let token = null;
+    if (tokenStr) {
+      try {
+        const sessionObj = JSON.parse(tokenStr);
+        token = sessionObj.token || sessionObj;
+        if (typeof token === 'object') token = token.token;
+      } catch (e) { }
+    }
 
-    // Spring Security Auth: giả lập gửi username là admin khi gọi API (permitAll)
     const finalOptions = {
       ...options,
-      headers: { ...defaultHeaders, ...options.headers }
+      headers: { 
+        ...defaultHeaders, 
+        ...options.headers,
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
     };
 
     const res = await fetch(url, finalOptions);
@@ -39,6 +72,61 @@ export const API = {
     }
     const result = await res.json();
     return result.data; // Trả về trường 'data' từ ApiResponse wrapper
+  },
+
+  /* ─────────────────────────────────────────────
+     AUTH & USERS (Tài khoản & Phân quyền)
+     ───────────────────────────────────────────── */
+
+  async register(username, email, fullname, room, phone, identityNo, password, adminSecret = '') {
+    return this.fetchJson('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ username, email, fullname, room, phone, identityNo, password, adminSecret })
+    });
+  },
+
+  async requestPasswordReset(email) {
+    return this.fetchJson('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email })
+    });
+  },
+
+  async resetPassword(email, otp, newPassword) {
+    return this.fetchJson('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp, newPassword })
+    });
+  },
+
+  async getUsers() {
+    return this.fetchJson('/users');
+  },
+
+  async createUser(userData) {
+    return this.fetchJson('/users', {
+      method: 'POST',
+      body: JSON.stringify(userData)
+    });
+  },
+
+  async updateUserRole(username, role) {
+    return this.fetchJson(`/users/${username}/role`, {
+      method: 'PUT',
+      body: JSON.stringify({ role })
+    });
+  },
+
+  async approveUser(username) {
+    return this.fetchJson(`/users/${username}/approve`, { method: 'PUT' });
+  },
+
+  async unlockUser(username) {
+    return this.fetchJson(`/users/${username}/unlock`, { method: 'PUT' });
+  },
+
+  async deleteUser(username) {
+    return this.fetchJson(`/users/${username}`, { method: 'DELETE' });
   },
 
   /* ─────────────────────────────────────────────
@@ -52,7 +140,6 @@ export const API = {
     const params = new URLSearchParams();
     if (periodId) params.append('periodId', periodId);
     if (householdId) params.append('householdId', householdId);
-    // Lấy size lớn để hiển thị đầy đủ danh sách phân trang phía client
     params.append('size', '1000');
     return this.fetchJson(`/payments/unpaid?${params.toString()}`);
   },
@@ -105,7 +192,6 @@ export const API = {
     const params = new URLSearchParams();
     if (householdId) params.append('householdId', householdId);
     if (from) {
-      // Định dạng ngày thành LocalDateTime chuẩn ISO (yyyy-MM-ddTHH:mm:ss)
       params.append('from', from + 'T00:00:00');
     }
     if (to) {
@@ -155,15 +241,15 @@ export const API = {
   },
 
   /**
-   * Đường dẫn xuất báo cáo Excel
-   */
-  /**
    * Lấy danh sách lịch sử sửa đổi chỉ số điện nước (GET /api/utility-records/history).
    */
   async getUtilityHistory() {
     return this.fetchJson('/utility-records/history');
   },
 
+  /**
+   * Đường dẫn xuất báo cáo Excel
+   */
   getExportUrl(type, param1 = '', param2 = '') {
     if (type === 'period-receipts') {
       return `${API_BASE}/reports/receipts/by-period/${param1}`;

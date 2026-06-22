@@ -29,7 +29,7 @@ public class PeriodController {
      * Lấy toàn bộ danh sách đợt thu phí.
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT', 'USER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant', 'ROLE_user')")
     public ResponseEntity<ApiResponse<List<PeriodDTO>>> getAllPeriods() {
         List<PeriodDTO> list = paymentService.getAllPeriods();
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách đợt thu phí thành công", list));
@@ -39,7 +39,7 @@ public class PeriodController {
      * Lấy chi tiết đợt thu phí theo ID.
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT', 'USER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant', 'ROLE_user')")
     public ResponseEntity<ApiResponse<PeriodDTO>> getPeriodById(@PathVariable String id) {
         PeriodDTO dto = paymentService.getPeriodById(id);
         return ResponseEntity.ok(ApiResponse.success("Lấy thông tin đợt thu phí thành công", dto));
@@ -49,7 +49,7 @@ public class PeriodController {
      * Tạo mới một đợt thu phí và tự động gán các khoản phí tương ứng cho các hộ dân.
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
     public ResponseEntity<ApiResponse<PeriodDTO>> createPeriod(@Valid @RequestBody PeriodSaveDTO request) {
         // Tự sinh ID cho đợt thu định dạng PER_XXXXXXXX
         String uniqueId = "PER_" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
@@ -62,9 +62,10 @@ public class PeriodController {
      * Đóng đợt thu phí.
      */
     @PostMapping("/{id}/close")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
     public ResponseEntity<ApiResponse<PeriodDTO>> closePeriod(@PathVariable String id) {
         PeriodDTO dto = paymentService.closePeriod(id);
         return ResponseEntity.ok(ApiResponse.success("Đóng đợt thu phí thành công", dto));
     }
 }
+

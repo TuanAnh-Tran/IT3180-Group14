@@ -1,5 +1,4 @@
 import { AuthService } from '../auth.js';
-import { ApartmentDB } from '../db.js';
 
 /**
  * THÀNH PHẦN HỒ SƠ CÁ NHÂN (ProfileView Component)
@@ -14,10 +13,12 @@ export class ProfileView {
       return;
     }
 
-    // Tải thông tin tài khoản đầy đủ, mới nhất từ Database giả lập
-    const user = await ApartmentDB.getUserByUsername(sessionUser.username);
-    if (!user) {
-      container.innerHTML = '<div class="chart-card"><p style="color:var(--text-secondary);">User data not found.</p></div>';
+    // Tải thông tin tài khoản đầy đủ, mới nhất từ backend API
+    let user = null;
+    try {
+      user = await AuthService.getProfile();
+    } catch (e) {
+      container.innerHTML = `<div class="chart-card"><p style="color:var(--text-danger);">Failed to load profile details: ${e.message}</p></div>`;
       return;
     }
 

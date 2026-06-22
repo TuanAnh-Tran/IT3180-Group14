@@ -14,6 +14,25 @@
   <link rel="stylesheet" href="css/styles.css">
 
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏢</text></svg>">
+  <style>
+    :root {
+      --bg-primary: #0f172a;
+      --bg-secondary: #1e293b;
+      --color-primary: #6366f1;
+      --color-accent: #8b5cf6;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+    }
+    body { background-color: var(--bg-primary); margin: 0; font-family: 'Inter', sans-serif; }
+  </style>
+  <script>
+    window.addEventListener('error', function(e) {
+      document.body.innerHTML += '<div style="position:fixed;top:0;left:0;width:100%;background:red;color:white;padding:20px;z-index:999999;"><strong>JS ERROR:</strong> ' + e.message + '<br><small>Line: ' + e.lineno + ' in ' + e.filename + '</small></div>';
+    });
+    window.addEventListener('unhandledrejection', function(e) {
+      document.body.innerHTML += '<div style="position:fixed;top:0;left:0;width:100%;background:red;color:white;padding:20px;z-index:999999;"><strong>PROMISE REJECTION:</strong> ' + (e.reason && e.reason.message ? e.reason.message : e.reason) + '</div>';
+    });
+  </script>
 </head>
 <body>
 
@@ -28,6 +47,6 @@
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 
-  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/app.js?v=5"></script>
 </body>
 </html>

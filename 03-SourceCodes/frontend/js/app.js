@@ -3,15 +3,14 @@
  * Điều phối đăng nhập, điều hướng, và render tất cả các module.
  */
 
-import { AuthService }      from './auth.js';
-import { ApartmentDB }      from './db.js';
-import { Sidebar }          from './components/sidebar.js';
-import { Dashboard }        from './components/dashboard.js';
-import { UsersManager }     from './components/users.js';
-import { ProfileView }      from './components/profile.js';
-import { ResidentsManager } from './components/residents.js';
-import { FeeManagerView, FM }  from './components/fees.js';
-import { PaymentView, bridgeFM } from './components/payment.js';
+import { AuthService }      from './auth.js?v=5';
+import { Sidebar }          from './components/sidebar.js?v=3';
+import { Dashboard }        from './components/dashboard.js?v=3';
+import { UsersManager }     from './components/users.js?v=5';
+import { ProfileView }      from './components/profile.js?v=5';
+import { ResidentsManager } from './components/residents.js?v=7';
+import { FeeManagerView, FM }  from './components/fees.js?v=3';
+import { PaymentView, bridgeFM } from './components/payment.js?v=5';
 
 const app = document.getElementById('app');
 
@@ -70,14 +69,21 @@ function renderAuthScreen(tab = 'login') {
                   <input type="text" class="form-control" id="loginUsername" placeholder="Enter username" autocomplete="username">
                 </div>
               </div>
-              <div class="form-group">
+              <div class="form-group" style="position:relative; margin-bottom: 24px;">
                 <label class="form-label">Password</label>
                 <div class="input-wrapper">
-                  <span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg></span>
-                  <input type="password" class="form-control" id="loginPassword" placeholder="Enter password" autocomplete="current-password">
+                  <span class="input-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                    </svg>
+                  </span>
+                  <input type="password" class="form-control" id="loginPassword" placeholder="Enter password">
+                </div>
+                <div style="text-align: right; margin-top: 6px;">
+                  <a href="#" id="linkForgotPassword" style="color: var(--color-primary); font-size: 13px; text-decoration: none; font-weight: 500;">Forgot Password?</a>
                 </div>
               </div>
-              <button type="submit" class="btn btn-primary" style="width:100%;margin-top:8px;" id="loginBtn">Sign In</button>
+              <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 8px;" id="loginBtn">Sign In</button>
             </form>
             <p style="text-align:center;margin-top:16px;font-size:13px;color:var(--text-muted);">Demo: <strong style="color:var(--color-primary);">admin</strong> / admin123 &nbsp;|&nbsp; <strong style="color:var(--color-primary);">accountant</strong> / accountant123 &nbsp;|&nbsp; <strong style="color:var(--color-accent);">resident1</strong> / user123</p>
             <div style="text-align:center;margin-top:12px;">
@@ -97,36 +103,48 @@ function renderAuthScreen(tab = 'login') {
                 <div class="form-group" style="margin-bottom:0;">
                   <label class="form-label">Username *</label>
                   <div class="input-wrapper"><span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg></span>
-                  <input type="text" class="form-control" id="regUsername" placeholder="Min 4 chars"></div>
+                  <input type="text" class="form-control" id="regUsername" placeholder="e.g. nguyenan" required></div>
                 </div>
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">Email *</label>
+                  <div class="input-wrapper"><span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.909A2.25 2.25 0 012.25 8.993V6.75"/></svg></span>
+                  <input type="email" class="form-control" id="regEmail" placeholder="you@example.com" required></div>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
                 <div class="form-group" style="margin-bottom:0;">
                   <label class="form-label">Full Name *</label>
                   <div class="input-wrapper"><span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z"/></svg></span>
                   <input type="text" class="form-control" id="regFullname" placeholder="Your full name"></div>
                 </div>
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
                 <div class="form-group" style="margin-bottom:0;">
                   <label class="form-label">Room Number *</label>
                   <div class="input-wrapper"><span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75"/></svg></span>
                   <input type="text" class="form-control" id="regRoom" placeholder="e.g. A1201"></div>
                 </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
                 <div class="form-group" style="margin-bottom:0;">
                   <label class="form-label">Citizen ID (CCCD) *</label>
                   <div class="input-wrapper"><span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></span>
                   <input type="text" class="form-control" id="regIdentityNo" placeholder="12 digits"></div>
                 </div>
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
                 <div class="form-group" style="margin-bottom:0;">
                   <label class="form-label">Phone *</label>
                   <div class="input-wrapper"><span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-1.514 2.018a11.233 11.233 0 01-5.111-5.111l2.018-1.514c.361-.272.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"/></svg></span>
                   <input type="tel" class="form-control" id="regPhone" placeholder="10 digits"></div>
                 </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
                 <div class="form-group" style="margin-bottom:0;">
                   <label class="form-label">Password *</label>
                   <div class="input-wrapper"><span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg></span>
                   <input type="password" class="form-control" id="regPassword" placeholder="Min 6 chars"></div>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">Admin Secret</label>
+                  <div class="input-wrapper"><span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg></span>
+                  <input type="password" class="form-control" id="regAdminSecret" placeholder="Optional"></div>
                 </div>
               </div>
               <button type="submit" class="btn btn-primary" style="width:100%;margin-top:16px;" id="registerBtn">Create Account</button>
@@ -135,21 +153,71 @@ function renderAuthScreen(tab = 'login') {
         </div>
       </div>
     </div>
+    
+    <!-- Forgot Password Modal -->
+    <div id="forgot-password-dialog" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; align-items:center; justify-content:center;">
+      <div style="background:var(--bg-secondary); padding:24px; border-radius:20px; width:100%; max-width:360px; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
+        <h3 style="margin-top:0;">Reset Password</h3>
+        <form id="forgot-pwd-step-1">
+          <input type="email" class="form-control" id="forgotPwdEmail" placeholder="Enter your email" required style="width:100%; margin-bottom:12px;">
+          <button type="submit" class="btn btn-primary" style="width:100%;">Send OTP</button>
+        </form>
+        <form id="forgot-pwd-step-2" style="display:none;">
+          <input type="text" class="form-control" id="forgotPwdOtp" placeholder="OTP" required style="width:100%; margin-bottom:8px;">
+          <input type="password" class="form-control" id="forgotPwdNew" placeholder="New Password" required style="width:100%; margin-bottom:12px;">
+          <button type="submit" class="btn btn-primary" style="width:100%;">Reset Password</button>
+        </form>
+        <button id="close-forgot-pwd" style="background:none; border:none; color:var(--text-secondary); width:100%; margin-top:12px; cursor:pointer;">Cancel</button>
+      </div>
+    </div>
   `;
+
+  // Apply minimal style for modal
+  const modalStyle = document.createElement('style');
+  modalStyle.textContent = `#forgot-password-dialog.active { display:flex !important; }`;
+  document.head.appendChild(modalStyle);
 
   window.__switchAuthTab = (tab) => renderAuthScreen(tab);
 
-  const resetBtn = document.getElementById('btnResetMockDB');
-  if (resetBtn) {
-    resetBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      if (confirm('Are you sure you want to reset the mock database? All local changes will be lost.')) {
-        localStorage.clear();
-        sessionStorage.clear();
-        window.location.reload();
-      }
-    });
-  }
+
+
+  // Auth interaction logic
+  const linkForgot = document.getElementById('linkForgotPassword');
+  const fpDialog = document.getElementById('forgot-password-dialog');
+  const fpClose = document.getElementById('close-forgot-pwd');
+  const fpStep1 = document.getElementById('forgot-pwd-step-1');
+  const fpStep2 = document.getElementById('forgot-pwd-step-2');
+  let resettingEmail = '';
+
+  linkForgot.addEventListener('click', (e) => {
+    e.preventDefault();
+    fpStep1.style.display = 'block';
+    fpStep2.style.display = 'none';
+    fpDialog.classList.add('active');
+  });
+
+  fpClose.addEventListener('click', () => fpDialog.classList.remove('active'));
+
+  fpStep1.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('forgotPwdEmail').value;
+    try {
+      await AuthService.requestPasswordReset(email);
+      resettingEmail = email;
+      showToast('OTP sent!', 'success');
+      fpStep1.style.display = 'none';
+      fpStep2.style.display = 'block';
+    } catch (err) { showToast(err.message, 'error'); }
+  });
+
+  fpStep2.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      await AuthService.resetPassword(resettingEmail, document.getElementById('forgotPwdOtp').value, document.getElementById('forgotPwdNew').value);
+      showToast('Reset successful!', 'success');
+      fpDialog.classList.remove('active');
+    } catch (err) { showToast(err.message, 'error'); }
+  });
 
   document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -172,15 +240,20 @@ function renderAuthScreen(tab = 'login') {
     const btn = document.getElementById('registerBtn');
     btn.textContent = 'Creating...'; btn.disabled = true;
     try {
-      const user = await AuthService.register(
+      await AuthService.register(
         document.getElementById('regUsername').value,
+        document.getElementById('regEmail').value,
         document.getElementById('regFullname').value,
         document.getElementById('regRoom').value,
         document.getElementById('regPhone').value,
         document.getElementById('regIdentityNo').value,
-        document.getElementById('regPassword').value
+        document.getElementById('regPassword').value,
+        document.getElementById('regAdminSecret') ? document.getElementById('regAdminSecret').value : ''
       );
-      renderMainApp(user);
+      showToast('Registration successful! Please wait for Admin approval.', 'success');
+      window.__switchAuthTab('login');
+      btn.textContent = 'Create Account'; btn.disabled = false;
+      document.getElementById('registerForm').reset();
     } catch (err) {
       showToast(err.message, 'error');
       btn.textContent = 'Create Account'; btn.disabled = false;
@@ -344,8 +417,6 @@ Sidebar.render = function(container, activeTab, user, onTabChange, onLogout) {
 
 // ========== BOOT ==========
 async function boot() {
-  await ApartmentDB.init();
-
   // Inject global animation keyframe
   const style = document.createElement('style');
   style.textContent = `@keyframes slideUp { from { transform:translateY(16px); opacity:0; } to { transform:translateY(0); opacity:1; } }

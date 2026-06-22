@@ -11,9 +11,33 @@ USE apartment_db;
 
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS resident;
+DROP TABLE IF EXISTS vehicle;
+DROP TABLE IF EXISTS utility_record_history;
+DROP TABLE IF EXISTS utility_record;
+DROP TABLE IF EXISTS receipt;
+DROP TABLE IF EXISTS assigned_fee;
+DROP TABLE IF EXISTS collection_period;
+DROP TABLE IF EXISTS fee;
 DROP TABLE IF EXISTS activity_log;
+DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS household;
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- ============================================================
+-- 0. USERS (Tài khoản người dùng)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS users (
+    id              VARCHAR(50)    PRIMARY KEY,
+    username        VARCHAR(255)   NOT NULL UNIQUE,
+    password_hash   VARCHAR(255)   NOT NULL,
+    full_name       VARCHAR(255)   NOT NULL,
+    role            VARCHAR(50)    NOT NULL DEFAULT 'RESIDENT',
+    room            VARCHAR(50)    NULL,
+    phone           VARCHAR(20)    NULL,
+    identity_no     VARCHAR(50)    NULL,
+    status          VARCHAR(20)    NOT NULL DEFAULT 'ACTIVE',
+    failed_login_attempts INT      NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
 -- 1. HOUSEHOLD (Hộ gia đình)
@@ -37,17 +61,24 @@ CREATE TABLE IF NOT EXISTS household (
 -- 1.1. RESIDENT (Nhân khẩu / Cư dân)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS resident (
-    id                  VARCHAR(50)     PRIMARY KEY,
-    full_name           VARCHAR(255)    NOT NULL COMMENT 'Họ và tên',
-    gender              VARCHAR(50)     NOT NULL COMMENT 'Giới tính',
-    dob                 DATE            NULL     COMMENT 'Ngày sinh',
-    identity_no         VARCHAR(50)     NOT NULL UNIQUE COMMENT 'CMND/CCCD',
-    phone               VARCHAR(50)     NULL     COMMENT 'Số điện thoại',
-    hometown            VARCHAR(255)    NULL     COMMENT 'Quê quán',
-    occupation          VARCHAR(255)    NULL     COMMENT 'Nghề nghiệp',
-    status              VARCHAR(50)     NOT NULL COMMENT 'Trạng thái cư trú',
-    relationship_to_head VARCHAR(100)   NULL     COMMENT 'Quan hệ với chủ hộ',
-    household_id        VARCHAR(50)     NULL,
+    id                 VARCHAR(50)    PRIMARY KEY,
+    full_name          VARCHAR(255)   NOT NULL COMMENT 'Họ và tên',
+    gender             VARCHAR(50)    NOT NULL COMMENT 'Giới tính',
+    date_of_birth      VARCHAR(50)    NULL     COMMENT 'Ngày sinh',
+    identity_no        VARCHAR(50)    NOT NULL UNIQUE COMMENT 'CMND/CCCD',
+    phone              VARCHAR(50)    NULL     COMMENT 'Số điện thoại',
+    hometown           VARCHAR(255)   NULL     COMMENT 'Quê quán',
+    ethnicity          VARCHAR(50)    NULL     COMMENT 'Dân tộc',
+    occupation         VARCHAR(255)   NULL     COMMENT 'Nghề nghiệp',
+    workplace          VARCHAR(255)   NULL     COMMENT 'Nơi làm việc',
+    status             VARCHAR(50)    NOT NULL COMMENT 'Trạng thái cư trú',
+    issue_date         VARCHAR(50)    NULL     COMMENT 'Ngày cấp CCCD',
+    issue_place        VARCHAR(255)   NULL     COMMENT 'Nơi cấp CCCD',
+    previous_residence VARCHAR(500)   NULL     COMMENT 'Nơi cư trú trước đây',
+    alias              VARCHAR(50)    NULL     COMMENT 'Bí danh',
+    birth_place        VARCHAR(255)   NULL     COMMENT 'Nơi sinh',
+    relationship_to_head VARCHAR(100)  NULL     COMMENT 'Quan hệ với chủ hộ',
+    household_id       VARCHAR(50)    NULL,
     FOREIGN KEY (household_id) REFERENCES household(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -136,7 +167,6 @@ CREATE TABLE IF NOT EXISTS utility_record_history (
     FOREIGN KEY (period_id)    REFERENCES collection_period(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-
 -- ============================================================
 -- 6. RECEIPT (Biên lai)
 --    Module: Thu phí (Anh Hiếu) - Tạo và quản lý
@@ -171,26 +201,30 @@ CREATE TABLE IF NOT EXISTS vehicle (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
--- 7.1. ACTIVITY_LOG (Nhật ký hoạt động)
+-- 8. ACTIVITY_LOG (Nhật ký hoạt động & Kiểm thử)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS activity_log (
-    id                  VARCHAR(50)     PRIMARY KEY,
-    actor               VARCHAR(100)    NULL,
-    action              VARCHAR(100)    NOT NULL,
-    target_type         VARCHAR(100)    NOT NULL,
-    target_id           VARCHAR(100)    NOT NULL,
-    detail              VARCHAR(500)    NULL,
-    created_at          DATETIME        NOT NULL
+    id           VARCHAR(50)   PRIMARY KEY,
+    created_at   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    actor        VARCHAR(100)  NOT NULL,
+    action       VARCHAR(50)   NOT NULL,
+    target_type  VARCHAR(100)  NOT NULL,
+    target_id    VARCHAR(100)  NOT NULL,
+    detail       VARCHAR(1000) NOT NULL,
+    data_before  TEXT          NULL,
+    data_after   TEXT          NULL,
+    INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-
-
-
-
 
 -- ============================================================
 -- DỮ LIỆU MẪU (để test)
 -- ============================================================
+
+-- Sample Users
+-- Admin: admin / admin123 (hash bằng BCrypt)
+-- Mật khẩu mặc định là admin123, hash: $2a$10$wN1QjMv.PzL/tZ6hJ7V7u.2q/30Hq03.95Yv/Z4XpP7/4k/xO/7jK
+INSERT IGNORE INTO users (id, username, password_hash, full_name, role, status) VALUES
+('USR001', 'admin', '$2a$10$wN1QjMv.PzL/tZ6hJ7V7u.2q/30Hq03.95Yv/Z4XpP7/4k/xO/7jK', 'Administrator', 'ADMIN', 'ACTIVE');
 
 -- Sample Households
 INSERT IGNORE INTO household (id, owner_name, members_count, area, motorcycle_count, car_count, apartment_no, floor, phone, status, note) VALUES
@@ -201,7 +235,7 @@ INSERT IGNORE INTO household (id, owner_name, members_count, area, motorcycle_co
 ('HH005', 'Hoang Van Emin', 0, 45.0, 1, 0, 'E0501', 5, '0977000111', 'TEMPORARILY_AWAY', NULL);
 
 -- Sample Residents
-INSERT IGNORE INTO resident (id, full_name, gender, dob, identity_no, phone, hometown, occupation, status, relationship_to_head, household_id) VALUES
+INSERT IGNORE INTO resident (id, full_name, gender, date_of_birth, identity_no, phone, hometown, occupation, status, relationship_to_head, household_id) VALUES
 ('RES001', 'Nguyen Van An', 'Male', '1985-04-12', '001085000111', '0987654321', 'Hanoi', 'Engineer', 'PERMANENT', 'Head', 'HH001'),
 ('RES002', 'Le Thu Ha', 'Female', '1988-08-20', '001188000222', '0977000111', 'Hanoi', 'Teacher', 'PERMANENT', 'Spouse', 'HH001'),
 ('RES003', 'Nguyen Minh Quan', 'Male', '2015-05-15', '001215000333', NULL, 'Hanoi', 'Student', 'PERMANENT', 'Child', 'HH001'),
@@ -272,5 +306,3 @@ INSERT IGNORE INTO vehicle (id, plate_number, type, owner_name, registration_dat
 ('VH003', '29B-56789', 'MOTORCYCLE', 'Tran Thi Binh', '2025-04-16', 'HH002'),
 ('VH004', '29C-11111', 'MOTORCYCLE', 'Tran Thi Binh', '2025-04-17', 'HH002'),
 ('VH005', '29D-22222', 'MOTORCYCLE', 'Le Van Cuong',   '2025-05-12', 'HH003');
-
-

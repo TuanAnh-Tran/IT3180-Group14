@@ -2,7 +2,6 @@ package com.cnpm.apartment.model;
 
 import jakarta.persistence.*;
 import lombok.*;
-import java.time.LocalDate;
 
 /**
  * Nhân khẩu / Cư dân trong chung cư.
@@ -26,8 +25,8 @@ public class Resident {
     @Column(name = "gender", nullable = false)
     private String gender;
 
-    @Column(name = "dob")
-    private LocalDate dateOfBirth;
+    @Column(name = "date_of_birth")
+    private String dateOfBirth;
 
     @Column(name = "identity_no", nullable = false, unique = true, length = 50)
     private String identityNo;
@@ -38,11 +37,32 @@ public class Resident {
     @Column(name = "hometown")
     private String hometown;
 
+    @Column(name = "ethnicity")
+    private String ethnicity;
+
     @Column(name = "occupation")
     private String occupation;
 
+    @Column(name = "workplace")
+    private String workplace;
+
     @Column(name = "status", nullable = false)
     private String status;
+
+    @Column(name = "issue_date")
+    private String issueDate;
+
+    @Column(name = "issue_place")
+    private String issuePlace;
+
+    @Column(name = "previous_residence")
+    private String previousResidence;
+
+    @Column(name = "alias")
+    private String alias;
+
+    @Column(name = "birth_place")
+    private String birthPlace;
 
     @Column(name = "relationship_to_head")
     private String relationshipToHead;

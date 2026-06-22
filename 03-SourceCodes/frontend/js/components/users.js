@@ -1,5 +1,4 @@
-import { ApartmentDB } from '../db.js';
-
+import { API } from '../api.js?v=3';
 /**
  * THÀNH PHẦN QUẢN LÝ CƯ DÂN (UsersManager Component)
  * Dành riêng cho quyền Admin. Hỗ trợ hiển thị bảng biểu, tìm kiếm thời gian thực,
@@ -235,11 +234,17 @@ export class UsersManager {
     const updateTable = () => {
       const filtered = usersList.filter(user => {
         // Tìm kiếm không phân biệt chữ hoa thường trên 4 trường dữ liệu
+        const nameVal = (user.fullName || user.fullname || '').toLowerCase();
+        const usernameVal = (user.username || '').toLowerCase();
+        const roomVal = (user.room || '').toLowerCase();
+        const phoneVal = (user.phone || '').toLowerCase();
+        const searchVal = (searchQuery || '').toLowerCase();
+
         const matchesSearch = 
-          user.fullname.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          user.room.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          user.phone.toLowerCase().includes(searchQuery.toLowerCase());
+          nameVal.includes(searchVal) ||
+          usernameVal.includes(searchVal) ||
+          roomVal.includes(searchVal) ||
+          phoneVal.includes(searchVal);
           
         const matchesRole = roleFilter === 'all' || user.role === roleFilter;
 
@@ -260,48 +265,86 @@ export class UsersManager {
 
       // Đổ danh sách tr của bảng dữ liệu cư dân
       tbody.innerHTML = filtered.map(user => {
-        const isCurrent = user.username.toLowerCase() === activeUser.username.toLowerCase();
-        const isSuperAdmin = user.username.toLowerCase() === 'admin';
-        const initial = user.fullname.trim().split(' ').pop().charAt(0).toUpperCase();
+        const uUsername = user.username || '';
+        const aUsername = activeUser.username || '';
+        const isCurrent = uUsername.toLowerCase() === aUsername.toLowerCase();
+        const isSuperAdmin = uUsername.toLowerCase() === 'admin';
+        
+        const displayName = user.fullName || user.fullname || '';
+        const initial = displayName.trim() ? displayName.trim().split(' ').pop().charAt(0).toUpperCase() : 'U';
+        const uRoom = user.room || '-';
+        const uPhone = user.phone || '-';
 
         return `
-          <tr data-username="${user.username}">
+          <tr data-username="${uUsername}">
             <td>
               <div class="user-cell">
                 <div class="user-cell-avatar">${initial}</div>
                 <div class="user-cell-details">
-                  <div class="user-cell-fullname">${user.fullname} ${isCurrent ? '<span style="color: var(--color-primary); font-size: 11px; font-weight: normal;">(You)</span>' : ''}</div>
-                  <div class="user-cell-username">@${user.username}</div>
+                  <div class="user-cell-fullname">${displayName} ${isCurrent ? '<span style="color: var(--color-primary); font-size: 11px; font-weight: normal;">(You)</span>' : ''}</div>
+                  <div class="user-cell-username">@${uUsername}</div>
                 </div>
               </div>
             </td>
-            <td>${user.room}</td>
-            <td>${user.phone}</td>
+            <td>${uRoom}</td>
+            <td>${uPhone}</td>
             <td>
               ${isSuperAdmin || isCurrent ? `
                 <span class="role-badge ${user.role === 'admin' ? 'role-admin' : (user.role === 'accountant' ? 'role-accountant' : 'role-user')}">
                   ${user.role === 'admin' ? 'Admin' : (user.role === 'accountant' ? 'Accountant' : 'Resident')}
                 </span>
+                ${user.status === 'PENDING' ? '<span style="display:block; margin-top:4px; font-size:11px; color:var(--color-warning); font-weight:bold;">PENDING</span>' : ''}
+                ${user.status === 'LOCKED' ? '<span style="display:block; margin-top:4px; font-size:11px; color:var(--color-danger); font-weight:bold;">LOCKED</span>' : ''}
               ` : `
-                <select class="table-role-select" data-username="${user.username}">
+                <select class="table-role-select" data-username="${uUsername}">
                   <option value="user" ${user.role === 'user' ? 'selected' : ''}>Resident</option>
                   <option value="accountant" ${user.role === 'accountant' ? 'selected' : ''}>Accountant</option>
                   <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>System Admin</option>
                 </select>
+                ${user.status === 'PENDING' ? '<span style="display:block; margin-top:4px; font-size:11px; color:var(--color-warning); font-weight:bold;">PENDING</span>' : ''}
+                ${user.status === 'LOCKED' ? '<span style="display:block; margin-top:4px; font-size:11px; color:var(--color-danger); font-weight:bold;">LOCKED</span>' : ''}
               `}
             </td>
             <td style="text-align: center;">
-              ${isSuperAdmin || isCurrent ? `
+              ${user.status === 'LOCKED' ? `
+                <div class="table-actions" style="justify-content: center;">
+                  <button class="btn-icon btn-icon-unlock" data-username="${uUsername}" title="Unlock Account" style="color: var(--color-success); border: 1px solid var(--color-success); margin-right: 4px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                    </svg>
+                  </button>
+                  ${isSuperAdmin || isCurrent ? '' : `
+                    <button class="btn-icon btn-icon-delete" data-username="${uUsername}" title="Delete Account" style="color: var(--color-danger); border: 1px solid var(--color-danger);">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                      </svg>
+                    </button>
+                  `}
+                </div>
+              ` : (isSuperAdmin || isCurrent ? `
                 <span style="font-size: 12px; color: var(--text-muted); font-style: italic;">Protected</span>
+              ` : (user.status === 'PENDING' ? `
+                <div class="table-actions" style="justify-content: center;">
+                  <button class="btn-icon btn-icon-approve" data-username="${uUsername}" title="Approve Account" style="color: var(--color-success); border: 1px solid var(--color-success); margin-right: 4px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  </button>
+                  <button class="btn-icon btn-icon-delete" data-username="${uUsername}" title="Reject Account" style="color: var(--color-danger); border: 1px solid var(--color-danger);">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
               ` : `
                 <div class="table-actions" style="justify-content: center;">
-                  <button class="btn-icon btn-icon-delete" data-username="${user.username}" title="Delete Account">
+                  <button class="btn-icon btn-icon-delete" data-username="${uUsername}" title="Delete Account">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                     </svg>
                   </button>
                 </div>
-              `}
+              `))}
             </td>
           </tr>
         `;
@@ -313,11 +356,11 @@ export class UsersManager {
           const username = e.target.getAttribute('data-username');
           const newRole = e.target.value;
           try {
-            await ApartmentDB.updateUserRole(username, newRole, activeUser.username);
+            await API.updateUserRole(username, newRole);
             const roleLabels = { admin: 'Admin', accountant: 'Accountant', user: 'Resident' };
             showToast(`Changed @${username}'s role to ${roleLabels[newRole]}!`, 'success');
             // Tải lại mảng cư dân từ DB và kết xuất lại bảng
-            usersList = await ApartmentDB.getUsers();
+            usersList = await API.getUsers();
             updateTable();
           } catch (err) {
             showToast(err.message, 'error');
@@ -326,16 +369,50 @@ export class UsersManager {
         });
       });
 
-      // Lắng nghe sự kiện click nút Xóa tài khoản (Hộp thoại xác nhận Tiếng Anh)
+      // Lắng nghe sự kiện click nút Approve
+      tbody.querySelectorAll('.btn-icon-approve').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const username = btn.getAttribute('data-username');
+          if (confirm(`Approve registration for @${username}?`)) {
+            try {
+              await API.approveUser(username);
+              showToast(`Account @${username} approved!`, 'success');
+              usersList = await API.getUsers();
+              updateTable();
+            } catch (err) {
+              showToast(err.message, 'error');
+            }
+          }
+        });
+      });
+
+      // Lắng nghe sự kiện click nút Unlock
+      tbody.querySelectorAll('.btn-icon-unlock').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const username = btn.getAttribute('data-username');
+          if (confirm(`Unlock account for @${username}?`)) {
+            try {
+              await API.unlockUser(username);
+              showToast(`Account @${username} unlocked!`, 'success');
+              usersList = await API.getUsers();
+              updateTable();
+            } catch (err) {
+              showToast(err.message, 'error');
+            }
+          }
+        });
+      });
+
+      // Lắng nghe sự kiện click nút Xóa tài khoản / Reject
       tbody.querySelectorAll('.btn-icon-delete').forEach(btn => {
         btn.addEventListener('click', async (e) => {
           const username = btn.getAttribute('data-username');
           if (confirm(`Are you sure you want to DELETE resident @${username} from the system? This action is permanent and cannot be undone!`)) {
             try {
-              await ApartmentDB.deleteUser(username, activeUser.username);
+              await API.deleteUser(username);
               showToast(`Deleted account @${username} successfully!`, 'success');
               // Tải lại danh sách
-              usersList = await ApartmentDB.getUsers();
+              usersList = await API.getUsers();
               updateTable();
             } catch (err) {
               showToast(err.message, 'error');
@@ -347,7 +424,7 @@ export class UsersManager {
 
     // Hàm gọi tải danh sách người dùng đầu tiên
     const loadUsers = async () => {
-      usersList = await ApartmentDB.getUsers();
+      usersList = await API.getUsers();
       updateTable();
     };
     await loadUsers();
@@ -431,37 +508,15 @@ export class UsersManager {
       }
 
       try {
-        // Thực thi tạo tài khoản. Trùng tên đăng nhập/CCCD sẽ ném ra lỗi từ db.js!
-        await ApartmentDB.createUser({
+        await API.createUser({
           username,
-          password,
-          fullname,
+          passwordHash: password, // The backend will hash it if we send plain password
+          fullName: fullname, // Note: match the backend User entity field names or DTO. The controller accepts User object.
           room,
           phone,
           role,
-          
-          householdCode,
-          householdHeadName,
-          houseNo,
-          street,
-          ward,
-          district,
-          
-          alias,
-          dob,
-          birthPlace,
-          hometown,
-          ethnicity,
-          occupation,
-          workplace,
-          identityNo,
-          issueDate,
-          issuePlace,
-          previousResidence,
-          
-          creator: activeUser.username
+          identityNo
         });
-
         // Hiện thông báo thành công Tiếng Anh
         showToast(`Created resident @${username} successfully!`, 'success');
         closeDialog();

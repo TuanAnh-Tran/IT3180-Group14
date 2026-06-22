@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ResidentRepository extends JpaRepository<Resident, String> {
@@ -22,6 +23,8 @@ public interface ResidentRepository extends JpaRepository<Resident, String> {
     boolean existsByIdentityNoAndIdNot(String identityNo, String id);
 
     boolean existsByIdentityNo(String identityNo);
+
+    Optional<Resident> findByIdentityNo(String identityNo);
 
     @Query("SELECT r FROM Resident r WHERE " +
            "(:status = 'ALL' OR r.status = :status) AND " +

@@ -28,14 +28,14 @@ public class ResidentController {
     private final ResidentService residentService;
 
     @GetMapping("/stats")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT', 'USER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant', 'ROLE_user')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getStats() {
         Map<String, Object> stats = residentService.loadStats();
         return ResponseEntity.ok(ApiResponse.success(stats));
     }
 
     @GetMapping("/households")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT', 'USER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant', 'ROLE_user')")
     public ResponseEntity<ApiResponse<Page<Household>>> searchHouseholds(
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "ALL") String status,
@@ -47,7 +47,7 @@ public class ResidentController {
     }
 
     @GetMapping("/households/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT', 'USER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant', 'ROLE_user')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getHouseholdById(@PathVariable String id) {
         Household hh = residentService.getHouseholdById(id);
         if (hh == null) {
@@ -76,7 +76,7 @@ public class ResidentController {
     }
 
     @PostMapping("/households")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
     public ResponseEntity<ApiResponse<Household>> createHousehold(
             @RequestBody Household household,
             @RequestParam(required = false) String actor) {
@@ -89,7 +89,7 @@ public class ResidentController {
     }
 
     @PutMapping("/households/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
     public ResponseEntity<ApiResponse<Household>> updateHousehold(
             @PathVariable String id,
             @RequestBody Household household,
@@ -104,7 +104,7 @@ public class ResidentController {
     }
 
     @DeleteMapping("/households/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
     public ResponseEntity<ApiResponse<Void>> deleteHousehold(
             @PathVariable String id,
             @RequestParam(required = false) String actor) {
@@ -117,7 +117,7 @@ public class ResidentController {
     }
 
     @GetMapping("/residents")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT', 'USER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant', 'ROLE_user')")
     public ResponseEntity<ApiResponse<Page<Resident>>> searchResidents(
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "ALL") String status,
@@ -131,7 +131,7 @@ public class ResidentController {
     }
 
     @GetMapping("/residents/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT', 'USER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant', 'ROLE_user')")
     public ResponseEntity<ApiResponse<Resident>> getResidentById(@PathVariable String id) {
         Resident r = residentService.getResidentById(id);
         if (r == null) {
@@ -141,7 +141,7 @@ public class ResidentController {
     }
 
     @PostMapping("/residents")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
     public ResponseEntity<ApiResponse<Resident>> createResident(
             @RequestBody Resident resident,
             @RequestParam(required = false) String actor) {
@@ -154,7 +154,7 @@ public class ResidentController {
     }
 
     @PutMapping("/residents/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
     public ResponseEntity<ApiResponse<Resident>> updateResident(
             @PathVariable String id,
             @RequestBody Resident resident,
@@ -169,7 +169,7 @@ public class ResidentController {
     }
 
     @DeleteMapping("/residents/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
     public ResponseEntity<ApiResponse<Void>> deleteResident(
             @PathVariable String id,
             @RequestParam(required = false) String actor) {
@@ -178,7 +178,7 @@ public class ResidentController {
     }
 
     @PostMapping("/households/{householdId}/members/{residentId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
     public ResponseEntity<ApiResponse<Resident>> addMember(
             @PathVariable String householdId,
             @PathVariable String residentId,
@@ -192,7 +192,7 @@ public class ResidentController {
     }
 
     @DeleteMapping("/households/{householdId}/members/{residentId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
     public ResponseEntity<ApiResponse<Resident>> removeMember(
             @PathVariable String householdId,
             @PathVariable String residentId,
@@ -206,7 +206,7 @@ public class ResidentController {
     }
 
     @GetMapping("/search")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT', 'USER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant', 'ROLE_user')")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> globalSearch(
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "all") String type) {
@@ -215,10 +215,11 @@ public class ResidentController {
     }
 
     @GetMapping("/activity")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT', 'USER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant', 'ROLE_user')")
     public ResponseEntity<ApiResponse<List<ActivityLog>>> getActivity(
             @RequestParam(defaultValue = "50") int limit) {
         List<ActivityLog> logs = residentService.loadActivity(limit);
         return ResponseEntity.ok(ApiResponse.success(logs));
     }
 }
+

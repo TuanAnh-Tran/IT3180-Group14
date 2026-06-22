@@ -27,7 +27,7 @@ public class FeeController {
      * Lấy toàn bộ danh sách khoản phí.
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT', 'USER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant', 'ROLE_user')")
     public ResponseEntity<ApiResponse<List<FeeDTO>>> getAllFees() {
         List<FeeDTO> list = feeService.getAllFees();
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách khoản phí thành công", list));
@@ -37,7 +37,7 @@ public class FeeController {
      * Lấy thông tin chi tiết một khoản phí theo ID.
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT', 'USER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant', 'ROLE_user')")
     public ResponseEntity<ApiResponse<FeeDTO>> getFeeById(@PathVariable String id) {
         FeeDTO fee = feeService.getFeeById(id);
         return ResponseEntity.ok(ApiResponse.success("Lấy thông tin khoản phí thành công", fee));
@@ -47,7 +47,7 @@ public class FeeController {
      * Lưu thông tin khoản phí (Thêm mới hoặc Cập nhật).
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
     public ResponseEntity<ApiResponse<FeeDTO>> saveFee(@Valid @RequestBody FeeSaveDTO request) {
         FeeDTO saved = feeService.saveFee(request);
         return ResponseEntity.ok(ApiResponse.success("Lưu thông tin khoản phí thành công", saved));
@@ -57,9 +57,10 @@ public class FeeController {
      * Xóa khoản phí theo ID.
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
     public ResponseEntity<ApiResponse<Void>> deleteFee(@PathVariable String id) {
         feeService.deleteFee(id);
         return ResponseEntity.ok(ApiResponse.success("Xóa khoản phí thành công", null));
     }
 }
+
