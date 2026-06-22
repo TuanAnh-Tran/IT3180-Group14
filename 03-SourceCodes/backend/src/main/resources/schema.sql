@@ -9,6 +9,12 @@ CREATE DATABASE IF NOT EXISTS apartment_db
 
 USE apartment_db;
 
+SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS resident;
+DROP TABLE IF EXISTS activity_log;
+DROP TABLE IF EXISTS household;
+SET FOREIGN_KEY_CHECKS = 1;
+
 -- ============================================================
 -- 1. HOUSEHOLD (Hộ gia đình)
 --    Module: Hộ khẩu (Khôi) - Tạo và quản lý
@@ -19,7 +25,30 @@ CREATE TABLE IF NOT EXISTS household (
     members_count   INT            DEFAULT 0 COMMENT 'Số thành viên',
     area            DOUBLE         DEFAULT 0 COMMENT 'Diện tích (m2)',
     motorcycle_count INT           DEFAULT 0 COMMENT 'Số xe máy',
-    car_count       INT            DEFAULT 0 COMMENT 'Số ô tô'
+    car_count       INT            DEFAULT 0 COMMENT 'Số ô tô',
+    apartment_no    VARCHAR(50)    NULL,
+    floor           INT            NULL,
+    phone           VARCHAR(50)    NULL,
+    status          VARCHAR(50)    NULL,
+    note            VARCHAR(500)   NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- 1.1. RESIDENT (Nhân khẩu / Cư dân)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS resident (
+    id                  VARCHAR(50)     PRIMARY KEY,
+    full_name           VARCHAR(255)    NOT NULL COMMENT 'Họ và tên',
+    gender              VARCHAR(50)     NOT NULL COMMENT 'Giới tính',
+    dob                 DATE            NULL     COMMENT 'Ngày sinh',
+    identity_no         VARCHAR(50)     NOT NULL UNIQUE COMMENT 'CMND/CCCD',
+    phone               VARCHAR(50)     NULL     COMMENT 'Số điện thoại',
+    hometown            VARCHAR(255)    NULL     COMMENT 'Quê quán',
+    occupation          VARCHAR(255)    NULL     COMMENT 'Nghề nghiệp',
+    status              VARCHAR(50)     NOT NULL COMMENT 'Trạng thái cư trú',
+    relationship_to_head VARCHAR(100)   NULL     COMMENT 'Quan hệ với chủ hộ',
+    household_id        VARCHAR(50)     NULL,
+    FOREIGN KEY (household_id) REFERENCES household(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
@@ -89,6 +118,26 @@ CREATE TABLE IF NOT EXISTS utility_record (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
+-- 5.1. UTILITY_RECORD_HISTORY (Lịch sử chỉnh sửa số điện nước)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS utility_record_history (
+    id                  VARCHAR(50)     PRIMARY KEY,
+    household_id        VARCHAR(50)     NOT NULL,
+    period_id           VARCHAR(50)     NOT NULL,
+    type                VARCHAR(50)     NOT NULL COMMENT 'WATER, ELECTRICITY, etc.',
+    old_index_before    INT             NOT NULL,
+    new_index_before    INT             NOT NULL,
+    old_index_after     INT             NOT NULL,
+    new_index_after     INT             NOT NULL,
+    modified_by         VARCHAR(100)    NOT NULL COMMENT 'Tài khoản thực hiện sửa',
+    modified_at         DATETIME        NOT NULL,
+    
+    FOREIGN KEY (household_id) REFERENCES household(id),
+    FOREIGN KEY (period_id)    REFERENCES collection_period(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+-- ============================================================
 -- 6. RECEIPT (Biên lai)
 --    Module: Thu phí (Anh Hiếu) - Tạo và quản lý
 -- ============================================================
@@ -107,18 +156,57 @@ CREATE TABLE IF NOT EXISTS receipt (
     INDEX idx_assigned_fee  (assigned_fee_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- ============================================================
+-- 7. VEHICLE (Xe cộ)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS vehicle (
+    id                  VARCHAR(50)     PRIMARY KEY,
+    plate_number        VARCHAR(50)     NOT NULL UNIQUE COMMENT 'Biển số xe',
+    type                VARCHAR(50)     NOT NULL COMMENT 'MOTORCYCLE, CAR, etc.',
+    owner_name          VARCHAR(255)    NOT NULL COMMENT 'Tên chủ xe',
+    registration_date   DATE            NOT NULL COMMENT 'Ngày đăng ký gửi xe',
+    household_id        VARCHAR(50)     NOT NULL,
+    
+    FOREIGN KEY (household_id) REFERENCES household(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- 7.1. ACTIVITY_LOG (Nhật ký hoạt động)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS activity_log (
+    id                  VARCHAR(50)     PRIMARY KEY,
+    actor               VARCHAR(100)    NULL,
+    action              VARCHAR(100)    NOT NULL,
+    target_type         VARCHAR(100)    NOT NULL,
+    target_id           VARCHAR(100)    NOT NULL,
+    detail              VARCHAR(500)    NULL,
+    created_at          DATETIME        NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+
+
+
 
 -- ============================================================
 -- DỮ LIỆU MẪU (để test)
 -- ============================================================
 
 -- Sample Households
-INSERT IGNORE INTO household (id, owner_name, members_count, area, motorcycle_count, car_count) VALUES
-('HH001', 'Nguyen Van An',  3, 65.5, 1, 0),
-('HH002', 'Tran Thi Binh',  4, 80.0, 2, 1),
-('HH003', 'Le Van Cuong',   2, 50.0, 1, 0),
-('HH004', 'Pham Thi Dung',  5, 90.0, 0, 1),
-('HH005', 'Hoang Van Emin', 1, 45.0, 1, 0);
+INSERT IGNORE INTO household (id, owner_name, members_count, area, motorcycle_count, car_count, apartment_no, floor, phone, status, note) VALUES
+('HH001', 'Nguyen Van An',  3, 65.5, 1, 0, 'A1201', 12, '0987654321', 'OCCUPIED', 'Completed permanent residence registration.'),
+('HH002', 'Tran Thi Binh',  2, 80.0, 2, 1, 'B0805', 8, '0911222333', 'OCCUPIED', 'One temporary resident.'),
+('HH003', 'Le Van Cuong',   0, 50.0, 1, 0, 'C0302', 3, '0901111222', 'VACANT', 'Ready for handover.'),
+('HH004', 'Pham Thi Dung',  0, 90.0, 0, 1, 'D0405', 4, '0909090909', 'OCCUPIED', NULL),
+('HH005', 'Hoang Van Emin', 0, 45.0, 1, 0, 'E0501', 5, '0977000111', 'TEMPORARILY_AWAY', NULL);
+
+-- Sample Residents
+INSERT IGNORE INTO resident (id, full_name, gender, dob, identity_no, phone, hometown, occupation, status, relationship_to_head, household_id) VALUES
+('RES001', 'Nguyen Van An', 'Male', '1985-04-12', '001085000111', '0987654321', 'Hanoi', 'Engineer', 'PERMANENT', 'Head', 'HH001'),
+('RES002', 'Le Thu Ha', 'Female', '1988-08-20', '001188000222', '0977000111', 'Hanoi', 'Teacher', 'PERMANENT', 'Spouse', 'HH001'),
+('RES003', 'Nguyen Minh Quan', 'Male', '2015-05-15', '001215000333', NULL, 'Hanoi', 'Student', 'PERMANENT', 'Child', 'HH001'),
+('RES004', 'Tran Thi Binh', 'Female', '1979-01-15', '031079000333', '0911222333', 'Nam Dinh', 'Accountant', 'PERMANENT', 'Head', 'HH002'),
+('RES005', 'Pham Minh Duc', 'Male', '1998-11-02', '022098000444', '0909090909', 'Hai Phong', 'Student', 'TEMPORARY', 'Tenant', 'HH002');
 
 -- Sample Fees
 INSERT IGNORE INTO fee (id, name, type, calc_method, price) VALUES
@@ -176,4 +264,13 @@ INSERT IGNORE INTO receipt (id, assigned_fee_id, amount_paid, paid_at, note, cre
 ('RC004', 'AF012',  982500.00, DATE_SUB(NOW(), INTERVAL 20 DAY), NULL,            'admin'),
 ('RC005', 'AF013',  216000.00, DATE_SUB(NOW(), INTERVAL 20 DAY), NULL,            'admin'),
 ('RCP01', 'AF002',  100000.00, NOW(),                          'Partial Payment Test', 'admin');
+
+-- Sample Vehicles
+INSERT IGNORE INTO vehicle (id, plate_number, type, owner_name, registration_date, household_id) VALUES
+('VH001', '29A-12345', 'MOTORCYCLE', 'Nguyen Van An', '2025-05-10', 'HH001'),
+('VH002', '30E-99999', 'CAR',        'Tran Thi Binh', '2025-04-15', 'HH002'),
+('VH003', '29B-56789', 'MOTORCYCLE', 'Tran Thi Binh', '2025-04-16', 'HH002'),
+('VH004', '29C-11111', 'MOTORCYCLE', 'Tran Thi Binh', '2025-04-17', 'HH002'),
+('VH005', '29D-22222', 'MOTORCYCLE', 'Le Van Cuong',   '2025-05-12', 'HH003');
+
 

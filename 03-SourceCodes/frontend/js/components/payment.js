@@ -372,11 +372,7 @@ export class PaymentView {
                 <thead><tr>
                   <th>Household</th><th>Collection Period</th><th>Fee Name</th>
                   <th>Amount</th><th>Status</th>
-<<<<<<< HEAD:merge_final/final-project/js/components/payment.js
                   ${currentUser.role !== 'user' ? `<th style="text-align:right;">Actions</th>` : ''}
-=======
-                  <th style="text-align:right;">Actions</th>
->>>>>>> origin/v2-VietCuong:03-SourceCodes/frontend/js/components/payment.js
                 </tr></thead>
                 <tbody id="pv-pay-tbody"></tbody>
               </table>
@@ -646,10 +642,10 @@ export class PaymentView {
           <td>${fee?.name||'?'}</td>
           <td><strong>${vnd(amt)}</strong></td>
           <td>${badge}</td>
-          ${(!isResident || af.householdId === currentUser.room) ? `
+          ${currentUser.role !== 'user' ? `
           <td style="text-align:right;">
             <button class="pv-btn suc pv-do-pay" data-id="${af.id}" data-amt="${remaining}" data-fee="${fee?.name||''}" data-hh="${hh?.id||''}-${hh?.ownerName||''}">Pay</button>
-          </td>` : '<td style="text-align:right;">—</td>'}
+          </td>` : ''}
         </tr>`;
       }).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">No unpaid fees found.</td></tr>`;
 

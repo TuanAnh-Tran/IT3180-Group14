@@ -20,10 +20,17 @@ import java.util.Optional;
 @Repository
 public interface AssignedFeeRepository extends JpaRepository<AssignedFee, String> {
 
+    boolean existsByFeeId(String feeId);
+
+    @Query("SELECT DISTINCT af.fee.id FROM AssignedFee af WHERE af.period.id = :periodId")
+    List<String> findFeeIdsByPeriodId(@Param("periodId") String periodId);
+
     // Pessimistic Write Lock for payment updates
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT af FROM AssignedFee af WHERE af.id = :id")
     Optional<AssignedFee> findByIdForUpdate(@Param("id") String id);
+
+    Optional<AssignedFee> findByHouseholdIdAndPeriodIdAndFeeId(String householdId, String periodId, String feeId);
 
     // Lấy danh sách phí theo trạng thái (UNPAID/PAID)
     Page<AssignedFee> findByStatus(FeeStatus status, Pageable pageable);

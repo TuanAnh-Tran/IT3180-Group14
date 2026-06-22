@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -26,6 +27,7 @@ public class ReceiptService {
     /**
      * Lịch sử đóng phí của một hộ, lọc theo khoảng thời gian.
      */
+    @Transactional(readOnly = true)
     public Page<ReceiptDTO> getHistory(String householdId,
                                        LocalDateTime from,
                                        LocalDateTime to,
@@ -49,6 +51,7 @@ public class ReceiptService {
     /**
      * Lấy chi tiết 1 biên lai theo ID.
      */
+    @Transactional(readOnly = true)
     public ReceiptDTO getById(String receiptId) {
         Receipt receipt = receiptRepository.findById(receiptId)
                 .orElseThrow(() -> new RuntimeException("Receipt not found: " + receiptId));

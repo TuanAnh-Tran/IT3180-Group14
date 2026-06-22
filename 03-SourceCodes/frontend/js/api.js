@@ -25,7 +25,7 @@ export const API = {
   async fetchJson(endpoint, options = {}) {
     const url = `${API_BASE}${endpoint}`;
     const defaultHeaders = { 'Content-Type': 'application/json' };
-    
+
     // Spring Security Auth: giả lập gửi username là admin khi gọi API (permitAll)
     const finalOptions = {
       ...options,
@@ -53,7 +53,7 @@ export const API = {
     if (periodId) params.append('periodId', periodId);
     if (householdId) params.append('householdId', householdId);
     // Lấy size lớn để hiển thị đầy đủ danh sách phân trang phía client
-    params.append('size', '1000'); 
+    params.append('size', '1000');
     return this.fetchJson(`/payments/unpaid?${params.toString()}`);
   },
 
@@ -67,6 +67,22 @@ export const API = {
         assignedFeeId,
         amountPaid: Number(amountPaid),
         note
+      })
+    });
+  },
+
+  /**
+   * Cập nhật chỉ số điện/nước và ghi nhận lịch sử thay đổi (POST /api/utility-records/update).
+   */
+  async updateUtilityIndex(householdId, periodId, feeId, oldIndex, newIndex) {
+    return this.fetchJson('/utility-records/update', {
+      method: 'POST',
+      body: JSON.stringify({
+        householdId,
+        periodId,
+        feeId,
+        oldIndex: Number(oldIndex),
+        newIndex: Number(newIndex)
       })
     });
   },
@@ -141,6 +157,13 @@ export const API = {
   /**
    * Đường dẫn xuất báo cáo Excel
    */
+  /**
+   * Lấy danh sách lịch sử sửa đổi chỉ số điện nước (GET /api/utility-records/history).
+   */
+  async getUtilityHistory() {
+    return this.fetchJson('/utility-records/history');
+  },
+
   getExportUrl(type, param1 = '', param2 = '') {
     if (type === 'period-receipts') {
       return `${API_BASE}/reports/receipts/by-period/${param1}`;
@@ -152,5 +175,115 @@ export const API = {
       return `${API_BASE}/reports/debt/by-period/${param1}`;
     }
     return '';
+  },
+
+  /* ─────────────────────────────────────────────
+     4. VEHICLES (Quản lý xe chi tiết)
+     ───────────────────────────────────────────── */
+
+  /**
+   * Tìm kiếm xe cộ phân trang (GET /api/vehicles).
+   */
+  async searchVehicles(plateNumber = '', type = '', householdId = '', page = 0, size = 10) {
+    const params = new URLSearchParams();
+    if (plateNumber) params.append('plateNumber', plateNumber.trim());
+    if (type && type !== 'ALL') params.append('type', type.trim());
+    if (householdId) params.append('householdId', householdId.trim());
+    params.append('page', String(page));
+    params.append('size', String(size));
+    return this.fetchJson(`/vehicles?${params.toString()}`);
+  },
+
+  /**
+   * Lấy danh sách xe của hộ gia đình (GET /api/vehicles/household/{householdId}).
+   */
+  async getVehiclesByHousehold(householdId) {
+    return this.fetchJson(`/vehicles/household/${householdId}`);
+  },
+
+  /**
+   * Lưu thông tin xe (POST /api/vehicles).
+   */
+  async saveVehicle(vehicleData) {
+    return this.fetchJson('/vehicles', {
+      method: 'POST',
+      body: JSON.stringify(vehicleData)
+    });
+  },
+
+  /**
+   * Xóa thông tin xe (DELETE /api/vehicles/{id}).
+   */
+  async deleteVehicle(id) {
+    return this.fetchJson(`/vehicles/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  /* ─────────────────────────────────────────────
+     5. FEES (Quản lý khoản phí)
+     ───────────────────────────────────────────── */
+
+  /**
+   * Lấy toàn bộ danh sách khoản phí (GET /api/fees).
+   */
+  async getFees() {
+    return this.fetchJson('/fees');
+  },
+
+  /**
+   * Lưu thông tin khoản phí (POST /api/fees).
+   */
+  async saveFee(feeData) {
+    return this.fetchJson('/fees', {
+      method: 'POST',
+      body: JSON.stringify(feeData)
+    });
+  },
+
+  /**
+   * Xóa khoản phí theo ID (DELETE /api/fees/{id}).
+   */
+  async deleteFee(id) {
+    return this.fetchJson(`/fees/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  /* ─────────────────────────────────────────────
+     6. PERIODS (Quản lý đợt thu phí)
+     ───────────────────────────────────────────── */
+
+  /**
+   * Lấy toàn bộ danh sách đợt thu phí (GET /api/payments/periods).
+   */
+  async getPeriods() {
+    return this.fetchJson('/payments/periods');
+  },
+
+  /**
+   * Tạo mới một đợt thu phí và tự động gán phí (POST /api/payments/periods).
+   */
+  async createPeriod(name, feeIds) {
+    return this.fetchJson('/payments/periods', {
+      method: 'POST',
+      body: JSON.stringify({ name, feeIds })
+    });
+  },
+
+  /**
+   * Đóng một đợt thu phí (POST /api/payments/periods/{id}/close).
+   */
+  async closePeriod(id) {
+    return this.fetchJson(`/payments/periods/${id}/close`, {
+      method: 'POST'
+    });
+  },
+
+  /**
+   * Lấy toàn bộ danh sách hộ gia đình từ backend (GET /api/residents/households).
+   */
+  async getHouseholds() {
+    return this.fetchJson('/residents/households?size=1000');
   }
 };

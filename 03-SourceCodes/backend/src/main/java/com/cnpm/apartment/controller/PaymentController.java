@@ -41,7 +41,7 @@ public class PaymentController {
      * Filter: periodId, householdId, page, size
      */
     @GetMapping("/unpaid")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT', 'USER')")
     public ResponseEntity<ApiResponse<Page<AssignedFeeDTO>>> getUnpaid(
             @RequestParam(required = false) String periodId,
             @RequestParam(required = false) String householdId,

@@ -13,6 +13,7 @@
 import { API } from '../api.js';
 
 const FM_KEY = 'smartfee_v2_en';
+let isBackendActive = false;
 
 /* ===== localStorage helpers ===== */
 function fmLoad() {
@@ -25,6 +26,78 @@ function fmGetDB() {
   if (!db) { db = fmSeed(); fmSave(db); }
   return db;
 }
+
+// Tự động kiểm tra kết nối Backend và đồng bộ dữ liệu khoản thu, đợt thu toàn cục khi load module
+API.checkHealth().then(async status => {
+  isBackendActive = status;
+  if (status) {
+    try {
+      const db = fmGetDB();
+
+      // 1. Đồng bộ Fees
+      const backendFees = await API.getFees();
+      db.fees = backendFees;
+
+      // 2. Đồng bộ Households từ backend (FIX: ID hộ backend khác seed local)
+      try {
+        const backendHH = await API.getHouseholds();
+        const hhList = (backendHH && backendHH.content) || backendHH || [];
+        if (hhList.length > 0) {
+          db.households = hhList.map(h => ({
+            id: h.id,
+            ownerName: h.ownerName,
+            membersCount: h.membersCount || 0,
+            area: h.area || 0,
+            motorcycleCount: h.motorcycleCount || 0,
+            carCount: h.carCount || 0,
+            apartmentNo: h.apartmentNo,
+            floor: h.floor,
+            phone: h.phone,
+            status: h.status
+          }));
+        }
+      } catch (e) {
+        console.warn('Sync households failed:', e.message);
+      }
+
+      // 2. Đồng bộ Periods
+      const backendPeriods = await API.getPeriods();
+      db.periods = backendPeriods.map(p => ({
+        id: p.id,
+        name: p.name,
+        feeIds: p.feeIds || [],
+        status: p.status === 'OPEN' ? 'ACTIVE' : 'CLOSED',
+        createdAt: p.createdAt
+      }));
+
+      // 3. Tự động đồng bộ hóa đơn gán phí của đợt thu mới nhất
+      if (db.periods.length > 0) {
+        const latestPeriodId = db.periods[0].id;
+        const backendAssigned = await API.getFeesByPeriod(latestPeriodId);
+        db.assignedFees = db.assignedFees.filter(af => af.periodId !== latestPeriodId);
+        const list = (backendAssigned && backendAssigned.content) || backendAssigned || [];
+        list.forEach(dto => {
+          db.assignedFees.push({
+            id: dto.id,
+            householdId: dto.householdId,
+            periodId: dto.periodId,
+            feeId: dto.feeId,
+            quantity: dto.quantity,
+            status: dto.status,
+            amountRequired: dto.amountRequired,       // FIX: lưu số tiền đã tính từ backend
+            amountPaidAccumulated: dto.amountPaidAccumulated,
+            paidAt: dto.paidAt
+          });
+        });
+      }
+
+      fmSave(db);
+      console.log("Auto-synchronized fees, periods and bills from backend successfully.");
+    } catch (err) {
+      console.warn("Auto-sync from backend failed:", err.message);
+    }
+  }
+});
 
 function uid(prefix) {
   return prefix + '_' + Math.random().toString(36).substr(2, 8).toUpperCase();
@@ -90,15 +163,15 @@ function fmSeed() {
         shouldAssign = true; qty = hh.carCount;
       }
       if (shouldAssign) {
-        assignedFees.push({ 
-          id: uid('ASF'), 
-          householdId: hh.id, 
-          periodId: pId, 
-          feeId, 
-          quantity: qty, 
-          status: 'UNPAID', 
-          amountPaidAccumulated: 0, 
-          paidAt: null 
+        assignedFees.push({
+          id: uid('ASF'),
+          householdId: hh.id,
+          periodId: pId,
+          feeId,
+          quantity: qty,
+          status: 'UNPAID',
+          amountPaidAccumulated: 0,
+          paidAt: null
         });
       }
     }
@@ -109,7 +182,7 @@ function fmSeed() {
   // Seed B0805 đã đóng một số phí
   assignedFees.forEach(af => {
     if (af.householdId === 'B0805' && (af.feeId === 'FEE001' || af.feeId === 'FEE006')) {
-      af.status = 'PAID'; 
+      af.status = 'PAID';
       const fee = fees.find(f => f.id === af.feeId);
       const hh = households.find(h => h.id === af.householdId);
       af.amountPaidAccumulated = fee.price * (fee.calcMethod === 'PER_AREA' ? hh.area : hh.membersCount);
@@ -123,15 +196,65 @@ function fmSeed() {
 /* ===== Business logic (port từ FeeManager.java) ===== */
 const FM = {
   // ----- FEES -----
-  getFees() { return fmGetDB().fees; },
+  async getFees() {
+    if (isBackendActive) {
+      try {
+        const backendFees = await API.getFees();
+        // Đồng bộ ngược về LocalStorage của Frontend để tránh lệch số liệu ở các tab khác chưa di chuyển sang Backend
+        const db = fmGetDB();
+        db.fees = backendFees;
+        fmSave(db);
+        return backendFees;
+      } catch (err) {
+        console.warn("Backend getFees failed, falling back to LocalStorage:", err.message);
+      }
+    }
+    return fmGetDB().fees;
+  },
 
-  createFee(name, type, calcMethod, price) {
+  async createFee(name, type, calcMethod, price) {
+    if (isBackendActive) {
+      try {
+        const saved = await API.saveFee({ name, type, calcMethod, price });
+        const db = fmGetDB();
+        // Cập nhật lại trong Local cache
+        const idx = db.fees.findIndex(f => f.id === saved.id);
+        if (idx !== -1) {
+          db.fees[idx] = saved;
+        } else {
+          db.fees.push(saved);
+        }
+        fmSave(db);
+        return saved;
+      } catch (err) {
+        console.error("Backend createFee failed:", err.message);
+        throw err;
+      }
+    }
     const db = fmGetDB();
     const fee = { id: uid('FEE'), name, type, calcMethod, price };
     db.fees.push(fee); fmSave(db); return fee;
   },
 
-  updateFee(id, name, type, calcMethod, price) {
+  async updateFee(id, name, type, calcMethod, price) {
+    if (isBackendActive) {
+      try {
+        const saved = await API.saveFee({ id, name, type, calcMethod, price });
+        const db = fmGetDB();
+        const f = db.fees.find(x => x.id === id);
+        if (f) {
+          Object.assign(f, { name, type, calcMethod, price });
+          fmSave(db);
+        } else {
+          db.fees.push(saved);
+          fmSave(db);
+        }
+        return saved;
+      } catch (err) {
+        console.error("Backend updateFee failed:", err.message);
+        throw err;
+      }
+    }
     const db = fmGetDB();
     const f = db.fees.find(x => x.id === id);
     if (!f) return null;
@@ -139,7 +262,24 @@ const FM = {
     fmSave(db); return f;
   },
 
-  deleteFee(id) {
+  async deleteFee(id) {
+    if (isBackendActive) {
+      try {
+        await API.deleteFee(id);
+        const db = fmGetDB();
+        const idx = db.fees.findIndex(f => f.id === id);
+        if (idx !== -1) {
+          db.fees.splice(idx, 1);
+          db.periods.forEach(p => { p.feeIds = p.feeIds.filter(fid => fid !== id); });
+          db.assignedFees = db.assignedFees.filter(af => af.feeId !== id);
+          fmSave(db);
+        }
+        return true;
+      } catch (err) {
+        console.error("Backend deleteFee failed:", err.message);
+        throw err;
+      }
+    }
     const db = fmGetDB();
     const idx = db.fees.findIndex(f => f.id === id);
     if (idx === -1) return false;
@@ -150,9 +290,50 @@ const FM = {
   },
 
   // ----- PERIODS -----
-  getPeriods() { return fmGetDB().periods; },
+  async getPeriods() {
+    if (isBackendActive) {
+      try {
+        const backendPeriods = await API.getPeriods();
+        const mappedPeriods = backendPeriods.map(p => ({
+          id: p.id,
+          name: p.name,
+          feeIds: p.feeIds || [],
+          status: p.status === 'OPEN' ? 'ACTIVE' : 'CLOSED',
+          createdAt: p.createdAt
+        }));
+        const db = fmGetDB();
+        db.periods = mappedPeriods;
+        fmSave(db);
+        return mappedPeriods;
+      } catch (err) {
+        console.warn("Backend getPeriods failed, falling back to LocalStorage:", err.message);
+      }
+    }
+    return fmGetDB().periods;
+  },
 
-  createPeriod(name, feeIds) {
+  async createPeriod(name, feeIds) {
+    if (isBackendActive) {
+      try {
+        const saved = await API.createPeriod(name, feeIds);
+        const mapped = {
+          id: saved.id,
+          name: saved.name,
+          feeIds: saved.feeIds || [],
+          status: saved.status === 'OPEN' ? 'ACTIVE' : 'CLOSED',
+          createdAt: saved.createdAt
+        };
+        const db = fmGetDB();
+        db.periods.push(mapped);
+        fmSave(db);
+        // Tải danh sách phí đã gán của đợt này về LocalStorage
+        await this.syncAssignedFees(saved.id);
+        return mapped;
+      } catch (err) {
+        console.error("Backend createPeriod failed:", err.message);
+        throw err;
+      }
+    }
     const db = fmGetDB();
     const period = { id: uid('PER'), name, feeIds, status: 'ACTIVE', createdAt: new Date().toISOString() };
     db.periods.push(period);
@@ -161,11 +342,76 @@ const FM = {
     fmSave(db); return period;
   },
 
-  closePeriod(id) {
+  async closePeriod(id) {
+    if (isBackendActive) {
+      try {
+        const saved = await API.closePeriod(id);
+        const db = fmGetDB();
+        const p = db.periods.find(x => x.id === id);
+        if (p) p.status = 'CLOSED';
+        fmSave(db);
+        return saved;
+      } catch (err) {
+        console.error("Backend closePeriod failed:", err.message);
+        throw err;
+      }
+    }
     const db = fmGetDB();
     const p = db.periods.find(x => x.id === id);
     if (p) p.status = 'CLOSED';
     fmSave(db);
+  },
+
+  async syncAssignedFees(periodId) {
+    if (isBackendActive && periodId) {
+      try {
+        // FIX: Sync households trước để đảm bảo db.households khớp ID với backend
+        try {
+          const backendHH = await API.getHouseholds();
+          const hhList = (backendHH && backendHH.content) || backendHH || [];
+          if (hhList.length > 0) {
+            const db = fmGetDB();
+            db.households = hhList.map(h => ({
+              id: h.id,
+              ownerName: h.ownerName,
+              membersCount: h.membersCount || 0,
+              area: h.area || 0,
+              motorcycleCount: h.motorcycleCount || 0,
+              carCount: h.carCount || 0,
+              apartmentNo: h.apartmentNo,
+              floor: h.floor,
+              phone: h.phone,
+              status: h.status
+            }));
+            fmSave(db);
+          }
+        } catch (e) {
+          console.warn('Sync households in syncAssignedFees failed:', e.message);
+        }
+
+        const backendAssigned = await API.getFeesByPeriod(periodId);
+        const db = fmGetDB();
+        db.assignedFees = db.assignedFees.filter(af => af.periodId !== periodId);
+        const list = (backendAssigned && backendAssigned.content) || backendAssigned || [];
+        list.forEach(dto => {
+          db.assignedFees.push({
+            id: dto.id,
+            householdId: dto.householdId,
+            periodId: dto.periodId,
+            feeId: dto.feeId,
+            quantity: dto.quantity,
+            status: dto.status,
+            amountRequired: dto.amountRequired,       // FIX: lưu số tiền đã tính từ backend
+            amountPaidAccumulated: dto.amountPaidAccumulated,
+            paidAt: dto.paidAt
+          });
+        });
+        fmSave(db);
+        console.log(`Synchronized assigned fees for period ${periodId} successfully.`);
+      } catch (err) {
+        console.warn(`Sync assigned fees for period ${periodId} failed:`, err.message);
+      }
+    }
   },
 
   // ----- HOUSEHOLDS -----
@@ -215,19 +461,55 @@ const FM = {
 
   updateUtilityIndex(householdId, periodId, feeId, oldIndex, newIndex) {
     const db = fmGetDB();
+
+    const fee = db.fees.find(f => f.id === feeId);
+    const type = fee && fee.name.toLowerCase().includes("water") ? "WATER" : "ELECTRICITY";
+    const typeName = type === 'WATER' ? "nước" : "điện";
+
+    if (newIndex < oldIndex) {
+      throw new Error(`Chỉ số ${typeName} mới (${newIndex}) không được nhỏ hơn chỉ số cũ (${oldIndex}) của hộ ${householdId}.`);
+    }
+
     if (!db.utilityRecords) db.utilityRecords = [];
-    let ur = db.utilityRecords.find(r => r.householdId === householdId && r.periodId === periodId && r.type === 'WATER');
+
+    let ur = db.utilityRecords.find(r => r.householdId === householdId && r.periodId === periodId && r.type === type);
+    let oldIndexBefore = 0;
+    let newIndexBefore = 0;
+
     if (!ur) {
-      ur = { id: uid('UT'), householdId, periodId, type: 'WATER', oldIndex, newIndex };
+      ur = { id: uid('UT'), householdId, periodId, type, oldIndex, newIndex };
       db.utilityRecords.push(ur);
     } else {
+      oldIndexBefore = ur.oldIndex;
+      newIndexBefore = ur.newIndex;
       ur.oldIndex = oldIndex;
       ur.newIndex = newIndex;
     }
+
     const af = db.assignedFees.find(a => a.householdId === householdId && a.periodId === periodId && a.feeId === feeId);
     if (af) {
       af.quantity = newIndex - oldIndex;
     }
+
+    // Ghi nhận lịch sử offline
+    if (oldIndexBefore !== oldIndex || newIndexBefore !== newIndex) {
+      if (!db.utilityHistory) db.utilityHistory = [];
+      const period = db.periods.find(p => p.id === periodId);
+      db.utilityHistory.unshift({
+        id: uid('UTH'),
+        householdId,
+        periodId,
+        periodName: period ? period.name : periodId,
+        type,
+        oldIndexBefore,
+        newIndexBefore,
+        oldIndexAfter: oldIndex,
+        newIndexAfter: newIndex,
+        modifiedBy: 'local_admin',
+        modifiedAt: new Date().toISOString()
+      });
+    }
+
     fmSave(db);
   },
 
@@ -244,24 +526,26 @@ const FM = {
     for (const af of afs) {
       const fee = db.fees.find(f => f.id === af.feeId);
       if (!fee) continue;
-      const amount = fee.price * af.quantity;
+      // FIX: Ưu tiên dùng amountRequired từ backend (đã tính đúng theo calcMethod).
+      // Fallback về fee.price * af.quantity chỉ khi ở chế độ offline (không có backend).
+      const amount = (af.amountRequired != null) ? Number(af.amountRequired) : fee.price * af.quantity;
       const paid = af.amountPaidAccumulated || (af.status === 'PAID' ? amount : 0);
       const unpaid = amount - paid;
       totalPaid += paid;
       totalUnpaid += unpaid;
       totalAmount += amount;
-      items.push({ 
-        assignedFeeId: af.id, 
-        feeId: fee.id, 
-        feeName: fee.name, 
-        feeType: fee.type, 
-        calcMethod: fee.calcMethod, 
-        price: fee.price, 
-        quantity: af.quantity, 
-        amount, 
+      items.push({
+        assignedFeeId: af.id,
+        feeId: fee.id,
+        feeName: fee.name,
+        feeType: fee.type,
+        calcMethod: fee.calcMethod,
+        price: fee.price,
+        quantity: af.quantity,
+        amount,
         amountPaidAccumulated: paid,
-        status: af.status, 
-        paidAt: af.paidAt 
+        status: af.status,
+        paidAt: af.paidAt
       });
     }
     return { householdId: hh.id, ownerName: hh.ownerName, membersCount: hh.membersCount, area: hh.area, items, totalAmount, totalPaid, totalUnpaid };
@@ -276,7 +560,8 @@ const FM = {
     db.assignedFees.filter(a => a.periodId === periodId).forEach(af => {
       const fee = db.fees.find(f => f.id === af.feeId);
       if (!fee) return;
-      const amount = fee.price * af.quantity;
+      // FIX: Ưu tiên dùng amountRequired từ backend, fallback offline
+      const amount = (af.amountRequired != null) ? Number(af.amountRequired) : fee.price * af.quantity;
       totalExpected += amount; totalAssignments++;
       const paid = af.amountPaidAccumulated || (af.status === 'PAID' ? amount : 0);
       totalCollected += paid;
@@ -320,15 +605,15 @@ const FM = {
       }
       const hasDebtAssign = db.assignedFees.some(a => a.householdId === hh.id && a.periodId === periodId && a.feeId === 'FEE_DEBT');
       if (!hasDebtAssign) {
-        db.assignedFees.push({ 
-          id: uid('ASF'), 
-          householdId: hh.id, 
-          periodId, 
-          feeId: 'FEE_DEBT', 
-          quantity: totalDebt, 
-          status: 'UNPAID', 
-          amountPaidAccumulated: 0, 
-          paidAt: null 
+        db.assignedFees.push({
+          id: uid('ASF'),
+          householdId: hh.id,
+          periodId,
+          feeId: 'FEE_DEBT',
+          quantity: totalDebt,
+          status: 'UNPAID',
+          amountPaidAccumulated: 0,
+          paidAt: null
         });
       }
     }
@@ -362,15 +647,15 @@ const FM = {
         shouldAssign = true; qty = hh.carCount;
       }
       if (shouldAssign) {
-        db.assignedFees.push({ 
-          id: uid('ASF'), 
-          householdId: hh.id, 
-          periodId, 
-          feeId, 
-          quantity: qty, 
-          status: 'UNPAID', 
+        db.assignedFees.push({
+          id: uid('ASF'),
+          householdId: hh.id,
+          periodId,
+          feeId,
+          quantity: qty,
+          status: 'UNPAID',
           amountPaidAccumulated: 0,
-          paidAt: null 
+          paidAt: null
         });
       }
     }
@@ -481,6 +766,7 @@ export class FeeManagerView {
           <button class="sf-tab" data-sf="sf-fees">Fees</button>
           <button class="sf-tab" data-sf="sf-periods">Periods</button>
           <button class="sf-tab ${isResident ? 'active' : ''}" data-sf="sf-hh">Households & Invoices</button>
+          ${!isResident ? `<button class="sf-tab" data-sf="sf-logs">Utility Logs</button>` : ''}
         </div>
 
         <!-- DASHBOARD -->
@@ -557,6 +843,30 @@ export class FeeManagerView {
               <table class="sf-tbl">
                 <thead><tr><th>Household ID</th><th>Owner</th><th>Members</th><th>Area (m²)</th><th>Total Amount</th><th style="color:var(--color-success);">Paid</th><th style="color:var(--color-warning);">Unpaid</th><th>Status</th><th>Details</th></tr></thead>
                 <tbody id="sf-hh-tbody"></tbody>
+              </table>
+            </div>
+        </div>
+
+        <!-- UTILITY LOGS -->
+        <div class="sf-panel" id="sf-logs">
+          <div class="sf-card">
+            <h3>Utility Index Modification Logs</h3>
+            <div class="sf-tbl-wrap">
+              <table class="sf-tbl">
+                <thead>
+                  <tr>
+                    <th>Household ID</th>
+                    <th>Utility Type</th>
+                    <th>Collection Period</th>
+                    <th>Old Index (Before &rarr; After)</th>
+                    <th>New Index (Before &rarr; After)</th>
+                    <th>Modified By</th>
+                    <th>Modified At</th>
+                  </tr>
+                </thead>
+                <tbody id="sf-logs-tbody">
+                  <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px;">Loading logs...</td></tr>
+                </tbody>
               </table>
             </div>
           </div>
@@ -650,6 +960,11 @@ export class FeeManagerView {
     /* ===== local state ===== */
     let selectedPeriodId = '';
 
+    API.checkHealth().then(status => {
+      isBackendActive = status;
+      renderAll();
+    });
+
     /* ===== helpers ===== */
     const q = s => container.querySelector(s);
     const vnd = n => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
@@ -672,19 +987,19 @@ export class FeeManagerView {
     });
 
     // Reset
-    q('#sf-reset-btn').addEventListener('click', () => {
+    q('#sf-reset-btn').addEventListener('click', async () => {
       if (!confirm('Delete all data and restore sample data?')) return;
       FM.resetSeed(); selectedPeriodId = '';
-      refreshPeriodSel(); renderAll();
+      await refreshPeriodSel(); await renderAll();
       showToast('Sample data has been reset', 'info');
     });
 
     // Period select
-    q('#sf-period-sel').addEventListener('change', e => { selectedPeriodId = e.target.value; renderAll(); });
+    q('#sf-period-sel').addEventListener('change', async e => { selectedPeriodId = e.target.value; await renderAll(); });
 
     /* ===== period select ===== */
-    function refreshPeriodSel() {
-      const periods = FM.getPeriods();
+    async function refreshPeriodSel() {
+      const periods = await FM.getPeriods();
       const sel = q('#sf-period-sel');
       sel.innerHTML = '';
       if (!periods.length) { sel.innerHTML = '<option value="">(No period created)</option>'; selectedPeriodId = ''; return; }
@@ -698,13 +1013,56 @@ export class FeeManagerView {
     }
 
     /* ===== renderAll ===== */
-    function renderAll() {
-      refreshPeriodSel();
+    async function renderAll() {
+      await refreshPeriodSel();
       renderDashboard();
-      renderFees();
-      renderPeriodCheckboxes();
-      renderPeriods();
-      renderHouseholds();
+      await renderFees();
+      await renderPeriodCheckboxes();
+      await renderPeriods();
+      await renderHouseholds();
+      await renderLogs();
+    }
+
+    /* ===== renderLogs ===== */
+    async function renderLogs() {
+      const tbody = q('#sf-logs-tbody');
+      if (!tbody) return;
+
+      let logs = [];
+      if (isBackendActive) {
+        try {
+          logs = await API.getUtilityHistory();
+        } catch (e) {
+          console.error("Error loading utility history from backend: ", e);
+        }
+      } else {
+        const db = fmGetDB();
+        logs = db.utilityHistory || [];
+      }
+
+      tbody.innerHTML = logs.map(log => {
+        const formatTime = t => {
+          try {
+            const date = new Date(t);
+            return date.toLocaleDateString('vi-VN') + ' ' + date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+          } catch {
+            return t;
+          }
+        };
+        const typeLabel = log.type === 'WATER' ? '<span class="sf-badge blue">Water</span>' : '<span class="sf-badge yellow">Electricity</span>';
+
+        return `
+          <tr>
+            <td><strong>${log.householdId}</strong></td>
+            <td>${typeLabel}</td>
+            <td>${log.periodName || log.periodId}</td>
+            <td>${log.oldIndexBefore} &rarr; <strong>${log.oldIndexAfter}</strong></td>
+            <td>${log.newIndexBefore} &rarr; <strong>${log.newIndexAfter}</strong></td>
+            <td><span class="sf-badge gray">${log.modifiedBy}</span></td>
+            <td><small style="color:var(--text-muted);">${formatTime(log.modifiedAt)}</small></td>
+          </tr>
+        `;
+      }).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px;">No utility logs recorded.</td></tr>`;
     }
 
     /* ===== dashboard ===== */
@@ -722,9 +1080,10 @@ export class FeeManagerView {
     }
 
     /* ===== fees tab ===== */
-    function renderFees() {
+    async function renderFees() {
       const calcMap = { FIXED: 'Fixed', PER_MEMBER: 'Per Member', PER_AREA: 'Per Area', CONSUMPTION: 'Consumption' };
-      q('#sf-fees-tbody').innerHTML = FM.getFees().map(f => `
+      const fees = await FM.getFees();
+      q('#sf-fees-tbody').innerHTML = fees.map(f => `
         <tr>
           <td><strong>${f.id}</strong></td>
           <td>${f.name}</td>
@@ -739,17 +1098,24 @@ export class FeeManagerView {
         </tr>`).join('') || `<tr><td colspan="${isResident ? 5 : 6}" style="text-align:center;color:var(--text-muted);padding:20px;">No fees found.</td></tr>`;
 
       if (!isResident) {
-        q('#sf-fees-tbody').querySelectorAll('.sf-del-fee').forEach(b => b.addEventListener('click', () => {
+        q('#sf-fees-tbody').querySelectorAll('.sf-del-fee').forEach(b => b.addEventListener('click', async () => {
           if (!confirm(`Delete fee "${b.dataset.id}"? This action will cascade delete periods and assignments.`)) return;
-          FM.deleteFee(b.dataset.id); showToast('Fee deleted', 'info'); renderAll();
+          try {
+            await FM.deleteFee(b.dataset.id);
+            showToast('Fee deleted', 'info');
+            await renderAll();
+          } catch (err) {
+            showToast(err.message, 'error');
+          }
         }));
-        q('#sf-fees-tbody').querySelectorAll('.sf-edit-fee').forEach(b => b.addEventListener('click', () => openFeeModal(b.dataset.id)));
+        q('#sf-fees-tbody').querySelectorAll('.sf-edit-fee').forEach(b => b.addEventListener('click', async () => await openFeeModal(b.dataset.id)));
       }
     }
 
     /* ===== period checkboxes ===== */
-    function renderPeriodCheckboxes() {
-      q('#sf-pchk').innerHTML = FM.getFees().map(f => `
+    async function renderPeriodCheckboxes() {
+      const fees = await FM.getFees();
+      q('#sf-pchk').innerHTML = fees.map(f => `
         <label class="sf-chk-item">
           <input type="checkbox" name="sfpf" value="${f.id}" ${f.type === 'COMPULSORY' ? 'checked' : ''}>
           <span>${f.name} ${f.type === 'COMPULSORY' ? '<strong>(Compulsory)</strong>' : '(Voluntary)'}</span>
@@ -757,8 +1123,9 @@ export class FeeManagerView {
     }
 
     /* ===== periods tab ===== */
-    function renderPeriods() {
-      q('#sf-periods-tbody').innerHTML = FM.getPeriods().map(p => {
+    async function renderPeriods() {
+      const periods = await FM.getPeriods();
+      q('#sf-periods-tbody').innerHTML = periods.map(p => {
         const badge = p.status === 'ACTIVE'
           ? '<span class="sf-badge green">Active</span>'
           : '<span class="sf-badge red">Closed</span>';
@@ -774,19 +1141,31 @@ export class FeeManagerView {
       }).join('') || `<tr><td colspan="${isResident ? 3 : 4}" style="text-align:center;color:var(--text-muted);padding:20px;">No periods found.</td></tr>`;
 
       if (!isResident) {
-        q('#sf-periods-tbody').querySelectorAll('.sf-close-p').forEach(b => b.addEventListener('click', () => {
+        q('#sf-periods-tbody').querySelectorAll('.sf-close-p').forEach(b => b.addEventListener('click', async () => {
           if (!confirm('Close this collection period?')) return;
-          FM.closePeriod(b.dataset.id); showToast('Period closed', 'info'); renderAll();
+          try {
+            await FM.closePeriod(b.dataset.id);
+            showToast('Period closed', 'info');
+            await renderAll();
+          } catch (err) {
+            showToast(err.message, 'error');
+          }
         }));
       }
     }
 
     /* ===== households tab ===== */
-    function renderHouseholds() {
+    async function renderHouseholds() {
       if (!selectedPeriodId) {
         q('#sf-hh-tbody').innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:20px;">Please create a collection period first!</td></tr>`;
         return;
       }
+
+      // Tải và đồng bộ hóa đơn (gán phí) từ backend của đợt thu đang chọn
+      if (isBackendActive) {
+        await FM.syncAssignedFees(selectedPeriodId);
+      }
+
       const selOpt = q('#sf-period-sel option:checked');
       q('#sf-hh-pname').textContent = selOpt ? selOpt.textContent : '';
 
@@ -813,14 +1192,15 @@ export class FeeManagerView {
         </tr>`;
       }).join('') || `<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:20px;">No households found.</td></tr>`;
 
-      q('#sf-hh-tbody').querySelectorAll('.sf-view-bill').forEach(b => b.addEventListener('click', () => openBillModal(b.dataset.id)));
+      q('#sf-hh-tbody').querySelectorAll('.sf-view-bill').forEach(b => b.addEventListener('click', async () => await openBillModal(b.dataset.id)));
     }
 
     /* ===== fee modal ===== */
-    function openFeeModal(feeId = null) {
+    async function openFeeModal(feeId = null) {
       closeAll(); q('#sf-fee-form').reset();
       if (feeId) {
-        const f = FM.getFees().find(x => x.id === feeId);
+        const fees = await FM.getFees();
+        const f = fees.find(x => x.id === feeId);
         if (f) {
           q('#sf-fee-mtitle').textContent = 'Edit Fee';
           q('#sf-fee-eid').value = f.id;
@@ -837,7 +1217,7 @@ export class FeeManagerView {
     }
 
     /* ===== bill modal ===== */
-    function openBillModal(hhId) {
+    async function openBillModal(hhId) {
       closeAll();
       const bill = FM.calcBill(hhId, selectedPeriodId);
       q('#sf-bill-title').textContent = `Invoice for Unit ${bill.householdId}`;
@@ -857,7 +1237,7 @@ export class FeeManagerView {
         ${!isResident ? '<th style="text-align:right;">Actions</th>' : ''}
       `;
 
-      const calcLbl = { FIXED: 'Fixed', PER_MEMBER: 'Members × Unit Price', PER_AREA: 'Area × Unit Price', CONSUMPTION: 'Consumption × Unit Price', PER_MOTORCYCLE: 'Motorcycle × Unit Price', PER_CAR: 'Car × Unit Price' };
+      const calcLbl = { FIXED: 'Fixed', PER_MEMBER: 'Members × Unit Price', PER_PERSON: 'Members × Unit Price', PER_AREA: 'Area × Unit Price', PER_M2: 'Area × Unit Price', CONSUMPTION: 'Consumption × Unit Price', PER_MOTORCYCLE: 'Motorcycle × Unit Price', PER_CAR: 'Car × Unit Price' };
 
       q('#sf-bill-tbody').innerHTML = bill.items.map(item => {
         let qtyHtml = `<span style="color:var(--text-muted);">${item.quantity}</span>`;
@@ -902,18 +1282,33 @@ export class FeeManagerView {
 
       // bill events
       q('#sf-bill-tbody').querySelectorAll('.sf-index-old, .sf-index-new').forEach(inp => {
-        inp.addEventListener('change', () => {
+        inp.addEventListener('change', async () => {
           const fid = inp.dataset.fid;
           const tr = inp.closest('tr');
           const oldVal = Number(tr.querySelector('.sf-index-old').value) || 0;
           const newVal = Number(tr.querySelector('.sf-index-new').value) || 0;
-          FM.updateUtilityIndex(hhId, selectedPeriodId, fid, oldVal, newVal);
-          openBillModal(hhId); renderAll(); showToast('Updated consumption indexes', 'success');
+
+          if (isBackendActive) {
+            try {
+              await API.updateUtilityIndex(hhId, selectedPeriodId, fid, oldVal, newVal);
+              FM.updateUtilityIndex(hhId, selectedPeriodId, fid, oldVal, newVal);
+              showToast('Updated consumption indexes (Backend)!', 'success');
+            } catch (err) {
+              showToast(err.message, 'error');
+            }
+          } else {
+            try {
+              FM.updateUtilityIndex(hhId, selectedPeriodId, fid, oldVal, newVal);
+              showToast('Updated consumption indexes!', 'success');
+            } catch (err) {
+              showToast(err.message, 'error');
+            }
+          }
+          await openBillModal(hhId); await renderAll();
         });
       });
       q('#sf-bill-tbody').querySelectorAll('.sf-pay').forEach(b => b.addEventListener('click', async () => {
-        const isBackend = await API.checkHealth();
-        if (isBackend) {
+        if (isBackendActive) {
           try {
             const receipt = await API.recordPayment(b.dataset.id, 0, 'Paid fee from bill details');
             FM.payFee(b.dataset.id); // local synchronization
@@ -925,20 +1320,24 @@ export class FeeManagerView {
           FM.payFee(b.dataset.id);
           showToast('Payment successful!', 'success');
         }
-        openBillModal(hhId); renderAll();
+        await openBillModal(hhId); await renderAll();
       }));
-      q('#sf-bill-tbody').querySelectorAll('.sf-unpay').forEach(b => b.addEventListener('click', () => {
-        FM.unpayFee(b.dataset.id); openBillModal(hhId); renderAll(); showToast('Payment payment undone', 'info');
+      q('#sf-bill-tbody').querySelectorAll('.sf-unpay').forEach(b => b.addEventListener('click', async () => {
+        FM.unpayFee(b.dataset.id); await openBillModal(hhId); await renderAll(); showToast('Payment payment undone', 'info');
       }));
-      q('#sf-bill-tbody').querySelectorAll('.sf-unassign').forEach(b => b.addEventListener('click', () => {
+      q('#sf-bill-tbody').querySelectorAll('.sf-unassign').forEach(b => b.addEventListener('click', async () => {
         if (!confirm('Unassign this fee?')) return;
-        FM.unassignFee(hhId, selectedPeriodId, b.dataset.fid); openBillModal(hhId); renderAll(); showToast('Fee unassigned', 'info');
+        FM.unassignFee(hhId, selectedPeriodId, b.dataset.fid); await openBillModal(hhId); await renderAll(); showToast('Fee unassigned', 'info');
       }));
 
       // assign dropdown
-      const period = FM.getPeriods().find(p => p.id === selectedPeriodId);
+      const periods = (await FM.getPeriods()) || [];
+      const period = Array.isArray(periods) ? periods.find(p => p.id === selectedPeriodId) : null;
       const assignedIds = bill.items.map(i => i.feeId);
-      const unassigned = period ? FM.getFees().filter(f => period.feeIds.includes(f.id) && !assignedIds.includes(f.id)) : [];
+      const fees = (await FM.getFees()) || [];
+      const unassigned = (period && Array.isArray(period.feeIds))
+        ? fees.filter(f => period.feeIds.includes(f.id) && !assignedIds.includes(f.id))
+        : [];
       q('#sf-assign-sel').innerHTML = unassigned.length
         ? `<option value="">-- Select Fee --</option>` + unassigned.map(f => `<option value="${f.id}">${f.name} — ${vnd(f.price)}</option>`).join('')
         : `<option disabled>(All assigned)</option>`;
@@ -949,19 +1348,29 @@ export class FeeManagerView {
     /* ===== form events ===== */
     const addFeeBtn = q('#sf-add-fee-btn');
     if (addFeeBtn) {
-      addFeeBtn.addEventListener('click', () => openFeeModal());
+      addFeeBtn.addEventListener('click', async () => await openFeeModal());
     }
 
     const feeForm = q('#sf-fee-form');
     if (feeForm) {
-      feeForm.addEventListener('submit', e => {
+      feeForm.addEventListener('submit', async e => {
         e.preventDefault();
         const id = q('#sf-fee-eid').value;
         const name = q('#sf-fee-name').value, type = q('#sf-fee-type').value,
           calc = q('#sf-fee-calc').value, price = Number(q('#sf-fee-price').value);
-        if (id) { FM.updateFee(id, name, type, calc, price); showToast('Fee updated', 'success'); }
-        else { FM.createFee(name, type, calc, price); showToast('Fee created', 'success'); }
-        close('sf-ov-fee'); renderAll();
+        try {
+          if (id) {
+            await FM.updateFee(id, name, type, calc, price);
+            showToast('Fee updated', 'success');
+          } else {
+            await FM.createFee(name, type, calc, price);
+            showToast('Fee created', 'success');
+          }
+          close('sf-ov-fee');
+          await renderAll();
+        } catch (err) {
+          showToast(err.message, 'error');
+        }
       });
     }
 
@@ -990,14 +1399,19 @@ export class FeeManagerView {
 
     const formPeriod = q('#sf-form-period');
     if (formPeriod) {
-      formPeriod.addEventListener('submit', e => {
+      formPeriod.addEventListener('submit', async e => {
         e.preventDefault();
         const feeIds = [...container.querySelectorAll('input[name="sfpf"]:checked')].map(c => c.value);
         if (!feeIds.length) { showToast('Select at least one fee!', 'warning'); return; }
-        const p = FM.createPeriod(q('#sf-pname').value.trim(), feeIds);
-        selectedPeriodId = p.id;
-        q('#sf-pname').value = '';
-        showToast('Collection period created', 'success'); renderAll();
+        try {
+          const p = await FM.createPeriod(q('#sf-pname').value.trim(), feeIds);
+          selectedPeriodId = p.id;
+          q('#sf-pname').value = '';
+          showToast('Collection period created', 'success');
+          await renderAll();
+        } catch (err) {
+          showToast(err.message, 'error');
+        }
       });
     }
 

@@ -35,4 +35,27 @@ public class Household {
 
     @Column(name = "car_count")
     private int carCount;
+
+    @Column(name = "apartment_no")
+    private String apartmentNo;
+
+    @Column(name = "floor")
+    private Integer floor;
+
+    @Column(name = "phone")
+    private String phone;
+
+    @Column(name = "status")
+    private String status;
+
+    @Column(name = "note", length = 500)
+    private String note;
+
+    public String getHeadName() {
+        return ownerName;
+    }
+
+    public int getMemberCount() {
+        return membersCount;
+    }
 }
