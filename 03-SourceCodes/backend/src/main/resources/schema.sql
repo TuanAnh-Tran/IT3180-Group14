@@ -224,7 +224,7 @@ CREATE TABLE IF NOT EXISTS activity_log (
 -- Admin: admin / admin123 (hash bằng BCrypt)
 -- Mật khẩu mặc định là admin123, hash: $2a$10$r64EOiC4selSUMIC3ORwOeZlyuAT8AoEki0B2v4A3F.EfRQOUPVp6
 INSERT IGNORE INTO users (id, username, password_hash, full_name, role, status) VALUES
-('USR001', 'admin', '$2a$10$r64EOiC4selSUMIC3ORwOeZlyuAT8AoEki0B2v4A3F.EfRQOUPVp6', 'Administrator', 'ADMIN', 'ACTIVE');
+('USR001', 'admin', '$2a$10$r64EOiC4selSUMIC3ORwOeZlyuAT8AoEki0B2v4A3F.EfRQOUPVp6', 'Administrator', 'admin', 'ACTIVE');
 
 -- Sample Households
 INSERT IGNORE INTO household (id, owner_name, members_count, area, motorcycle_count, car_count, apartment_no, floor, phone, status, note) VALUES
