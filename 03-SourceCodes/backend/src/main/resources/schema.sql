@@ -223,8 +223,12 @@ CREATE TABLE IF NOT EXISTS activity_log (
 -- Sample Users
 -- Admin: admin / admin123 (hash bằng BCrypt)
 -- Mật khẩu mặc định là admin123, hash: $2a$10$r64EOiC4selSUMIC3ORwOeZlyuAT8AoEki0B2v4A3F.EfRQOUPVp6
-INSERT IGNORE INTO users (id, username, password_hash, full_name, role, status) VALUES
-('USR001', 'admin', '$2a$10$r64EOiC4selSUMIC3ORwOeZlyuAT8AoEki0B2v4A3F.EfRQOUPVp6', 'Administrator', 'admin', 'ACTIVE');
+-- Accountant: accountant / accountant123
+-- Resident: resident1 / user123 (liên kết với RES001 - Nguyễn Văn An của HH001)
+INSERT IGNORE INTO users (id, username, password_hash, full_name, role, room, phone, identity_no, status) VALUES
+('USR001', 'admin', '$2a$10$r64EOiC4selSUMIC3ORwOeZlyuAT8AoEki0B2v4A3F.EfRQOUPVp6', 'Administrator', 'admin', NULL, NULL, NULL, 'ACTIVE'),
+('USR002', 'accountant', '$2a$10$z5ERVXsjXRLfoAU0IEhuIe7z.mf/L4McoE2Ua.7Gug4PzyNrWgq7a', 'Financial Accountant', 'accountant', NULL, NULL, NULL, 'ACTIVE'),
+('USR003', 'resident1', '$2a$10$fEsmuxS24ElEpuvo0k9UB.1qj7cXxKYC4ry4cefaWsKC.KKbC8.76', 'Nguyen Van An', 'user', 'HH001', '0987654321', '001085000111', 'ACTIVE');
 
 -- Sample Households
 INSERT IGNORE INTO household (id, owner_name, members_count, area, motorcycle_count, car_count, apartment_no, floor, phone, status, note) VALUES
