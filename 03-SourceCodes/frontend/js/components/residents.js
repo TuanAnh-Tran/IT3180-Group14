@@ -317,8 +317,23 @@ function appendQuery(url, params) {
 }
 
 async function apiJson(path, options = {}) {
+  // Include JWT token if available
+  const tokenStr = sessionStorage.getItem('apartment_mgmt_session');
+  let token = null;
+  if (tokenStr) {
+    try {
+      const sessionObj = JSON.parse(tokenStr);
+      token = sessionObj.token || sessionObj;
+      if (typeof token === 'object') token = token.token;
+    } catch (e) { }
+  }
+
   const response = await fetch(`${API_ROOT}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    headers: { 
+      'Content-Type': 'application/json', 
+      ...(options.headers || {}),
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    },
     ...options
   });
   if (!response.ok) {
