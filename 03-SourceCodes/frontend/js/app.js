@@ -264,7 +264,14 @@ function renderAuthScreen(tab = 'login') {
 // ========== MAIN APP ==========
 function renderMainApp(user) {
   // Nav items: dashboard, users (admin only), residents, profile
-  const navItems = ['dashboard', ...(user.role==='admin'?['users', 'fees']:[]), 'residents', 'payment', 'profile'];
+  const navItems = [
+    'dashboard', 
+    ...(user.role === 'admin' ? ['users'] : []), 
+    ...(user.role === 'admin' || user.role === 'accountant' ? ['fees'] : []), 
+    'residents', 
+    'payment', 
+    'profile'
+  ];
 
   // Expose FM globally for PaymentView
   window.__FM__ = FM;
@@ -310,9 +317,9 @@ function renderMainApp(user) {
   const tabTitles = {
     dashboard: ['Dashboard', 'Overview'],
     users:     ['User Management', 'Accounts & Roles'],
-    residents: user.role === 'admin' ? ['Resident Manager', 'Households & Apartments'] : ['My Household', 'View household info & members'],
+    residents: (user.role === 'admin' || user.role === 'accountant') ? ['Resident Manager', 'Households & Apartments'] : ['My Household', 'View household info & members'],
     fees:      ['Fee Manager', 'Household Fees — Java Backend'],
-    payment:   user.role === 'admin' ? ['Payment & Statistics', 'Payment · Receipt · Statistics — Java Backend'] : ['My Bills & Receipts', 'View unpaid bills and payment history'],
+    payment:   (user.role === 'admin' || user.role === 'accountant') ? ['Payment & Statistics', 'Payment · Receipt · Statistics — Java Backend'] : ['My Bills & Receipts', 'View unpaid bills and payment history'],
     profile:   ['My Profile', 'Account Settings'],
   };
 
@@ -372,7 +379,7 @@ Sidebar.render = function(container, activeTab, user, onTabChange, onLogout) {
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21.75h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21.828V12a1.875 1.875 0 011.875-1.875h3.75A1.875 1.875 0 0115.75 12v9.828"/>
     </svg>
-    <span>${user.role === 'admin' ? 'Resident Manager' : 'My Household'}</span>
+    <span>${(user.role === 'admin' || user.role === 'accountant') ? 'Resident Manager' : 'My Household'}</span>
   `;
   resItem.addEventListener('click', (e) => {
     e.preventDefault();
@@ -380,8 +387,8 @@ Sidebar.render = function(container, activeTab, user, onTabChange, onLogout) {
   });
   nav.insertBefore(resItem, profileItem);
 
-  // Inject "Fee Manager" nav item before Profile (Only for Admin)
-  if (user.role === 'admin') {
+  // Inject "Fee Manager" nav item before Profile (For Admin and Accountant)
+  if (user.role === 'admin' || user.role === 'accountant') {
     const feeItem = document.createElement('a');
     feeItem.className = `nav-item ${activeTab === 'fees' ? 'active' : ''}`;
     feeItem.setAttribute('data-tab', 'fees');
@@ -406,7 +413,7 @@ Sidebar.render = function(container, activeTab, user, onTabChange, onLogout) {
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"/>
     </svg>
-    <span>${user.role === 'admin' ? 'Payment & Stats' : 'My Bills & Receipts'}</span>
+    <span>${(user.role === 'admin' || user.role === 'accountant') ? 'Payment & Stats' : 'My Bills & Receipts'}</span>
   `;
   payItem.addEventListener('click', (e) => {
     e.preventDefault();

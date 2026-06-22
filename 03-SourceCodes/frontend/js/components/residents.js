@@ -901,7 +901,7 @@ function readVehicleForm(container) {
 
 export class ResidentsManager {
   static async render(container, currentUser, showToast) {
-    if (currentUser && currentUser.role !== 'admin') {
+    if (currentUser && currentUser.role !== 'admin' && currentUser.role !== 'accountant') {
       container.innerHTML = '<div class="rm-empty">Loading household info...</div>';
       try {
         let household = null;
