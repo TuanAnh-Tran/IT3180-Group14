@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS resident (
 CREATE TABLE IF NOT EXISTS fee (
     id          VARCHAR(50)     PRIMARY KEY,
     name        VARCHAR(255)    NOT NULL COMMENT 'Tên khoản phí',
-    type        ENUM('MANDATORY','VOLUNTARY','VEHICLE','UTILITY')
+    type        ENUM('COMPULSORY','VOLUNTARY')
                 NOT NULL COMMENT 'Loại phí',
     calc_method ENUM('FIXED','PER_PERSON','PER_M2','PER_VEHICLE','PER_MOTORCYCLE','PER_CAR','CONSUMPTION')
                 NOT NULL COMMENT 'Phương thức tính',
@@ -248,16 +248,16 @@ INSERT IGNORE INTO resident (id, full_name, gender, date_of_birth, identity_no, 
 
 -- Sample Fees
 INSERT IGNORE INTO fee (id, name, type, calc_method, price) VALUES
-('FEE001', 'Apartment Management Fee',    'MANDATORY', 'PER_M2',     15000),
-('FEE002', 'Waste Cleaning Fee',          'MANDATORY', 'PER_PERSON',  72000),
-('FEE003', 'Motorcycle Parking Fee',     'VEHICLE',   'PER_MOTORCYCLE', 70000),
-('FEE004', 'Car Parking Fee',            'VEHICLE',   'PER_CAR', 150000),
+('FEE001', 'Apartment Management Fee',    'COMPULSORY', 'PER_M2',     15000),
+('FEE002', 'Waste Cleaning Fee',          'COMPULSORY', 'PER_PERSON',  72000),
+('FEE003', 'Motorcycle Parking Fee',     'COMPULSORY',   'PER_MOTORCYCLE', 70000),
+('FEE004', 'Car Parking Fee',            'COMPULSORY',   'PER_CAR', 150000),
 ('FEE005', 'Welfare Fund',                'VOLUNTARY', 'PER_PERSON',  20000),
 ('FEE006', 'Invalids & Martyrs Day Contribution 27/07', 'VOLUNTARY', 'FIXED', 50000),
 ('FEE007', 'Childrens Day Donation',     'VOLUNTARY', 'FIXED',       50000),
 ('FEE008', 'Donation for the Poor',       'VOLUNTARY', 'FIXED',       50000),
-('FEE009', 'Running Water Fee',          'UTILITY',   'CONSUMPTION', 15000),
-('FEE_DEBT', 'Previous Period Debt',     'MANDATORY', 'FIXED', 1.00);
+('FEE009', 'Running Water Fee',          'COMPULSORY',   'CONSUMPTION', 15000),
+('FEE_DEBT', 'Previous Period Debt',     'COMPULSORY', 'FIXED', 1.00);
 
 -- Sample Collection Periods
 INSERT IGNORE INTO collection_period (id, name, status, created_at) VALUES

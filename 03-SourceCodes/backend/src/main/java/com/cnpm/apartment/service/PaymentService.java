@@ -177,7 +177,7 @@ public class PaymentService {
                     Fee f = Fee.builder()
                             .id("FEE_DEBT")
                             .name("Previous Period Debt")
-                            .type(FeeType.MANDATORY)
+                            .type(FeeType.COMPULSORY)
                             .calcMethod(CalcMethod.FIXED)
                             .price(BigDecimal.ONE)
                             .build();
@@ -220,7 +220,7 @@ public class PaymentService {
                 boolean shouldAssign = false;
                 double qty = 1.0;
 
-                if (fee.getType() == FeeType.MANDATORY) {
+                if (fee.getType() == FeeType.COMPULSORY) {
                     shouldAssign = true;
                     if (fee.getCalcMethod() == CalcMethod.PER_PERSON) {
                         qty = hh.getMembersCount();

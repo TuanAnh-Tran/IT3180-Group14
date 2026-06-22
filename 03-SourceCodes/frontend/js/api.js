@@ -148,11 +148,13 @@ export const API = {
    * Ghi nhận nộp tiền (POST /api/payments).
    */
   async recordPayment(assignedFeeId, amountPaid, note = '') {
+    const parsedAmount = Number(amountPaid);
+    const finalAmount = (isNaN(parsedAmount) || parsedAmount <= 0) ? null : parsedAmount;
     return this.fetchJson('/payments', {
       method: 'POST',
       body: JSON.stringify({
         assignedFeeId,
-        amountPaid: Number(amountPaid),
+        amountPaid: finalAmount,
         note
       })
     });
