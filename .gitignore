@@ -2,3 +2,6 @@ backend/target/
 backend/.mvn/
 *.class
 *.log
+
+# Maven build output
+**/target/

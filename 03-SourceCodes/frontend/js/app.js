@@ -142,10 +142,25 @@ function renderAuthScreen(tab = 'login') {
                   <div class="input-wrapper"><span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg></span>
                   <input type="password" class="form-control" id="regPassword" placeholder="Min 6 chars"></div>
                 </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
                 <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label">Admin Secret</label>
-                  <div class="input-wrapper"><span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg></span>
-                  <input type="password" class="form-control" id="regAdminSecret" placeholder="Optional"></div>
+                  <label class="form-label">Account Role *</label>
+                  <div class="input-wrapper">
+                    <span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-.999.43-1.563A6 6 0 1121.75 8.25z"/></svg></span>
+                    <select class="form-control" id="regRole" onchange="window.__onRoleChange()" style="cursor:pointer; appearance: none; background: transparent; border: none; width: 100%; padding-left: 40px; color: var(--text-primary);">
+                      <option value="user" style="background:var(--bg-secondary);">Resident (Cư dân)</option>
+                      <option value="admin" style="background:var(--bg-secondary);">Admin (Quản lý)</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group" style="margin-bottom:0; display:none;" id="adminSecretGroup">
+                  <label class="form-label">Admin Secret Key *</label>
+                  <div class="input-wrapper" style="position:relative;">
+                    <span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.249-8.25-3.286zm0 13.036h.008v.008H12v-.008z"/></svg></span>
+                    <input type="password" class="form-control" id="regAdminSecret" placeholder="Admin secret key" style="padding-right:45px;">
+                    <button type="button" onclick="window.__toggleRegPassword('regAdminSecret')" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--text-muted); cursor:pointer; padding:6px; font-size:12px; z-index:10;">Show</button>
+                  </div>
                 </div>
               </div>
               <button type="submit" class="btn btn-primary" style="width:100%;margin-top:16px;" id="registerBtn">Create Account</button>
@@ -179,8 +194,6 @@ function renderAuthScreen(tab = 'login') {
   document.head.appendChild(modalStyle);
 
   window.__switchAuthTab = (tab) => renderAuthScreen(tab);
-
-
 
   // Auth interaction logic
   const linkForgot = document.getElementById('linkForgotPassword');
@@ -220,6 +233,39 @@ function renderAuthScreen(tab = 'login') {
     } catch (err) { showToast(err.message, 'error'); }
   });
 
+  window.__toggleRegPassword = (id) => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    input.type = input.type === 'password' ? 'text' : 'password';
+  };
+
+  window.__onRoleChange = () => {
+    const role = document.getElementById('regRole')?.value;
+    const secretGroup = document.getElementById('adminSecretGroup');
+    const secretInput = document.getElementById('regAdminSecret');
+    if (!secretGroup || !secretInput) return;
+    if (role === 'admin') {
+      secretGroup.style.display = 'block';
+      secretInput.required = true;
+    } else {
+      secretGroup.style.display = 'none';
+      secretInput.required = false;
+      secretInput.value = '';
+    }
+  };
+
+  const resetBtn = document.getElementById('btnResetMockDB');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (confirm('Are you sure you want to reset the mock database? All local changes will be lost.')) {
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.reload();
+      }
+    });
+  }
+
   document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('loginBtn');
@@ -239,9 +285,25 @@ function renderAuthScreen(tab = 'login') {
   document.getElementById('registerForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('registerBtn');
+
+    const selectedRole = document.getElementById('regRole')?.value || 'user';
+    const adminSecret = document.getElementById('regAdminSecret')?.value || '';
+
+    if (selectedRole === 'admin') {
+      if (!adminSecret) {
+        showToast('Please enter the Admin Secret Key!', 'error');
+        return;
+      }
+      const frontendAdminSecret = window.ADMIN_SECRET_KEY || window.APP_ADMIN_SECRET;
+      if (frontendAdminSecret && adminSecret !== frontendAdminSecret) {
+        showToast('Invalid Admin Secret Key! Contact your system operator.', 'error');
+        return;
+      }
+    }
+
     btn.textContent = 'Creating...'; btn.disabled = true;
     try {
-      await AuthService.register(
+      const registeredUser = await AuthService.register(
         document.getElementById('regUsername').value,
         document.getElementById('regEmail').value,
         document.getElementById('regFullname').value,
@@ -249,8 +311,13 @@ function renderAuthScreen(tab = 'login') {
         document.getElementById('regPhone').value,
         document.getElementById('regIdentityNo').value,
         document.getElementById('regPassword').value,
-        document.getElementById('regAdminSecret') ? document.getElementById('regAdminSecret').value : ''
+        selectedRole === 'admin' ? adminSecret : '',
+        selectedRole
       );
+      if (registeredUser && registeredUser.username) {
+        renderMainApp(registeredUser);
+        return;
+      }
       showToast('Registration successful! Please wait for Admin approval.', 'success');
       window.__switchAuthTab('login');
       btn.textContent = 'Create Account'; btn.disabled = false;

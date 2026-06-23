@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ResidentRepository extends JpaRepository<Resident, String> {
@@ -17,24 +18,46 @@ public interface ResidentRepository extends JpaRepository<Resident, String> {
 
     boolean existsByIdentityNoIgnoreCaseAndIdNot(String identityNo, String id);
 
-    long countByHouseholdId(String householdId);
+    Optional<Resident> findByIdentityNoIgnoreCase(String identityNo);
 
-    long countByStatus(ResidentStatus status);
+    long countByHouseholdIdAndArchivedFalse(String householdId);
 
-    List<Resident> findByHouseholdIdOrderByFullNameAsc(String householdId);
+    long countByArchivedFalse();
+
+    long countByArchivedTrue();
+
+    long countByStatusAndArchivedFalse(ResidentStatus status);
+
+    List<Resident> findByHouseholdIdAndArchivedFalseOrderByFullNameAsc(String householdId);
+
+    List<Resident> findByHouseholdIdAndArchivedFalse(String householdId);
+
+    @Query("""
+            SELECT COUNT(r) FROM Resident r
+            WHERE r.archived = false
+              AND r.household.id = :householdId
+              AND r.status <> com.cnpm.apartment.model.enums.ResidentStatus.MOVED_OUT
+              AND r.status <> com.cnpm.apartment.model.enums.ResidentStatus.DECEASED
+            """)
+    long countActiveMembers(@Param("householdId") String householdId);
 
     @Query("""
             SELECT r FROM Resident r
             LEFT JOIN r.household h
-            WHERE (:status IS NULL OR r.status = :status)
+            WHERE r.archived = false
+              AND (:status IS NULL OR r.status = :status)
               AND (:gender IS NULL OR :gender = '' OR LOWER(COALESCE(r.gender, '')) = LOWER(:gender))
               AND (:householdId IS NULL OR :householdId = '' OR h.id = :householdId)
               AND (:search IS NULL OR :search = ''
                    OR LOWER(r.fullName) LIKE LOWER(CONCAT('%', :search, '%'))
                    OR LOWER(r.identityNo) LIKE LOWER(CONCAT('%', :search, '%'))
+                   OR LOWER(COALESCE(r.alias, '')) LIKE LOWER(CONCAT('%', :search, '%'))
                    OR LOWER(COALESCE(r.phone, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                   OR LOWER(COALESCE(r.birthPlace, '')) LIKE LOWER(CONCAT('%', :search, '%'))
                    OR LOWER(COALESCE(r.hometown, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                   OR LOWER(COALESCE(r.ethnicity, '')) LIKE LOWER(CONCAT('%', :search, '%'))
                    OR LOWER(COALESCE(r.occupation, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                   OR LOWER(COALESCE(r.workplace, '')) LIKE LOWER(CONCAT('%', :search, '%'))
                    OR LOWER(COALESCE(h.apartmentNo, '')) LIKE LOWER(CONCAT('%', :search, '%'))
                    OR LOWER(COALESCE(h.ownerName, '')) LIKE LOWER(CONCAT('%', :search, '%')))
             """)

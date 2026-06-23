@@ -4,11 +4,14 @@ import com.cnpm.apartment.dto.*;
 import com.cnpm.apartment.model.Household;
 import com.cnpm.apartment.model.Resident;
 import com.cnpm.apartment.model.ResidentActivityLog;
+import com.cnpm.apartment.model.TemporaryResidenceRecord;
 import com.cnpm.apartment.model.enums.HouseholdStatus;
+import com.cnpm.apartment.model.enums.ResidenceRecordType;
 import com.cnpm.apartment.model.enums.ResidentStatus;
 import com.cnpm.apartment.repository.HouseholdRepository;
 import com.cnpm.apartment.repository.ResidentActivityLogRepository;
 import com.cnpm.apartment.repository.ResidentRepository;
+import com.cnpm.apartment.repository.TemporaryResidenceRecordRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -17,10 +20,12 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -30,6 +35,7 @@ public class ResidentManagementService {
     private final HouseholdRepository householdRepository;
     private final ResidentRepository residentRepository;
     private final ResidentActivityLogRepository activityLogRepository;
+    private final TemporaryResidenceRecordRepository temporaryResidenceRecordRepository;
 
     @Transactional(readOnly = true)
     public Page<HouseholdDTO> searchHouseholds(String search, String status, Pageable pageable) {
@@ -40,39 +46,15 @@ public class ResidentManagementService {
 
     @Transactional(readOnly = true)
     public HouseholdDTO getHousehold(String id) {
-        Household household = getHouseholdOrThrow(id);
-        return toHouseholdDTO(household, true);
+        return toHouseholdDTO(getHouseholdOrThrow(id), true);
     }
 
     @Transactional
     public HouseholdDTO createHousehold(HouseholdRequest request, String actor) {
-        String code = normalizeCode(request.getCode());
-        if (householdRepository.existsById(code)) {
-            throw new RuntimeException("Household code already exists.");
-        }
-        String apartmentNo = clean(request.getApartmentNo());
-        if (householdRepository.existsByApartmentNoIgnoreCase(apartmentNo)) {
-            throw new RuntimeException("Apartment number already exists.");
-        }
-
-        Household household = Household.builder()
-                .id(code)
-                .apartmentNo(apartmentNo)
-                .floor(request.getFloor())
-                .area(request.getArea())
-                .ownerName(clean(request.getHeadName()))
-                .phone(clean(request.getPhone()))
-                .status(parseHouseholdStatusOrDefault(request.getStatus()))
-                .note(clean(request.getNote()))
-                .membersCount(0)
-                .motorcycleCount(request.getMotorcycleCount())
-                .carCount(request.getCarCount())
-                .build();
-
-        Household saved = householdRepository.save(household);
-        addLog(actor, "CREATE", "HOUSEHOLD", saved.getId(),
-                "Created household " + saved.getId() + " for apartment " + saved.getApartmentNo());
-        return toHouseholdDTO(saved, true);
+        Household household = createHouseholdEntity(request, actor, true);
+        assignHeadIfRequested(household, request.getHeadIdentityNo(), actor, "CREATE_HOUSEHOLD");
+        refreshMemberCount(household);
+        return toHouseholdDTO(household, true);
     }
 
     @Transactional
@@ -83,31 +65,26 @@ public class ResidentManagementService {
             throw new RuntimeException("Apartment number already exists.");
         }
 
-        household.setApartmentNo(apartmentNo);
-        household.setFloor(request.getFloor());
-        household.setArea(request.getArea());
-        household.setOwnerName(clean(request.getHeadName()));
-        household.setPhone(clean(request.getPhone()));
-        household.setStatus(parseHouseholdStatusOrDefault(request.getStatus()));
-        household.setNote(clean(request.getNote()));
-        household.setMotorcycleCount(request.getMotorcycleCount());
-        household.setCarCount(request.getCarCount());
-
+        applyHouseholdFields(household, request);
         Household saved = householdRepository.save(household);
-        addLog(actor, "UPDATE", "HOUSEHOLD", saved.getId(),
-                "Updated household " + saved.getId());
+        assignHeadIfRequested(saved, request.getHeadIdentityNo(), actor, "UPDATE_HOUSEHOLD");
+        refreshMemberCount(saved);
+        addLog(actor, "UPDATE", "HOUSEHOLD", saved.getId(), "Updated household " + saved.getId());
         return toHouseholdDTO(saved, true);
     }
 
     @Transactional
     public void deleteHousehold(String id, String actor) {
         Household household = getHouseholdOrThrow(id);
-        long memberCount = residentRepository.countByHouseholdId(id);
+        long memberCount = residentRepository.countActiveMembers(id);
         if (memberCount > 0) {
-            throw new RuntimeException("Cannot delete a household that still has residents.");
+            throw new RuntimeException("Cannot archive a household that still has active residents.");
         }
-        householdRepository.delete(household);
-        addLog(actor, "DELETE", "HOUSEHOLD", id, "Deleted household " + id);
+        household.setArchived(true);
+        household.setArchivedAt(LocalDateTime.now());
+        household.setStatus(HouseholdStatus.VACANT);
+        householdRepository.save(household);
+        addLog(actor, "ARCHIVE", "HOUSEHOLD", id, "Archived household " + id);
     }
 
     @Transactional(readOnly = true)
@@ -141,22 +118,13 @@ public class ResidentManagementService {
         Household household = resolveHousehold(request.getHouseholdId());
         Resident resident = Resident.builder()
                 .id("RES-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase(Locale.ROOT))
-                .fullName(clean(request.getFullName()))
-                .gender(clean(request.getGender()))
-                .dateOfBirth(request.getDateOfBirth())
-                .identityNo(identityNo)
-                .phone(clean(request.getPhone()))
-                .hometown(clean(request.getHometown()))
-                .occupation(clean(request.getOccupation()))
-                .relationshipToHead(clean(request.getRelationshipToHead()))
-                .status(parseResidentStatusOrDefault(request.getStatus()))
                 .household(household)
                 .build();
-
+        applyResidentFields(resident, request);
         Resident saved = residentRepository.save(resident);
+        enforceHouseholdHeadIfNeeded(saved, actor);
         refreshMemberCount(household);
-        addLog(actor, "CREATE", "RESIDENT", saved.getId(),
-                "Created resident " + saved.getFullName());
+        addLog(actor, "CREATE", "RESIDENT", saved.getId(), "Created resident " + saved.getFullName());
         return toResidentDTO(saved);
     }
 
@@ -170,33 +138,62 @@ public class ResidentManagementService {
         }
 
         Household newHousehold = resolveHousehold(request.getHouseholdId());
-        resident.setFullName(clean(request.getFullName()));
-        resident.setGender(clean(request.getGender()));
-        resident.setDateOfBirth(request.getDateOfBirth());
-        resident.setIdentityNo(identityNo);
-        resident.setPhone(clean(request.getPhone()));
-        resident.setHometown(clean(request.getHometown()));
-        resident.setOccupation(clean(request.getOccupation()));
-        resident.setRelationshipToHead(clean(request.getRelationshipToHead()));
-        resident.setStatus(parseResidentStatusOrDefault(request.getStatus()));
+        applyResidentFields(resident, request);
         resident.setHousehold(newHousehold);
 
         Resident saved = residentRepository.save(resident);
+        enforceHouseholdHeadIfNeeded(saved, actor);
         refreshMemberCountById(oldHouseholdId);
         refreshMemberCount(newHousehold);
-        addLog(actor, "UPDATE", "RESIDENT", saved.getId(),
-                "Updated resident " + saved.getFullName());
+        addLog(actor, "UPDATE", "RESIDENT", saved.getId(), "Updated resident " + saved.getFullName());
+        return toResidentDTO(saved);
+    }
+
+    @Transactional
+    public ResidentDTO reportDeath(String id, DeathReportRequest request, String actor) {
+        Resident resident = getResidentOrThrow(id);
+        resident.setAlive(false);
+        resident.setStatus(ResidentStatus.DECEASED);
+        resident.setDateOfDeath(request.getDateOfDeath() == null ? LocalDate.now() : request.getDateOfDeath());
+        resident.setRelationshipToHead(clean(resident.getRelationshipToHead()).equalsIgnoreCase("Head")
+                ? "Former Head (Deceased)"
+                : resident.getRelationshipToHead());
+        Resident saved = residentRepository.save(resident);
+
+        Household household = saved.getHousehold();
+        if (household != null && isCurrentHead(household, saved)) {
+            household.setHeadResident(null);
+            household.setNote(appendNote(household.getNote(), "Household head deceased; choose a new head."));
+            householdRepository.save(household);
+            if (trimToNull(request.getReplacementHeadIdentityNo()) != null) {
+                changeHouseholdHead(household.getId(), replacementRequest(request.getReplacementHeadIdentityNo(), request.getNote()), actor);
+            } else {
+                addLog(actor, "HEAD_CHANGE_REQUIRED", "HOUSEHOLD", household.getId(),
+                        "Household head " + saved.getFullName() + " is deceased. Select a replacement head.");
+            }
+        }
+
+        refreshMemberCount(household);
+        addLog(actor, "MARK_DECEASED", "RESIDENT", saved.getId(), "Marked resident deceased: " + saved.getFullName());
         return toResidentDTO(saved);
     }
 
     @Transactional
     public void deleteResident(String id, String actor) {
         Resident resident = getResidentOrThrow(id);
-        String householdId = resident.getHousehold() == null ? null : resident.getHousehold().getId();
-        residentRepository.delete(resident);
-        refreshMemberCountById(householdId);
-        addLog(actor, "DELETE", "RESIDENT", id,
-                "Deleted resident " + resident.getFullName());
+        Household household = resident.getHousehold();
+        if (household != null && isCurrentHead(household, resident)) {
+            household.setHeadResident(null);
+            household.setNote(appendNote(household.getNote(), "Household head archived; choose a new head."));
+            householdRepository.save(household);
+        }
+        resident.setArchived(true);
+        resident.setArchivedAt(LocalDateTime.now());
+        resident.setStatus(ResidentStatus.MOVED_OUT);
+        resident.setHousehold(null);
+        residentRepository.save(resident);
+        refreshMemberCount(household);
+        addLog(actor, "ARCHIVE", "RESIDENT", id, "Archived resident " + resident.getFullName());
     }
 
     @Transactional
@@ -205,7 +202,12 @@ public class ResidentManagementService {
         Resident resident = getResidentOrThrow(residentId);
         String oldHouseholdId = resident.getHousehold() == null ? null : resident.getHousehold().getId();
         resident.setHousehold(household);
+        resident.setArchived(false);
+        if (resident.getStatus() == ResidentStatus.MOVED_OUT) {
+            resident.setStatus(ResidentStatus.PERMANENT);
+        }
         Resident saved = residentRepository.save(resident);
+        enforceHouseholdHeadIfNeeded(saved, actor);
         refreshMemberCountById(oldHouseholdId);
         refreshMemberCount(household);
         addLog(actor, "ADD_MEMBER", "HOUSEHOLD", household.getId(),
@@ -220,7 +222,14 @@ public class ResidentManagementService {
         if (resident.getHousehold() == null || !household.getId().equals(resident.getHousehold().getId())) {
             throw new RuntimeException("Resident is not a member of this household.");
         }
+        if (isCurrentHead(household, resident)) {
+            household.setHeadResident(null);
+            household.setNote(appendNote(household.getNote(), "Household head removed; choose a new head."));
+            householdRepository.save(household);
+        }
         resident.setHousehold(null);
+        resident.setRelationshipToHead("");
+        resident.setStatus(ResidentStatus.MOVED_OUT);
         Resident saved = residentRepository.save(resident);
         refreshMemberCount(household);
         addLog(actor, "REMOVE_MEMBER", "HOUSEHOLD", household.getId(),
@@ -228,17 +237,150 @@ public class ResidentManagementService {
         return toResidentDTO(saved);
     }
 
+    @Transactional
+    public HouseholdDTO changeHouseholdHead(String householdId, ChangeHouseholdHeadRequest request, String actor) {
+        Household household = getHouseholdOrThrow(householdId);
+        Resident newHead = residentRepository.findByIdentityNoIgnoreCase(clean(request.getIdentityNo()))
+                .orElseThrow(() -> new RuntimeException("Resident with the given Citizen ID was not found."));
+        if (newHead.isArchived()) {
+            throw new RuntimeException("Archived residents cannot be household head.");
+        }
+        if (!newHead.isAlive() || newHead.getStatus() == ResidentStatus.DECEASED) {
+            throw new RuntimeException("Deceased residents cannot be household head.");
+        }
+        if (newHead.getHousehold() == null || !household.getId().equals(newHead.getHousehold().getId())) {
+            throw new RuntimeException("New household head must already be a member of this household.");
+        }
+        setHouseholdHead(household, newHead, actor, clean(request.getReason()));
+        return toHouseholdDTO(household, true);
+    }
+
+    @Transactional
+    public HouseholdDTO transferOwnership(String householdId, OwnershipTransferRequest request, String actor) {
+        Household household = getHouseholdOrThrow(householdId);
+        household.setPreviousOwnerName(household.getOwnerName());
+        household.setOwnerName(clean(request.getNewOwnerName()));
+        household.setPhone(clean(request.getNewOwnerPhone()));
+        household.setOwnershipTransferredAt(LocalDateTime.now());
+        household.setOwnershipNote(clean(request.getNote()));
+        householdRepository.save(household);
+
+        if (trimToNull(request.getNewOwnerIdentityNo()) != null) {
+            Resident ownerResident = residentRepository.findByIdentityNoIgnoreCase(clean(request.getNewOwnerIdentityNo()))
+                    .orElseThrow(() -> new RuntimeException("New owner resident was not found by Citizen ID."));
+            ownerResident.setHousehold(household);
+            ownerResident.setArchived(false);
+            if (ownerResident.getStatus() == ResidentStatus.MOVED_OUT) {
+                ownerResident.setStatus(ResidentStatus.PERMANENT);
+            }
+            residentRepository.save(ownerResident);
+            setHouseholdHead(household, ownerResident, actor, "Ownership transfer");
+        }
+
+        refreshMemberCount(household);
+        addLog(actor, "TRANSFER_OWNERSHIP", "HOUSEHOLD", household.getId(),
+                "Transferred ownership from " + nullSafe(household.getPreviousOwnerName()) + " to " + household.getOwnerName());
+        return toHouseholdDTO(household, true);
+    }
+
+    @Transactional
+    public HouseholdDTO splitHousehold(String sourceHouseholdId, SplitHouseholdRequest request, String actor) {
+        Household source = getHouseholdOrThrow(sourceHouseholdId);
+        HouseholdRequest newRequest = request.getNewHousehold();
+        if (newRequest == null) {
+            throw new RuntimeException("New household information is required.");
+        }
+        List<Resident> movingResidents = request.getResidentIds().stream()
+                .map(this::getResidentOrThrow)
+                .toList();
+        if (movingResidents.stream().anyMatch(r -> r.getHousehold() == null || !source.getId().equals(r.getHousehold().getId()))) {
+            throw new RuntimeException("All selected residents must belong to the source household.");
+        }
+        long activeMovingCount = movingResidents.stream().filter(this::isActiveMember).count();
+        long activeSourceCount = residentRepository.countActiveMembers(source.getId());
+        if (activeSourceCount - activeMovingCount < 1) {
+            throw new RuntimeException("The source household must keep at least one active resident after split.");
+        }
+
+        Household target = createHouseholdEntity(newRequest, actor, false);
+        for (Resident resident : movingResidents) {
+            resident.setHousehold(target);
+            residentRepository.save(resident);
+        }
+
+        String headIdentity = trimToNull(request.getHeadIdentityNo());
+        Resident head = null;
+        if (headIdentity != null) {
+            head = residentRepository.findByIdentityNoIgnoreCase(headIdentity)
+                    .orElseThrow(() -> new RuntimeException("New household head was not found by Citizen ID."));
+        } else {
+            head = movingResidents.stream()
+                    .filter(r -> clean(r.getRelationshipToHead()).equalsIgnoreCase("Head"))
+                    .findFirst()
+                    .orElseGet(() -> movingResidents.stream().filter(this::isActiveMember).findFirst().orElse(null));
+        }
+        if (head != null) {
+            setHouseholdHead(target, head, actor, "Household split");
+        }
+
+        refreshMemberCount(source);
+        refreshMemberCount(target);
+        addLog(actor, "SPLIT_HOUSEHOLD", "HOUSEHOLD", source.getId(),
+                "Split " + movingResidents.size() + " resident(s) to household " + target.getId());
+        return toHouseholdDTO(target, true);
+    }
+
+    @Transactional
+    public TemporaryResidenceDTO createTemporaryResidenceRecord(String residentId, TemporaryResidenceRequest request, String actor) {
+        Resident resident = getResidentOrThrow(residentId);
+        ResidenceRecordType type = parseResidenceRecordType(request.getType());
+        TemporaryResidenceRecord record = TemporaryResidenceRecord.builder()
+                .id("TRR-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase(Locale.ROOT))
+                .resident(resident)
+                .type(type)
+                .address(clean(request.getAddress()))
+                .startDate(request.getStartDate())
+                .endDate(request.getEndDate())
+                .reason(clean(request.getReason()))
+                .actor(clean(actor).isBlank() ? "system" : clean(actor))
+                .build();
+        TemporaryResidenceRecord saved = temporaryResidenceRecordRepository.save(record);
+
+        if (type == ResidenceRecordType.TEMPORARY_RESIDENCE) {
+            resident.setStatus(ResidentStatus.TEMPORARY);
+        } else if (type == ResidenceRecordType.TEMPORARY_ABSENCE) {
+            resident.setStatus(ResidentStatus.TEMPORARILY_AWAY);
+        } else if (type == ResidenceRecordType.PERMANENT_REGISTRATION) {
+            resident.setStatus(ResidentStatus.PERMANENT);
+        }
+        residentRepository.save(resident);
+        refreshMemberCount(resident.getHousehold());
+        addLog(actor, type.name(), "RESIDENT", residentId,
+                "Created residence record for " + resident.getFullName());
+        return toTemporaryResidenceDTO(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TemporaryResidenceDTO> getTemporaryResidenceRecords(String residentId) {
+        return temporaryResidenceRecordRepository.findByResidentIdOrderByCreatedAtDesc(residentId)
+                .stream()
+                .map(this::toTemporaryResidenceDTO)
+                .toList();
+    }
+
     @Transactional(readOnly = true)
     public ResidentStatsDTO getStats() {
         return ResidentStatsDTO.builder()
-                .totalHouseholds(householdRepository.count())
-                .totalResidents(residentRepository.count())
-                .occupiedHouseholds(householdRepository.countByStatus(HouseholdStatus.OCCUPIED))
-                .vacantHouseholds(householdRepository.countByStatus(HouseholdStatus.VACANT))
-                .permanentResidents(residentRepository.countByStatus(ResidentStatus.PERMANENT))
-                .temporaryResidents(residentRepository.countByStatus(ResidentStatus.TEMPORARY))
-                .temporarilyAwayResidents(residentRepository.countByStatus(ResidentStatus.TEMPORARILY_AWAY))
-                .movedOutResidents(residentRepository.countByStatus(ResidentStatus.MOVED_OUT))
+                .totalHouseholds(householdRepository.countByArchivedFalse())
+                .totalResidents(residentRepository.countByArchivedFalse())
+                .occupiedHouseholds(householdRepository.countByStatusAndArchivedFalse(HouseholdStatus.OCCUPIED))
+                .vacantHouseholds(householdRepository.countByStatusAndArchivedFalse(HouseholdStatus.VACANT))
+                .permanentResidents(residentRepository.countByStatusAndArchivedFalse(ResidentStatus.PERMANENT))
+                .temporaryResidents(residentRepository.countByStatusAndArchivedFalse(ResidentStatus.TEMPORARY))
+                .temporarilyAwayResidents(residentRepository.countByStatusAndArchivedFalse(ResidentStatus.TEMPORARILY_AWAY))
+                .movedOutResidents(residentRepository.countByStatusAndArchivedFalse(ResidentStatus.MOVED_OUT))
+                .deceasedResidents(residentRepository.countByStatusAndArchivedFalse(ResidentStatus.DECEASED))
+                .archivedResidents(residentRepository.countByArchivedTrue())
                 .build();
     }
 
@@ -285,6 +427,7 @@ public class ResidentManagementService {
     @Transactional(readOnly = true)
     public List<HouseholdDTO> getAllHouseholdsForExport() {
         return householdRepository.findAll(Sort.by("id")).stream()
+                .filter(household -> !household.isArchived())
                 .map(household -> toHouseholdDTO(household, false))
                 .toList();
     }
@@ -292,17 +435,140 @@ public class ResidentManagementService {
     @Transactional(readOnly = true)
     public List<ResidentDTO> getAllResidentsForExport() {
         return residentRepository.findAll(Sort.by("fullName")).stream()
+                .filter(resident -> !resident.isArchived())
                 .map(this::toResidentDTO)
                 .toList();
     }
 
+    private Household createHouseholdEntity(HouseholdRequest request, String actor, boolean logCreate) {
+        String code = normalizeCode(request.getCode());
+        if (householdRepository.existsById(code)) {
+            throw new RuntimeException("Household code already exists.");
+        }
+        String apartmentNo = clean(request.getApartmentNo());
+        if (householdRepository.existsByApartmentNoIgnoreCase(apartmentNo)) {
+            throw new RuntimeException("Apartment number already exists.");
+        }
+
+        Household household = Household.builder()
+                .id(code)
+                .membersCount(0)
+                .build();
+        applyHouseholdFields(household, request);
+        Household saved = householdRepository.save(household);
+        if (logCreate) {
+            addLog(actor, "CREATE", "HOUSEHOLD", saved.getId(),
+                    "Created household " + saved.getId() + " for apartment " + saved.getApartmentNo());
+        }
+        return saved;
+    }
+
+    private void applyHouseholdFields(Household household, HouseholdRequest request) {
+        household.setApartmentNo(clean(request.getApartmentNo()));
+        household.setFloor(request.getFloor());
+        household.setArea(request.getArea());
+        household.setOwnerName(clean(request.getHeadName()));
+        household.setPhone(clean(request.getPhone()));
+        household.setHouseNo(clean(request.getHouseNo()));
+        household.setStreet(clean(request.getStreet()));
+        household.setWard(clean(request.getWard()));
+        household.setDistrict(clean(request.getDistrict()));
+        household.setRegistrationDate(request.getRegistrationDate());
+        household.setStatus(parseHouseholdStatusOrDefault(request.getStatus()));
+        household.setNote(clean(request.getNote()));
+        household.setMotorcycleCount(request.getMotorcycleCount());
+        household.setCarCount(request.getCarCount());
+    }
+
+    private void applyResidentFields(Resident resident, ResidentRequest request) {
+        resident.setFullName(clean(request.getFullName()));
+        resident.setGender(clean(request.getGender()));
+        resident.setDateOfBirth(request.getDateOfBirth());
+        resident.setIdentityNo(clean(request.getIdentityNo()));
+        resident.setPhone(clean(request.getPhone()));
+        resident.setAlias(clean(request.getAlias()));
+        resident.setBirthPlace(clean(request.getBirthPlace()));
+        resident.setHometown(clean(request.getHometown()));
+        resident.setEthnicity(clean(request.getEthnicity()));
+        resident.setReligion(clean(request.getReligion()));
+        resident.setOccupation(clean(request.getOccupation()));
+        resident.setWorkplace(clean(request.getWorkplace()));
+        resident.setIssueDate(request.getIssueDate());
+        resident.setIssuePlace(clean(request.getIssuePlace()));
+        resident.setPreviousResidence(clean(request.getPreviousResidence()));
+        resident.setRelationshipToHead(clean(request.getRelationshipToHead()));
+        resident.setStatus(parseResidentStatusOrDefault(request.getStatus()));
+        resident.setAlive(request.getAlive() == null ? resident.isAlive() : request.getAlive());
+        resident.setDateOfDeath(request.getDateOfDeath());
+        if (resident.getStatus() == ResidentStatus.DECEASED) {
+            resident.setAlive(false);
+            if (resident.getDateOfDeath() == null) {
+                resident.setDateOfDeath(LocalDate.now());
+            }
+        } else if (request.getAlive() == null) {
+            resident.setAlive(true);
+        }
+    }
+
+    private void assignHeadIfRequested(Household household, String headIdentityNo, String actor, String action) {
+        String identity = trimToNull(headIdentityNo);
+        if (identity == null) {
+            return;
+        }
+        Resident resident = residentRepository.findByIdentityNoIgnoreCase(identity)
+                .orElseThrow(() -> new RuntimeException("Household head was not found by Citizen ID."));
+        resident.setHousehold(household);
+        resident.setArchived(false);
+        residentRepository.save(resident);
+        setHouseholdHead(household, resident, actor, action);
+    }
+
+    private void enforceHouseholdHeadIfNeeded(Resident resident, String actor) {
+        Household household = resident.getHousehold();
+        if (household == null || resident.isArchived() || resident.getStatus() == ResidentStatus.DECEASED || !resident.isAlive()) {
+            return;
+        }
+        if (clean(resident.getRelationshipToHead()).equalsIgnoreCase("Head")) {
+            setHouseholdHead(household, resident, actor, "SYNC_HEAD");
+        } else if (isCurrentHead(household, resident)) {
+            household.setHeadResident(null);
+            householdRepository.save(household);
+        }
+    }
+
+    private void setHouseholdHead(Household household, Resident newHead, String actor, String reason) {
+        residentRepository.findByHouseholdIdAndArchivedFalse(household.getId()).forEach(member -> {
+            if (!Objects.equals(member.getId(), newHead.getId())
+                    && clean(member.getRelationshipToHead()).equalsIgnoreCase("Head")) {
+                member.setRelationshipToHead("Member");
+                residentRepository.save(member);
+            }
+        });
+        newHead.setRelationshipToHead("Head");
+        newHead.setHousehold(household);
+        newHead.setArchived(false);
+        residentRepository.save(newHead);
+
+        household.setHeadResident(newHead);
+        household.setOwnerName(newHead.getFullName());
+        if (trimToNull(household.getPhone()) == null) {
+            household.setPhone(newHead.getPhone());
+        }
+        householdRepository.save(household);
+        addLog(actor, "CHANGE_HEAD", "HOUSEHOLD", household.getId(),
+                "Changed household head to " + newHead.getFullName()
+                        + (clean(reason).isBlank() ? "" : " (" + clean(reason) + ")"));
+    }
+
     private Household getHouseholdOrThrow(String id) {
         return householdRepository.findById(id)
+                .filter(household -> !household.isArchived())
                 .orElseThrow(() -> new RuntimeException("Household not found."));
     }
 
     private Resident getResidentOrThrow(String id) {
         return residentRepository.findById(id)
+                .filter(resident -> !resident.isArchived())
                 .orElseThrow(() -> new RuntimeException("Resident not found."));
     }
 
@@ -315,7 +581,7 @@ public class ResidentManagementService {
         if (household == null) {
             return;
         }
-        household.setMembersCount((int) residentRepository.countByHouseholdId(household.getId()));
+        household.setMembersCount((int) residentRepository.countActiveMembers(household.getId()));
         householdRepository.save(household);
     }
 
@@ -328,11 +594,16 @@ public class ResidentManagementService {
 
     private HouseholdDTO toHouseholdDTO(Household household, boolean includeMembers) {
         List<ResidentDTO> members = includeMembers
-                ? residentRepository.findByHouseholdIdOrderByFullNameAsc(household.getId())
+                ? residentRepository.findByHouseholdIdAndArchivedFalseOrderByFullNameAsc(household.getId())
                         .stream()
                         .map(this::toResidentDTO)
                         .toList()
                 : null;
+        Resident head = household.getHeadResident();
+        boolean headChangeRequired = head == null
+                || head.isArchived()
+                || !head.isAlive()
+                || head.getStatus() == ResidentStatus.DECEASED;
 
         return HouseholdDTO.builder()
                 .id(household.getId())
@@ -341,12 +612,26 @@ public class ResidentManagementService {
                 .floor(household.getFloor())
                 .area(household.getArea())
                 .headName(household.getOwnerName())
+                .headResidentId(head == null ? "" : head.getId())
+                .headIdentityNo(head == null ? "" : head.getIdentityNo())
                 .phone(nullSafe(household.getPhone()))
+                .houseNo(nullSafe(household.getHouseNo()))
+                .street(nullSafe(household.getStreet()))
+                .ward(nullSafe(household.getWard()))
+                .district(nullSafe(household.getDistrict()))
+                .registrationDate(household.getRegistrationDate())
                 .status(household.getStatus() == null ? HouseholdStatus.OCCUPIED.name() : household.getStatus().name())
                 .note(nullSafe(household.getNote()))
                 .memberCount(household.getMembersCount())
+                .activeMemberCount((int) residentRepository.countActiveMembers(household.getId()))
                 .motorcycleCount(household.getMotorcycleCount())
                 .carCount(household.getCarCount())
+                .previousOwnerName(nullSafe(household.getPreviousOwnerName()))
+                .ownershipTransferredAt(household.getOwnershipTransferredAt())
+                .ownershipNote(nullSafe(household.getOwnershipNote()))
+                .headChangeRequired(headChangeRequired)
+                .archived(household.isArchived())
+                .archivedAt(household.getArchivedAt())
                 .members(members)
                 .build();
     }
@@ -360,15 +645,42 @@ public class ResidentManagementService {
                 .dateOfBirth(resident.getDateOfBirth())
                 .identityNo(resident.getIdentityNo())
                 .phone(nullSafe(resident.getPhone()))
+                .alias(nullSafe(resident.getAlias()))
+                .birthPlace(nullSafe(resident.getBirthPlace()))
                 .hometown(nullSafe(resident.getHometown()))
+                .ethnicity(nullSafe(resident.getEthnicity()))
+                .religion(nullSafe(resident.getReligion()))
                 .occupation(nullSafe(resident.getOccupation()))
+                .workplace(nullSafe(resident.getWorkplace()))
+                .issueDate(resident.getIssueDate())
+                .issuePlace(nullSafe(resident.getIssuePlace()))
+                .previousResidence(nullSafe(resident.getPreviousResidence()))
                 .relationshipToHead(nullSafe(resident.getRelationshipToHead()))
                 .status(resident.getStatus() == null ? ResidentStatus.PERMANENT.name() : resident.getStatus().name())
+                .alive(resident.isAlive())
+                .dateOfDeath(resident.getDateOfDeath())
+                .archived(resident.isArchived())
                 .householdId(household == null ? "" : household.getId())
                 .apartmentNo(household == null ? "" : nullSafe(household.getApartmentNo()))
                 .householdHeadName(household == null ? "" : household.getOwnerName())
                 .createdAt(resident.getCreatedAt())
                 .updatedAt(resident.getUpdatedAt())
+                .build();
+    }
+
+    private TemporaryResidenceDTO toTemporaryResidenceDTO(TemporaryResidenceRecord record) {
+        Resident resident = record.getResident();
+        return TemporaryResidenceDTO.builder()
+                .id(record.getId())
+                .residentId(resident.getId())
+                .residentName(resident.getFullName())
+                .type(record.getType().name())
+                .address(nullSafe(record.getAddress()))
+                .startDate(record.getStartDate())
+                .endDate(record.getEndDate())
+                .reason(nullSafe(record.getReason()))
+                .actor(nullSafe(record.getActor()))
+                .createdAt(record.getCreatedAt())
                 .build();
     }
 
@@ -404,6 +716,31 @@ public class ResidentManagementService {
                 .build());
     }
 
+    private boolean isCurrentHead(Household household, Resident resident) {
+        return household.getHeadResident() != null
+                && Objects.equals(household.getHeadResident().getId(), resident.getId());
+    }
+
+    private boolean isActiveMember(Resident resident) {
+        return resident != null
+                && !resident.isArchived()
+                && resident.isAlive()
+                && resident.getStatus() != ResidentStatus.MOVED_OUT
+                && resident.getStatus() != ResidentStatus.DECEASED;
+    }
+
+    private ChangeHouseholdHeadRequest replacementRequest(String identityNo, String reason) {
+        ChangeHouseholdHeadRequest request = new ChangeHouseholdHeadRequest();
+        request.setIdentityNo(identityNo);
+        request.setReason(reason);
+        return request;
+    }
+
+    private String appendNote(String note, String addition) {
+        String cleaned = clean(note);
+        return cleaned.isBlank() ? addition : cleaned + " | " + addition;
+    }
+
     private HouseholdStatus parseHouseholdStatus(String value) {
         String cleaned = trimToNull(value);
         if (cleaned == null || "ALL".equalsIgnoreCase(cleaned)) {
@@ -428,6 +765,11 @@ public class ResidentManagementService {
     private ResidentStatus parseResidentStatusOrDefault(String value) {
         ResidentStatus parsed = parseResidentStatus(value);
         return parsed == null ? ResidentStatus.PERMANENT : parsed;
+    }
+
+    private ResidenceRecordType parseResidenceRecordType(String value) {
+        String cleaned = clean(value).trim().toUpperCase(Locale.ROOT);
+        return ResidenceRecordType.valueOf(cleaned);
     }
 
     private String normalizeCode(String value) {

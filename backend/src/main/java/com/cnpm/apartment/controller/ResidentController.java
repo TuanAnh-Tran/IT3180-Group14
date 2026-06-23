@@ -74,6 +74,36 @@ public class ResidentController {
         return ResponseEntity.ok(ApiResponse.success("Household deleted successfully", null));
     }
 
+    @PostMapping("/households/{id}/head")
+    public ResponseEntity<ApiResponse<HouseholdDTO>> changeHouseholdHead(
+            @PathVariable String id,
+            @Valid @RequestBody ChangeHouseholdHeadRequest request,
+            @RequestParam(defaultValue = "admin") String actor) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Household head changed successfully",
+                residentManagementService.changeHouseholdHead(id, request, actor)));
+    }
+
+    @PostMapping("/households/{id}/ownership-transfer")
+    public ResponseEntity<ApiResponse<HouseholdDTO>> transferOwnership(
+            @PathVariable String id,
+            @Valid @RequestBody OwnershipTransferRequest request,
+            @RequestParam(defaultValue = "admin") String actor) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Ownership transferred successfully",
+                residentManagementService.transferOwnership(id, request, actor)));
+    }
+
+    @PostMapping("/households/{id}/split")
+    public ResponseEntity<ApiResponse<HouseholdDTO>> splitHousehold(
+            @PathVariable String id,
+            @Valid @RequestBody SplitHouseholdRequest request,
+            @RequestParam(defaultValue = "admin") String actor) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Household split successfully",
+                residentManagementService.splitHousehold(id, request, actor)));
+    }
+
     @GetMapping("/residents")
     public ResponseEntity<ApiResponse<Page<ResidentDTO>>> getResidents(
             @RequestParam(required = false) String search,
@@ -117,6 +147,33 @@ public class ResidentController {
             @RequestParam(defaultValue = "admin") String actor) {
         residentManagementService.deleteResident(id, actor);
         return ResponseEntity.ok(ApiResponse.success("Resident deleted successfully", null));
+    }
+
+    @PostMapping("/residents/{id}/death")
+    public ResponseEntity<ApiResponse<ResidentDTO>> reportDeath(
+            @PathVariable String id,
+            @Valid @RequestBody DeathReportRequest request,
+            @RequestParam(defaultValue = "admin") String actor) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Resident marked deceased successfully",
+                residentManagementService.reportDeath(id, request, actor)));
+    }
+
+    @GetMapping("/residents/{id}/temporary-records")
+    public ResponseEntity<ApiResponse<List<TemporaryResidenceDTO>>> getTemporaryResidenceRecords(
+            @PathVariable String id) {
+        return ResponseEntity.ok(ApiResponse.success(
+                residentManagementService.getTemporaryResidenceRecords(id)));
+    }
+
+    @PostMapping("/residents/{id}/temporary-records")
+    public ResponseEntity<ApiResponse<TemporaryResidenceDTO>> createTemporaryResidenceRecord(
+            @PathVariable String id,
+            @Valid @RequestBody TemporaryResidenceRequest request,
+            @RequestParam(defaultValue = "admin") String actor) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Residence record created successfully",
+                residentManagementService.createTemporaryResidenceRecord(id, request, actor)));
     }
 
     @PostMapping("/households/{householdId}/members/{residentId}")
