@@ -9,6 +9,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/statistics")
@@ -62,5 +63,16 @@ public class StatisticsController {
     public ResponseEntity<ApiResponse<StatisticsDTO>> getByFeeType() {
         StatisticsDTO dto = statisticsService.getRevenueByFeeType();
         return ResponseEntity.ok(ApiResponse.success(dto));
+    }
+
+    /**
+     * GET /api/statistics/contributions
+     * Thống kê các khoản đóng góp tự nguyện theo từng hộ.
+     */
+    @GetMapping("/contributions")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<List<com.cnpm.apartment.dto.ContributionDTO>>> getContributions() {
+        List<com.cnpm.apartment.dto.ContributionDTO> result = statisticsService.getVoluntaryContributions();
+        return ResponseEntity.ok(ApiResponse.success(result));
     }
 }

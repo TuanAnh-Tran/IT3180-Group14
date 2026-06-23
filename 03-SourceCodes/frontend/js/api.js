@@ -138,19 +138,80 @@ export const API = {
     return this.fetchJson('/statistics/by-fee-type');
   },
 
+  async getResidentStats() {
+    return this.fetchJson('/residents/stats');
+  },
+
+  async getDemographicsTrend(year) {
+    return this.fetchJson(`/residents/stats/trend?year=${year}`);
+  },
+
+  async getContributions() {
+    return this.fetchJson('/statistics/contributions');
+  },
+
+  async cancelReceipt(receiptId) {
+    return this.fetchJson(`/payments/${receiptId}/cancel`, { method: 'POST' });
+  },
+
+  async getQrUrl(assignedFeeId) {
+    return this.fetchJson(`/payments/qr/${assignedFeeId}`);
+  },
+
+  async submitProof(assignedFeeId, amount, proofImage = '', note = '', transactionId = '', payerName = '') {
+    const params = new URLSearchParams({
+      assignedFeeId,
+      amount: amount.toString(),
+      proofImage,
+      note,
+      transactionId,
+      payerName
+    });
+    return this.fetchJson(`/payments/proof?${params.toString()}`, { method: 'POST' });
+  },
+
+  async getPendingProofs() {
+    return this.fetchJson('/payments/proof/pending');
+  },
+
+  async approveProof(proofId, note = '') {
+    const params = new URLSearchParams();
+    if (note) params.append('note', note);
+    return this.fetchJson(`/payments/proof/${proofId}/approve?${params.toString()}`, { method: 'POST' });
+  },
+
+  async rejectProof(proofId, note = '') {
+    const params = new URLSearchParams();
+    if (note) params.append('note', note);
+    return this.fetchJson(`/payments/proof/${proofId}/reject?${params.toString()}`, { method: 'POST' });
+  },
+
   /**
-   * Đường dẫn xuất báo cáo Excel
+   * Secure Excel export using fetch and Blobs
    */
-  getExportUrl(type, param1 = '', param2 = '') {
+  async exportExcel(type, param1 = '', param2 = '') {
+    let url = '';
     if (type === 'period-receipts') {
-      return `${API_BASE}/reports/receipts/by-period/${param1}`;
+      url = `${API_BASE}/reports/receipts/by-period/${param1}`;
+    } else if (type === 'date-receipts') {
+      url = `${API_BASE}/reports/receipts/by-date?from=${param1}T00:00:00&to=${param2}T23:59:59`;
+    } else if (type === 'period-debt') {
+      url = `${API_BASE}/reports/debt/by-period/${param1}`;
     }
-    if (type === 'date-receipts') {
-      return `${API_BASE}/reports/receipts/by-date?from=${param1}T00:00:00&to=${param2}T23:59:59`;
+    if (!url) return;
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Export failed: ${response.status}`);
     }
-    if (type === 'period-debt') {
-      return `${API_BASE}/reports/debt/by-period/${param1}`;
-    }
-    return '';
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = `${type}_export_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(downloadUrl);
   }
 };

@@ -18,4 +18,10 @@ public class PaymentRequestDTO {
     private BigDecimal amountPaid;
 
     private String note; // Tùy chọn: ghi chú thêm
+
+    private String payerName;
+
+    private java.time.LocalDateTime paidAt;
+
+    private String idempotencyKey;
 }

@@ -81,5 +81,10 @@ public interface AssignedFeeRepository extends JpaRepository<AssignedFee, String
            "    COALESCE(SUM(af.amount_paid_accumulated), 0) as totalCollected " +
            "FROM assigned_fee af", nativeQuery = true)
     OverviewProjection getOverviewStatistics();
+
+    List<AssignedFee> findByStatusIn(Collection<FeeStatus> statuses);
+
+    @Query("SELECT af FROM AssignedFee af JOIN FETCH af.household JOIN FETCH af.fee WHERE af.fee.type = com.cnpm.apartment.model.enums.FeeType.VOLUNTARY AND af.status = com.cnpm.apartment.model.enums.FeeStatus.PAID")
+    List<AssignedFee> findVoluntaryContributions();
 }
 

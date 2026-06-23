@@ -1,26 +1,53 @@
 import { ApartmentDB } from '../db.js';
+import { API } from '../api.js';
 
 /**
  * THÀNH PHẦN BẢNG TỔNG QUAN (Dashboard Component)
  * Hiển thị thẻ thống số, biểu đồ cột thu phí bằng SVG tự vẽ và lịch sử nhật ký.
- * Giao diện hiển thị Tiếng Anh, chú thích bằng Tiếng Việt.
  */
 export class Dashboard {
   static async render(container, user) {
-    // Tải danh sách nhật ký hệ thống và người dùng động từ LocalStorage
-    const logs = await ApartmentDB.getLogs();
-    const users = await ApartmentDB.getUsers();
+    const isBackend = await API.checkHealth();
     
-    // Tính toán các chỉ số động dựa trên cơ sở dữ liệu hiện tại
-    const totalUsers = users.length;
-    const residentCount = users.filter(u => u.role === 'user').length;
-    
-    // Các thông số giả lập để làm phong phú thêm giao diện quản lý
-    const stats = {
+    let logs = [];
+    let totalUsers = 0;
+    let residentCount = 0;
+    let stats = {
       apartments: 120,
       collectedRate: '88.5%',
       unpaidCount: 14
     };
+    let populationTrend = [];
+
+    if (isBackend) {
+      try {
+        const resStats = await API.getResidentStats();
+        const overview = await API.getOverview();
+        
+        stats.apartments = resStats.totalHouseholds;
+        stats.collectedRate = overview.completionRate + '%';
+        stats.unpaidCount = overview.unpaidHouseholds;
+        residentCount = resStats.totalResidents;
+
+        const apiLogs = await API.fetchJson('/residents/activity?limit=5');
+        logs = apiLogs.map(l => ({
+          username: l.actor,
+          action: `${l.action} ${l.targetType}: ${l.detail}`,
+          timestamp: l.createdAt,
+          type: 'info'
+        }));
+
+        const currentYear = new Date().getFullYear();
+        populationTrend = await API.getDemographicsTrend(currentYear);
+      } catch (e) {
+        console.error("Error loading backend dashboard metrics:", e);
+      }
+    } else {
+      logs = await ApartmentDB.getLogs();
+      const users = await ApartmentDB.getUsers();
+      totalUsers = users.length;
+      residentCount = users.filter(u => u.role === 'user').length;
+    }
 
     const isAdmin = user.role === 'admin';
 
@@ -63,6 +90,67 @@ export class Dashboard {
       </svg>
     `;
 
+    // Dynamic Population Fluctuation SVG
+    let popChartSvg = '';
+    if (populationTrend && populationTrend.length > 0) {
+      const maxVal = Math.max(...populationTrend.map(t => Math.max(t.newResidents, t.temporaryAbsences, t.temporaryResidences)), 5);
+      
+      const pointsNew = [];
+      const pointsAbs = [];
+      const pointsRes = [];
+      
+      const width = 420;
+      const height = 130;
+      const xOffset = 50;
+      const yOffset = 30;
+      
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      
+      let xLabels = '';
+      populationTrend.forEach((t, i) => {
+        const x = xOffset + (i * (width / 11));
+        const yNew = yOffset + height - (t.newResidents / maxVal * height);
+        const yAbs = yOffset + height - (t.temporaryAbsences / maxVal * height);
+        const yRes = yOffset + height - (t.temporaryResidences / maxVal * height);
+        
+        pointsNew.push(`${x},${yNew}`);
+        pointsAbs.push(`${x},${yAbs}`);
+        pointsRes.push(`${x},${yRes}`);
+        
+        xLabels += `<text x="${x}" y="${yOffset + height + 18}" fill="var(--text-muted)" font-size="9" text-anchor="middle">${months[t.month - 1]}</text>`;
+      });
+      
+      popChartSvg = `
+        <svg viewBox="0 0 500 200" class="svg-chart" style="width: 100%; height: 100%; font-family: inherit;">
+          <line x1="40" y1="30" x2="480" y2="30" stroke="rgba(255,255,255,0.05)" stroke-dasharray="4" />
+          <line x1="40" y1="95" x2="480" y2="95" stroke="rgba(255,255,255,0.05)" stroke-dasharray="4" />
+          <line x1="40" y1="160" x2="480" y2="160" stroke="rgba(255,255,255,0.1)" />
+
+          <text x="30" y="34" fill="var(--text-muted)" font-size="9" text-anchor="end">${maxVal}</text>
+          <text x="30" y="99" fill="var(--text-muted)" font-size="9" text-anchor="end">${Math.round(maxVal / 2)}</text>
+          <text x="30" y="164" fill="var(--text-muted)" font-size="9" text-anchor="end">0</text>
+
+          <polyline fill="none" stroke="var(--color-primary)" stroke-width="2.5" points="${pointsNew.join(' ')}" />
+          <polyline fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-dasharray="3" points="${pointsAbs.join(' ')}" />
+          <polyline fill="none" stroke="var(--color-success)" stroke-width="2" points="${pointsRes.join(' ')}" />
+
+          ${populationTrend.map((t, i) => {
+            const x = xOffset + (i * (width / 11));
+            const yNew = yOffset + height - (t.newResidents / maxVal * height);
+            const yAbs = yOffset + height - (t.temporaryAbsences / maxVal * height);
+            const yRes = yOffset + height - (t.temporaryResidences / maxVal * height);
+            return `
+              <circle cx="${x}" cy="${yNew}" r="3" fill="var(--color-primary)" />
+              <circle cx="${x}" cy="${yAbs}" r="3" fill="var(--color-accent)" />
+              <circle cx="${x}" cy="${yRes}" r="3" fill="var(--color-success)" />
+            `;
+          }).join('')}
+
+          ${xLabels}
+        </svg>
+      `;
+    }
+
     // Xuất nội dung HTML giao diện Tiếng Anh vào Container chính
     container.innerHTML = `
       <div class="metrics-grid">
@@ -89,10 +177,10 @@ export class Dashboard {
         <div class="metric-card accent">
           <div class="metric-info">
             <h3>Total Residents</h3>
-            <div class="metric-value">${residentCount * 135 + 24}</div>
+            <div class="metric-value">${residentCount}</div>
             <div class="metric-desc">
-              <span style="color: var(--color-accent); font-weight: bold;">+${residentCount}</span>
-              <span>registered portal accounts</span>
+              <span style="color: var(--color-accent); font-weight: bold;">Realtime DB</span>
+              <span>registered records</span>
             </div>
           </div>
           <div class="metric-icon-box">
@@ -122,8 +210,8 @@ export class Dashboard {
         <!-- Thẻ Thống kê 4: Tổng số tài khoản đăng nhập -->
         <div class="metric-card warning">
           <div class="metric-info">
-            <h3>System Accounts</h3>
-            <div class="metric-value">${totalUsers}</div>
+            <h3>System Status</h3>
+            <div class="metric-value">${isBackend ? 'ONLINE' : 'FALLBACK'}</div>
             <div class="metric-desc">
               <span>Role-based access authorized</span>
             </div>
@@ -163,13 +251,11 @@ export class Dashboard {
           </div>
           <div class="activity-list">
             ${logs.map(log => {
-              // Phân bổ lớp CSS tương thích với từng trạng thái nhật ký
               let typeClass = '';
               if (log.type === 'success') typeClass = 'success';
               else if (log.type === 'warning') typeClass = 'danger';
               else if (log.type === 'info') typeClass = 'info';
 
-              // Định dạng thời gian rõ ràng (ví dụ: 14:30 25/05)
               const timeString = new Date(log.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) + ' ' + new Date(log.timestamp).toLocaleDateString('en-US', { day: '2-digit', month: '2-digit' });
               
               return `
@@ -187,6 +273,28 @@ export class Dashboard {
             ${logs.length === 0 ? '<div class="card-title-muted" style="text-align: center; padding: 20px;">No recent activities found.</div>' : ''}
           </div>
         </div>
+
+        <!-- Biểu đồ Biến động dân cư (Population Fluctuations Trend) -->
+        ${popChartSvg ? `
+        <div class="chart-card" style="grid-column: span 2;">
+          <div class="card-header">
+            <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+              <div>
+                <h2 class="card-title">Population Fluctuations Trend</h2>
+                <p class="card-title-muted">Monthly residency and registration variations for ${new Date().getFullYear()}</p>
+              </div>
+              <div style="display:flex; gap:12px; font-size:10px;">
+                <span style="display:flex; align-items:center; gap:4px; color:var(--color-primary);">● New Residents</span>
+                <span style="display:flex; align-items:center; gap:4px; color:var(--color-success);">● Temp Residences</span>
+                <span style="display:flex; align-items:center; gap:4px; color:var(--color-accent);">╌╌ Temp Absences</span>
+              </div>
+            </div>
+          </div>
+          <div class="svg-chart-container" style="height: 220px; padding: 10px 0;">
+            ${popChartSvg}
+          </div>
+        </div>
+        ` : ''}
       </div>
 
       <!-- Khung chào mừng (Welcome Panel) mang lại cảm giác cao cấp -->

@@ -44,6 +44,20 @@ public class Receipt {
     @Column(name = "created_by", length = 100)
     private String createdBy;
 
+    /** Người thực tế nộp tiền */
+    @Column(name = "payer_name", length = 255)
+    private String payerName;
+
+    /** Trạng thái biên lai */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 50)
+    @Builder.Default
+    private com.cnpm.apartment.model.enums.ReceiptStatus status = com.cnpm.apartment.model.enums.ReceiptStatus.ACTIVE;
+
+    /** Khóa chống trùng */
+    @Column(name = "idempotency_key", length = 255, unique = true)
+    private String idempotencyKey;
+
     /** Thời điểm tạo bản ghi */
     @Column(name = "created_at")
     private LocalDateTime createdAt;

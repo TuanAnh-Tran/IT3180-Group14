@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS household (
                     NOT NULL DEFAULT 'OCCUPIED',
     previous_owner_name VARCHAR(255) NULL COMMENT 'Previous owner before transfer',
     ownership_transferred_at DATETIME NULL COMMENT 'Ownership transfer timestamp',
-    ownership_note VARCHAR(1000) NULL COMMENT 'Ownership transfer note',
+    balance         DECIMAL(15,2)  NOT NULL DEFAULT 0.00 COMMENT 'Số dư thừa/credit',
     archived        BOOLEAN        NOT NULL DEFAULT FALSE COMMENT 'Soft delete flag',
     archived_at     DATETIME       NULL COMMENT 'Soft delete timestamp',
     note            VARCHAR(1000)  NULL,
@@ -189,12 +189,36 @@ CREATE TABLE IF NOT EXISTS receipt (
     paid_at         DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     note            VARCHAR(500)    NULL COMMENT 'Ghi chú',
     created_by      VARCHAR(100)    NULL COMMENT 'Người thu tiền',
+    payer_name      VARCHAR(255)    NULL COMMENT 'Người nộp tiền thực tế',
+    status          ENUM('ACTIVE', 'CANCELLED') NOT NULL DEFAULT 'ACTIVE' COMMENT 'Trạng thái biên lai',
+    idempotency_key VARCHAR(255)    NULL UNIQUE COMMENT 'Khóa chống trùng',
     created_at      DATETIME        DEFAULT CURRENT_TIMESTAMP,
 
     FOREIGN KEY (assigned_fee_id) REFERENCES assigned_fee(id),
 
     INDEX idx_paid_at       (paid_at),
-    INDEX idx_assigned_fee  (assigned_fee_id)
+    INDEX idx_assigned_fee  (assigned_fee_id),
+    UNIQUE KEY uk_receipt_idempotency (idempotency_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- 6B. PAYMENT_PROOF (Minh chứng thanh toán)
+--    Module: Thu phí (Anh Hiếu) - Tạo và quản lý
+-- ============================================================
+CREATE TABLE IF NOT EXISTS payment_proof (
+    id              VARCHAR(50)     PRIMARY KEY,
+    assigned_fee_id VARCHAR(50)     NOT NULL,
+    amount          DECIMAL(15,2)   NOT NULL COMMENT 'Số tiền gửi duyệt',
+    proof_image     VARCHAR(500)    NULL COMMENT 'Ảnh giao dịch',
+    status          ENUM('PENDING', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'PENDING' COMMENT 'Trạng thái phê duyệt',
+    submitted_at    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    note            VARCHAR(500)    NULL COMMENT 'Ghi chú thêm',
+    transaction_id  VARCHAR(100)    NULL COMMENT 'Mã giao dịch ngân hàng',
+    payer_name      VARCHAR(255)    NULL COMMENT 'Người nộp tiền',
+
+    FOREIGN KEY (assigned_fee_id) REFERENCES assigned_fee(id),
+    INDEX idx_proof_status (status),
+    INDEX idx_proof_assigned (assigned_fee_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================

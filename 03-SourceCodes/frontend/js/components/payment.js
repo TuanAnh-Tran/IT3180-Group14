@@ -1,15 +1,6 @@
 /**
  * PAYMENT MODULE (payment.js)
- * Port từ Java: PaymentService.java + ReceiptService.java + StatisticsService.java
- * + PaymentController / ReceiptController / StatisticsController
  * Tích hợp kết nối API Spring Boot với cơ chế tự động Fallback về LocalStorage.
- *
- * Chức năng:
- *  - Ghi nhận thanh toán kèm ghi chú / người thu (→ gọi REST API / sinh biên lai Receipt)
- *  - Lịch sử biên lai: lọc theo hộ & khoảng thời gian
- *  - Thống kê: tổng quan, theo đợt, theo tháng, theo loại phí, top con nợ
- *  - Xuất Excel biên lai và danh sách nợ (chỉ hoạt động khi kết nối backend)
- *  - Biểu đồ doanh thu tháng (Canvas bar chart thuần)
  */
 
 import { API } from '../api.js';
@@ -33,9 +24,6 @@ function uid() {
    ───────────────────────────────────────────── */
 export const PaymentEngine = {
 
-  /**
-   * Ghi nhận thanh toán (LocalStorage fallback)
-   */
   recordPayment(assignedFeeId, amountPaid, note, createdBy, FM) {
     const db = FM._getDB();
     const af = db.assignedFees.find(a => a.id === assignedFeeId);
@@ -78,6 +66,7 @@ export const PaymentEngine = {
       note: note || '',
       createdBy: createdBy || 'system',
       createdAt: new Date().toISOString(),
+      receiptStatus: 'ACTIVE'
     };
     const receipts = receiptLoad();
     receipts.unshift(receipt);
@@ -85,9 +74,6 @@ export const PaymentEngine = {
     return receipt;
   },
 
-  /**
-   * Hoàn tác thanh toán (LocalStorage fallback)
-   */
   undoPayment(assignedFeeId, FM) {
     const db = FM._getDB();
     const af = db.assignedFees.find(a => a.id === assignedFeeId);
@@ -97,15 +83,12 @@ export const PaymentEngine = {
       af.paidAt = null; 
       FM._saveDB(db); 
     }
-    // xóa biên lai liên quan
     const receipts = receiptLoad().filter(r => r.assignedFeeId !== assignedFeeId);
     receiptSave(receipts);
   },
 
-  // Tính tiền theo calcMethod — port từ calculateAmount() Java
   calcAmount(fee, hh, quantity) {
     if (!fee) return 0;
-    // Check carryover debt fee directly
     if (fee.id === 'FEE_DEBT') {
       return fee.price * (quantity || 0);
     }
@@ -119,8 +102,6 @@ export const PaymentEngine = {
       default:               return fee.price * (quantity || 1);
     }
   },
-
-  /* ─── RECEIPT QUERIES (port từ ReceiptService) ─── */
 
   getAllReceipts() { return receiptLoad(); },
 
@@ -139,9 +120,6 @@ export const PaymentEngine = {
     return receiptLoad().find(r => r.id === id) || null;
   },
 
-  /* ─── STATISTICS (port từ StatisticsService) ─── */
-
-  /** Tổng quan toàn hệ thống */
   getOverview(FM) {
     const db = FM._getDB();
     const afs = db.assignedFees;
@@ -169,7 +147,6 @@ export const PaymentEngine = {
     };
   },
 
-  /** Thống kê theo đợt thu */
   getByPeriod(periodId, FM) {
     const db = FM._getDB();
     const afs = db.assignedFees.filter(a => a.periodId === periodId);
@@ -200,7 +177,6 @@ export const PaymentEngine = {
     };
   },
 
-  /** Doanh thu theo tháng (biểu đồ bar/line) */
   getMonthlyRevenue(year, FM) {
     const db = FM._getDB();
     const monthly = {};
@@ -217,7 +193,6 @@ export const PaymentEngine = {
     return monthly;
   },
 
-  /** Doanh thu theo loại phí (biểu đồ pie) */
   getRevenueByFeeType(FM) {
     const db = FM._getDB();
     const byType = { COMPULSORY: 0, VOLUNTARY: 0 };
@@ -230,7 +205,6 @@ export const PaymentEngine = {
     return byType;
   },
 
-  /** Top hộ nợ nhiều nhất */
   getTopDebtors(FM, limit = 5) {
     const db = FM._getDB();
     const debtMap = {};
@@ -247,7 +221,7 @@ export const PaymentEngine = {
 };
 
 /* ─────────────────────────────────────────────
-   3. FM BRIDGE — expose _getDB / _saveDB vào FM
+   3. FM BRIDGE
    ───────────────────────────────────────────── */
 export function bridgeFM(FM) {
   if (!FM._getDB) {
@@ -262,11 +236,10 @@ export function bridgeFM(FM) {
 export class PaymentView {
   static async render(container, currentUser, showToast) {
     const FM = window.__FM__;
-    if (!FM) { container.innerHTML = '<p style="padding:20px;color:var(--text-muted);">Đang tải dữ liệu...</p>'; return; }
+    if (!FM) { container.innerHTML = '<p style="padding:20px;color:var(--text-muted);">Loading...</p>'; return; }
     bridgeFM(FM);
 
-    // Kiểm tra trạng thái Backend để quyết định chế độ chạy (Fullstack vs Fallback)
-    const isBackend = await API.checkHealth();
+    let isBackend = await API.checkHealth();
 
     container.innerHTML = `
       <style>
@@ -301,18 +274,14 @@ export class PaymentView {
         .pv-filter { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:16px; }
         .pv-sel,.pv-inp { background:var(--bg-tertiary); border:1px solid var(--border-glass); border-radius:var(--border-radius-sm); color:var(--text-primary); font-size:13px; padding:8px 12px; outline:none; font-family:var(--font-family); }
         .pv-sel:focus,.pv-inp:focus { border-color:var(--color-primary); }
-        /* Bar chart */
         .pv-chart-wrap { position:relative; width:100%; height:220px; }
         .pv-chart-wrap canvas { width:100%!important; height:220px!important; }
-        /* Pie */
         .pv-pie-wrap { display:flex; gap:24px; align-items:center; flex-wrap:wrap; }
         .pv-pie-canvas { width:160px!important; height:160px!important; flex-shrink:0; }
         .pv-pie-legend { display:flex; flex-direction:column; gap:8px; }
         .pv-pie-leg-item { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-secondary); }
         .pv-pie-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
-        /* Debt table */
         .pv-rank { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:var(--color-primary-light); color:var(--color-primary); font-size:11px; font-weight:800; }
-        /* Modal */
         .pv-ov { display:none; position:fixed; inset:0; background:rgba(0,0,0,.65); backdrop-filter:blur(5px); z-index:600; align-items:center; justify-content:center; }
         .pv-ov.active { display:flex; }
         .pv-modal { background:var(--bg-secondary); border:1px solid var(--border-glass); border-radius:var(--border-radius-lg); width:100%; max-width:480px; box-shadow:var(--shadow-lg); overflow:hidden; }
@@ -362,7 +331,6 @@ export class PaymentView {
                   <option value="">All Households</option>
                 </select>
                 <button class="pv-btn pri" id="pv-pay-export-debt-btn" style="display:none;background:#f59e0b;color:#fff;align-items:center;gap:6px;">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
                   Export Debt List
                 </button>
               </div>
@@ -372,7 +340,7 @@ export class PaymentView {
                 <thead><tr>
                   <th>Household</th><th>Collection Period</th><th>Fee Name</th>
                   <th>Amount</th><th>Status</th>
-                  ${currentUser.role !== 'user' ? `<th style="text-align:right;">Actions</th>` : ''}
+                  <th style="text-align:right;">Actions</th>
                 </tr></thead>
                 <tbody id="pv-pay-tbody"></tbody>
               </table>
@@ -390,7 +358,6 @@ export class PaymentView {
               <button class="pv-btn pri" id="pv-rec-filter-btn">Filter</button>
               <button class="pv-btn sec" id="pv-rec-clear-btn">Clear Filter</button>
               <button class="pv-btn pri" id="pv-rec-export-btn" style="display:none;background:#10b981;color:#fff;align-items:center;gap:6px;">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
                 Export Excel
               </button>
             </div>
@@ -399,6 +366,7 @@ export class PaymentView {
                 <thead><tr>
                   <th>Receipt ID</th><th>Household</th><th>Fee Name</th>
                   <th>Amount Paid</th><th>Paid Date</th><th>Note</th><th>Collector</th>
+                  ${currentUser.role !== 'user' ? `<th>Status</th><th style="text-align:right;">Actions</th>` : ''}
                 </tr></thead>
                 <tbody id="pv-rec-tbody"></tbody>
               </table>
@@ -409,11 +377,9 @@ export class PaymentView {
         <!-- ── TAB: THỐNG KÊ ── -->
         ${currentUser.role !== 'user' ? `
         <div class="pv-panel" id="pv-stats">
-          <!-- Overview stats -->
           <div class="pv-grid4" id="pv-stats-grid"></div>
 
           <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:20px;margin-bottom:20px;">
-            <!-- Bar chart monthly -->
             <div class="pv-card" style="margin-bottom:0;">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
                 <h3 style="margin:0;">Monthly Revenue</h3>
@@ -421,7 +387,6 @@ export class PaymentView {
               </div>
               <div class="pv-chart-wrap"><canvas id="pv-bar-chart"></canvas></div>
             </div>
-            <!-- Pie fee type -->
             <div class="pv-card" style="margin-bottom:0;">
               <h3>By Fee Type</h3>
               <div class="pv-pie-wrap">
@@ -431,13 +396,22 @@ export class PaymentView {
             </div>
           </div>
 
-          <!-- Top debtors -->
           <div class="pv-card">
             <h3>Top Unpaid Households</h3>
             <div class="pv-tbl-wrap">
               <table class="pv-tbl">
                 <thead><tr><th>#</th><th>Household</th><th>Unpaid Fees Count</th><th>Total Debt</th></tr></thead>
                 <tbody id="pv-debt-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="pv-card">
+            <h3>Voluntary Contributions Per Household</h3>
+            <div class="pv-tbl-wrap">
+              <table class="pv-tbl">
+                <thead><tr><th>Household</th><th>Voluntary Fee Name</th><th>Amount Contained</th><th>Date Paid</th></tr></thead>
+                <tbody id="pv-contrib-tbody"></tbody>
               </table>
             </div>
           </div>
@@ -453,6 +427,10 @@ export class PaymentView {
             <button class="pv-xbtn" data-pvclose="pv-ov-pay">&times;</button>
           </div>
           <div class="pv-mb">
+            <div id="pv-pay-qr-container" style="text-align:center; margin-bottom:16px; display:none;">
+              <h4 style="font-size:12px; margin-bottom:8px; color:var(--text-secondary);">Scan QR to pay automatically</h4>
+              <img id="pv-pay-qr-img" src="" alt="VietQR" style="max-width:200px; border:2px solid var(--border-glass); border-radius:12px;" />
+            </div>
             <div class="pv-receipt-box" id="pv-pay-m-info" style="margin-bottom:16px;"></div>
             <div class="pv-form">
               <input type="hidden" id="pv-pay-m-afid">
@@ -461,8 +439,12 @@ export class PaymentView {
                 <input type="number" id="pv-pay-m-amount" min="0" placeholder="Automatically calculated if left blank">
               </div>
               <div class="pv-field">
+                <label>Payer Representative (Người nộp tiền)</label>
+                <input type="text" id="pv-pay-m-payer" placeholder="e.g. John Doe">
+              </div>
+              <div class="pv-field">
                 <label>Note (Optional)</label>
-                <textarea id="pv-pay-m-note" rows="2" placeholder="e.g. Bank Transfer, Paid on behalf..."></textarea>
+                <textarea id="pv-pay-m-note" rows="2" placeholder="e.g. Bank Transfer, Cash..."></textarea>
               </div>
               <div style="display:flex;gap:10px;justify-content:flex-end;">
                 <button class="pv-btn sec" data-pvclose="pv-ov-pay">Cancel</button>
@@ -472,41 +454,21 @@ export class PaymentView {
           </div>
         </div>
       </div>
-
-      <!-- MODAL: Receipt Detail -->
-      <div class="pv-ov" id="pv-ov-rec">
-        <div class="pv-modal">
-          <div class="pv-mh">
-            <div><h3>Receipt Details</h3><p id="pv-rec-m-id"></p></div>
-            <button class="pv-xbtn" data-pvclose="pv-ov-rec">&times;</button>
-          </div>
-          <div class="pv-mb">
-            <div class="pv-receipt-box" id="pv-rec-m-body"></div>
-            <div style="margin-top:14px;text-align:right;">
-              <button class="pv-btn sec" data-pvclose="pv-ov-rec">Close</button>
-            </div>
-          </div>
-        </div>
-      </div>
     `;
 
-    /* ── helpers ── */
     const q   = s => container.querySelector(s);
     const vnd = n => new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND'}).format(n||0);
     const fmt = iso => iso ? new Date(iso).toLocaleString('vi-VN') : '—';
     const open  = id => container.querySelector('#'+id).classList.add('active');
     const close = id => container.querySelector('#'+id).classList.remove('active');
 
-    // Hiển thị trạng thái kết nối backend
     const statusEl = q('#pv-backend-status');
     if (statusEl) {
       if (isBackend) {
         statusEl.innerHTML = `<span style="color:#10b981;font-weight:600;display:inline-flex;align-items:center;gap:6px;">
           <span style="display:inline-block;width:8px;height:8px;background:#10b981;border-radius:50%;animation:pulse 1.5s infinite;"></span>
           Connected to Java Backend (REST API + MySQL)
-        </span>
-        <style>@keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }</style>`;
-        
+        </span>`;
         if (currentUser.role !== 'user') {
           q('#pv-rec-export-btn').style.display = 'inline-flex';
           q('#pv-pay-export-debt-btn').style.display = 'inline-flex';
@@ -518,7 +480,6 @@ export class PaymentView {
 
     container.querySelectorAll('[data-pvclose]').forEach(b => b.addEventListener('click', () => close(b.dataset.pvclose)));
 
-    /* ── tabs ── */
     container.querySelectorAll('.pv-tab').forEach(tab => {
       tab.addEventListener('click', () => {
         container.querySelectorAll('.pv-tab').forEach(t => t.classList.remove('active'));
@@ -529,10 +490,28 @@ export class PaymentView {
       });
     });
 
-    /* ── populate selects ── */
+    q('#pv-rec-export-btn').addEventListener('click', async () => {
+      const hhFilter = q('#pv-rec-hh').value;
+      try {
+        await API.exportExcel('period-receipts', hhFilter || 'PER001');
+        showToast('Export successful', 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    });
+
+    q('#pv-pay-export-debt-btn').addEventListener('click', async () => {
+      const periodFilter = q('#pv-pay-period').value;
+      try {
+        await API.exportExcel('period-debt', periodFilter || 'PER001');
+        showToast('Export successful', 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    });
+
     function populateSelects() {
       const db = FM._getDB();
-      // Period selects
       [q('#pv-pay-period')].forEach(sel => {
         const cur = sel.value;
         sel.innerHTML = '<option value="">All Periods</option>';
@@ -542,7 +521,7 @@ export class PaymentView {
         });
         sel.value = cur;
       });
-      // HH selects
+
       const isResident = currentUser.role === 'user';
       [q('#pv-pay-hh'), q('#pv-rec-hh')].forEach(sel => {
         const cur = sel.value;
@@ -555,7 +534,7 @@ export class PaymentView {
             sel.value = matchedHh.id;
           } else {
             const o = document.createElement('option');
-            o.value = currentUser.room || ''; o.textContent = `${currentUser.room || 'Unassigned apartment'} — ${currentUser.fullname}`; sel.appendChild(o);
+            o.value = currentUser.room || ''; o.textContent = `${currentUser.room || 'Unassigned'} — ${currentUser.fullname}`; sel.appendChild(o);
             sel.value = currentUser.room || '';
           }
           sel.disabled = true;
@@ -569,7 +548,7 @@ export class PaymentView {
           sel.disabled = false;
         }
       });
-      // Year select
+
       const ySel = q('#pv-year-sel');
       if (ySel) {
         const thisYear = new Date().getFullYear();
@@ -582,7 +561,6 @@ export class PaymentView {
       }
     }
 
-    /* ── RENDER: unpaid ── */
     async function renderUnpaid() {
       const db = FM._getDB();
       const periodFilter = q('#pv-pay-period').value;
@@ -609,12 +587,11 @@ export class PaymentView {
             amountPaidAccumulated: d.amountPaidAccumulated
           }));
         } catch (e) {
-          console.error("Lỗi lấy dữ liệu chưa nộp:", e);
-          isBackend = false; // Tự động rẽ nhánh fallback
+          console.error("Fallback to local unpaid:", e);
+          isBackend = false;
         }
       }
 
-      // Fallback nếu không có backend hoặc lỗi kết nối
       if (!isBackend) {
         afs = db.assignedFees.filter(a => a.status === 'UNPAID' || a.status === 'PARTIAL');
         if (periodFilter) afs = afs.filter(a => a.periodId === periodFilter);
@@ -642,21 +619,77 @@ export class PaymentView {
           <td>${fee?.name||'?'}</td>
           <td><strong>${vnd(amt)}</strong></td>
           <td>${badge}</td>
-          ${(!isResident || af.householdId === currentUser.room) ? `
           <td style="text-align:right;">
             <button class="pv-btn suc pv-do-pay" data-id="${af.id}" data-amt="${remaining}" data-fee="${fee?.name||''}" data-hh="${hh?.id||''}-${hh?.ownerName||''}">Pay</button>
-          </td>` : '<td style="text-align:right;">—</td>'}
+          </td>
         </tr>`;
       }).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">No unpaid fees found.</td></tr>`;
 
-      if (!isResident) {
-        q('#pv-pay-tbody').querySelectorAll('.pv-do-pay').forEach(b => {
-          b.addEventListener('click', () => openPayModal(b.dataset.id, b.dataset.amt, b.dataset.fee, b.dataset.hh));
-        });
-      }
+      q('#pv-pay-tbody').querySelectorAll('.pv-do-pay').forEach(b => {
+        b.addEventListener('click', () => openPayModal(b.dataset.id, b.dataset.amt, b.dataset.fee, b.dataset.hh));
+      });
     }
 
-    /* ── RENDER: receipts ── */
+    async function openPayModal(assignedFeeId, remaining, feeName, hhInfo) {
+      q('#pv-pay-m-afid').value = assignedFeeId;
+      q('#pv-pay-m-amount').value = remaining;
+      q('#pv-pay-m-payer').value = '';
+      q('#pv-pay-m-note').value = '';
+      q('#pv-pay-m-sub').textContent = `${feeName} — Household ${hhInfo}`;
+      q('#pv-pay-m-info').innerHTML = `
+        <div class="pv-receipt-row"><span>Remaining amount:</span><strong>${vnd(remaining)}</strong></div>
+      `;
+      
+      const qrContainer = q('#pv-pay-qr-container');
+      const qrImg = q('#pv-pay-qr-img');
+      if (qrContainer && qrImg) {
+        if (isBackend) {
+          try {
+            const qrUrl = await API.getQrUrl(assignedFeeId);
+            qrImg.src = qrUrl;
+            qrContainer.style.display = 'block';
+          } catch (e) {
+            qrContainer.style.display = 'none';
+          }
+        } else {
+          const mockUrl = `https://img.vietqr.io/image/MB-123456789-compact2.png?amount=${remaining}&addInfo=THANH%20TOAN%20PHI%20${assignedFeeId}`;
+          qrImg.src = mockUrl;
+          qrContainer.style.display = 'block';
+        }
+      }
+      open('pv-ov-pay');
+    }
+
+    q('#pv-pay-m-confirm').addEventListener('click', async () => {
+      const afid = q('#pv-pay-m-afid').value;
+      const amt  = q('#pv-pay-m-amount').value;
+      const note = q('#pv-pay-m-note').value;
+      const payer = q('#pv-pay-m-payer').value;
+
+      try {
+        if (isBackend) {
+          const params = {
+            assignedFeeId: afid,
+            amountPaid: amt ? Number(amt) : null,
+            note: note,
+            payerName: payer,
+            idempotencyKey: 'IDEM_' + afid + '_' + Date.now()
+          };
+          await API.fetchJson('/payments', {
+            method: 'POST',
+            body: JSON.stringify(params)
+          });
+        } else {
+          PaymentEngine.recordPayment(afid, amt, note, currentUser.fullname, FM);
+        }
+        showToast('Payment recorded successfully', 'success');
+        close('pv-ov-pay');
+        renderCurrent();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    });
+
     async function renderReceipts() {
       const db = FM._getDB();
       const hhFilter   = q('#pv-rec-hh').value;
@@ -669,7 +702,7 @@ export class PaymentView {
           const apiData = await API.getReceiptHistory(hhFilter, fromVal, toVal);
           receipts = apiData.content || [];
         } catch (e) {
-          console.error("Lỗi gọi API getReceiptHistory:", e);
+          console.error("Fallback to local receipts:", e);
           isBackend = false;
         }
       }
@@ -689,7 +722,11 @@ export class PaymentView {
         const rId = isBackend ? r.receiptId : r.id;
         const hhName = isBackend ? r.ownerName : (db.households.find(h => h.id === r.householdId)?.ownerName || '?');
         const feeName = isBackend ? r.feeName : (db.fees.find(f => f.id === r.feeId)?.name || r.feeId);
-        
+        const statusStr = r.receiptStatus || 'ACTIVE';
+        const badge = statusStr === 'CANCELLED' 
+          ? '<span class="pv-badge red">Cancelled</span>'
+          : '<span class="pv-badge green">Active</span>';
+
         return `<tr>
           <td><code style="font-size:11px;color:var(--color-primary);">${rId}</code></td>
           <td><strong>${r.householdId}</strong><br><small style="color:var(--text-muted);">${hhName}</small></td>
@@ -697,33 +734,57 @@ export class PaymentView {
           <td><strong style="color:var(--color-success);">${vnd(r.amountPaid)}</strong></td>
           <td style="font-size:12px;">${fmt(r.paidAt)}</td>
           <td style="font-size:12px;color:var(--text-muted);">${r.note||'—'}</td>
-          <td style="font-size:12px;">${r.createdBy||'—'}</td>
+          <td>${r.createdBy||'—'} ${r.payerName ? `<br><small style="color:var(--text-muted);">Payer: ${r.payerName}</small>` : ''}</td>
+          ${currentUser.role !== 'user' ? `
+            <td>${badge}</td>
+            <td style="text-align:right;">
+              ${statusStr === 'ACTIVE' ? `<button class="pv-btn dan pv-cancel-receipt" data-id="${rId}">Cancel</button>` : '—'}
+            </td>
+          ` : ''}
         </tr>`;
-      }).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px;">No receipts found.</td></tr>`;
+      }).join('') || `<tr><td colspan="${currentUser.role !== 'user' ? 9 : 7}" style="text-align:center;color:var(--text-muted);padding:20px;">No receipts found.</td></tr>`;
+
+      if (currentUser.role !== 'user') {
+        q('#pv-rec-tbody').querySelectorAll('.pv-cancel-receipt').forEach(b => {
+          b.addEventListener('click', async () => {
+            if (!confirm(`Are you sure you want to cancel receipt ${b.dataset.id}?`)) return;
+            try {
+              if (isBackend) {
+                await API.cancelReceipt(b.dataset.id);
+              } else {
+                const rec = PaymentEngine.getReceiptById(b.dataset.id);
+                if (rec) {
+                  PaymentEngine.undoPayment(rec.assignedFeeId, FM);
+                }
+              }
+              showToast('Receipt cancelled successfully', 'success');
+              renderCurrent();
+            } catch (err) {
+              showToast(err.message, 'error');
+            }
+          });
+        });
+      }
     }
 
-    /* ── RENDER: stats ── */
     async function renderStats() {
       let overviewData = null;
       let monthlyRevenue = {};
       let revenueByFeeType = {};
       let debtors = [];
+      let contributions = [];
       const year = parseInt(q('#pv-year-sel').value) || new Date().getFullYear();
 
       if (isBackend) {
         try {
           overviewData = await API.getOverview();
           
-          // Lấy doanh thu tháng
           const mData = await API.getMonthlyRevenue(year);
           monthlyRevenue = mData.monthlyRevenue || {};
           
-          // Lấy doanh thu theo loại phí
           const tData = await API.getRevenueByFeeType();
           revenueByFeeType = tData.revenueByFeeType || {};
 
-          // Vì backend chưa hỗ trợ tính tổng số tiền chưa đóng trực tiếp, ta gọi danh sách chưa nộp
-          // để tự động tính tổng tiền nợ và lập bảng top hộ nợ theo dữ liệu backend thời gian thực.
           const unpaidData = await API.getUnpaidFees();
           const unpaidList = unpaidData.content || [];
           let totalPending = 0;
@@ -740,8 +801,10 @@ export class PaymentView {
 
           overviewData.totalPending = totalPending;
           debtors = Object.values(debtMap).sort((a,b) => b.totalDebt - a.totalDebt).slice(0, 10);
+          
+          contributions = await API.getContributions();
         } catch (e) {
-          console.error("Lỗi lấy thống kê từ API:", e);
+          console.error("Fallback to local stats:", e);
           isBackend = false;
         }
       }
@@ -751,6 +814,22 @@ export class PaymentView {
         monthlyRevenue = PaymentEngine.getMonthlyRevenue(year, FM);
         revenueByFeeType = PaymentEngine.getRevenueByFeeType(FM);
         debtors = PaymentEngine.getTopDebtors(FM, 10);
+
+        const db = FM._getDB();
+        contributions = db.assignedFees.filter(af => af.status === 'PAID').map(af => {
+          const fee = db.fees.find(f => f.id === af.feeId);
+          if (fee && fee.type === 'VOLUNTARY') {
+            const hh = db.households.find(h => h.id === af.householdId);
+            return {
+              householdId: af.householdId,
+              ownerName: hh?.ownerName || '?',
+              feeName: fee.name,
+              amountPaid: af.amountPaidAccumulated || (fee.price * af.quantity),
+              paidAt: af.paidAt
+            };
+          }
+          return null;
+        }).filter(x => x !== null);
       }
 
       q('#pv-stats-grid').innerHTML = `
@@ -770,16 +849,25 @@ export class PaymentView {
           <td><span class="pv-badge red">${d.unpaidCount} fees</span></td>
           <td><strong style="color:var(--color-warning);">${vnd(d.totalDebt)}</strong></td>
         </tr>
-      `).join('') || `<tr><td colspan="4" style="text-align:center;color:var(--color-success);padding:20px;">🎉 All households have completed their payments!</td></tr>`;
+      `).join('') || `<tr><td colspan="4" style="text-align:center;color:var(--color-success);padding:20px;">🎉 All households paid!</td></tr>`;
+
+      q('#pv-contrib-tbody').innerHTML = contributions.map(c => `
+        <tr>
+          <td><strong>${c.householdId}</strong> — ${c.ownerName}</td>
+          <td>${c.feeName}</td>
+          <td><strong style="color:var(--color-success);">${vnd(c.amountPaid)}</strong></td>
+          <td style="font-size:12px;">${fmt(c.paidAt)}</td>
+        </tr>
+      `).join('') || `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;">No voluntary contributions recorded yet.</td></tr>`;
     }
 
-    /* ── Bar chart (thuần Canvas) ── */
     function drawBarChart(monthly) {
       const vals = Object.values(monthly);
       const labels = vals.map((_, i) => 'M'+(i+1));
       const max = Math.max(...vals, 1);
 
       const canvas = q('#pv-bar-chart');
+      if (!canvas) return;
       canvas.width = canvas.parentElement.clientWidth || 400;
       canvas.height = 220;
       const ctx = canvas.getContext('2d');
@@ -801,156 +889,79 @@ export class PaymentView {
 
       vals.forEach((v, i) => {
         const x = pad.l + i * (barW + gap) + gap/2;
-        const bH = (v / max) * chartH;
-        const y  = H - pad.b - bH;
+        const barH = (v / max) * chartH;
+        const y = H - pad.b - barH;
+
         ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.roundRect ? ctx.roundRect(x, y, barW, bH, 3) : ctx.rect(x, y, barW, bH);
+        ctx.roundRect ? ctx.roundRect(x, y, barW, barH, 4) : ctx.rect(x, y, barW, barH);
         ctx.fill();
-        
-        ctx.fillStyle = 'rgba(128,128,128,0.8)';
+
+        ctx.fillStyle = 'var(--text-secondary)';
         ctx.font = '10px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(labels[i], x + barW/2, H - pad.b + 14);
-        
-        if (v > 0) {
-          ctx.fillStyle = '#6366f1';
-          ctx.font = 'bold 9px sans-serif';
-          const txt = v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v+'';
-          ctx.fillText(txt, x + barW/2, y - 4);
-        }
+        ctx.fillText(labels[i], x + barW/2, H - 12);
       });
     }
 
-    /* ── Pie chart (thuần Canvas) ── */
     function drawPieChart(byType) {
-      const total = Object.values(byType).reduce((s,v)=>s+v,0);
-      const colors = { COMPULSORY: '#6366f1', MANDATORY: '#6366f1', VOLUNTARY: '#10b981', VEHICLE: '#f59e0b', UTILITY: '#06b6d4' };
-      const labels = { COMPULSORY: 'Compulsory', MANDATORY: 'Compulsory', VOLUNTARY: 'Voluntary', VEHICLE: 'Vehicle Parking', UTILITY: 'Utility Consumption' };
-
       const canvas = q('#pv-pie-chart');
-      canvas.width = 160; canvas.height = 160;
+      if (!canvas) return;
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0,0,160,160);
 
-      if (total === 0) {
-        ctx.fillStyle = 'rgba(128,128,128,0.2)';
-        ctx.beginPath(); ctx.arc(80,80,70,0,Math.PI*2); ctx.fill();
-        return;
-      }
+      const data = Object.values(byType);
+      const keys = Object.keys(byType);
+      const total = data.reduce((a,b)=>a+b, 0);
 
-      let startAngle = -Math.PI/2;
-      Object.entries(byType).forEach(([type, val]) => {
-        if (!val) return;
-        const slice = (val/total) * Math.PI * 2;
-        ctx.fillStyle = colors[type] || '#888';
-        ctx.beginPath(); ctx.moveTo(80,80); ctx.arc(80,80,70,startAngle,startAngle+slice); ctx.closePath(); ctx.fill();
-        startAngle += slice;
+      const colors = ['#6366f1', '#06b6d4', '#10b981', '#f59e0b'];
+      let lastAngle = -0.5 * Math.PI;
+
+      data.forEach((v, i) => {
+        if (v === 0) return;
+        const angle = (v / (total || 1)) * 2 * Math.PI;
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.beginPath();
+        ctx.moveTo(80, 80);
+        ctx.arc(80, 80, 70, lastAngle, lastAngle + angle);
+        ctx.closePath();
+        ctx.fill();
+        lastAngle += angle;
       });
 
-      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg-secondary').trim() || '#1e1e2e';
-      ctx.beginPath(); ctx.arc(80,80,35,0,Math.PI*2); ctx.fill();
-
-      q('#pv-pie-legend').innerHTML = Object.entries(byType).map(([type,val]) => `
+      const leg = q('#pv-pie-legend');
+      leg.innerHTML = keys.map((k,i) => `
         <div class="pv-pie-leg-item">
-          <div class="pv-pie-dot" style="background:${colors[type]||'#888'}"></div>
-          <span>${labels[type]||type}: <strong>${vnd(val)}</strong></span>
+          <span class="pv-pie-dot" style="background:${colors[i%colors.length]};"></span>
+          <span>${k}: <strong>${vnd(data[i])}</strong></span>
         </div>
       `).join('');
     }
 
     function renderCurrent() {
       populateSelects();
-      const activePanel = container.querySelector('.pv-panel.active')?.id;
-      if (activePanel === 'pv-pay')      renderUnpaid();
-      if (activePanel === 'pv-receipts') renderReceipts();
-      if (activePanel === 'pv-stats' && currentUser.role !== 'user')    renderStats();
+      const active = q('.pv-tab.active').dataset.pv;
+      if (active === 'pv-pay')      renderUnpaid();
+      if (active === 'pv-receipts') renderReceipts();
+      if (active === 'pv-stats')    renderStats();
     }
 
-    /* ── filter events ── */
     q('#pv-pay-period').addEventListener('change', renderUnpaid);
     q('#pv-pay-hh').addEventListener('change', renderUnpaid);
+    q('#pv-rec-hh').addEventListener('change', renderReceipts);
     q('#pv-rec-filter-btn').addEventListener('click', renderReceipts);
     q('#pv-rec-clear-btn').addEventListener('click', () => {
-      q('#pv-rec-hh').value = ''; q('#pv-rec-from').value = ''; q('#pv-rec-to').value = '';
+      q('#pv-rec-hh').value = '';
+      q('#pv-rec-from').value = '';
+      q('#pv-rec-to').value = '';
       renderReceipts();
     });
-    if (q('#pv-year-sel')) q('#pv-year-sel').addEventListener('change', renderStats);
 
-    /* ── EXPORT EXCEL EVENTS (Chỉ kích hoạt khi ở chế độ Fullstack) ── */
-    if (q('#pv-rec-export-btn')) {
-      q('#pv-rec-export-btn').addEventListener('click', () => {
-        const hhFilter = q('#pv-rec-hh').value;
-        const fromVal  = q('#pv-rec-from').value;
-        const toVal    = q('#pv-rec-to').value;
-        
-        let url = '';
-        if (fromVal && toVal) {
-          url = API.getExportUrl('date-receipts', fromVal, toVal);
-        } else {
-          const periodFilter = q('#pv-pay-period').value || 'PER001';
-          url = API.getExportUrl('period-receipts', periodFilter);
-        }
-        window.open(url, '_blank');
-      });
+    const ySel = q('#pv-year-sel');
+    if (ySel) {
+      ySel.addEventListener('change', renderStats);
     }
 
-    if (q('#pv-pay-export-debt-btn')) {
-      q('#pv-pay-export-debt-btn').addEventListener('click', () => {
-        const periodFilter = q('#pv-pay-period').value || 'PER001';
-        const url = API.getExportUrl('period-debt', periodFilter);
-        window.open(url, '_blank');
-      });
-    }
-
-    /* ── Payment Modal ── */
-    function openPayModal(afId, amt, feeName, hhLabel) {
-      q('#pv-pay-m-afid').value = afId;
-      q('#pv-pay-m-amount').value = '';
-      q('#pv-pay-m-note').value = '';
-      q('#pv-pay-m-sub').textContent = `${hhLabel} — ${feeName}`;
-      q('#pv-pay-m-info').innerHTML = `
-        <div class="pv-receipt-row"><span>Household</span><strong>${hhLabel}</strong></div>
-        <div class="pv-receipt-row"><span>Fee Name</span><strong>${feeName}</strong></div>
-        <div class="pv-receipt-row"><span>Amount Required</span><strong style="color:var(--color-warning);">${vnd(parseFloat(amt))}</strong></div>
-      `;
-      open('pv-ov-pay');
-    }
-
-    q('#pv-pay-m-confirm').addEventListener('click', async () => {
-      const afId = q('#pv-pay-m-afid').value;
-      const amtInput = parseFloat(q('#pv-pay-m-amount').value) || 0;
-      const note = q('#pv-pay-m-note').value.trim();
-      
-      try {
-        if (isBackend) {
-          const receipt = await API.recordPayment(afId, amtInput || null, note);
-          close('pv-ov-pay');
-          showToast(`Payment successful! Receipt: ${receipt.receiptId || receipt.id}`, 'success');
-
-          // Đồng bộ lại vào LocalStorage của Frontend để tránh lệch số liệu ở các tab Resident/Dashboard khác chưa di chuyển sang Backend
-          try {
-            const db = FM._getDB();
-            const localAf = db.assignedFees.find(a => a.id === afId);
-            if (localAf) {
-              localAf.status = receipt.status || 'PAID';
-              localAf.amountPaidAccumulated = receipt.amountPaidAccumulated || receipt.amountPaid;
-              localAf.paidAt = receipt.paidAt || new Date().toISOString();
-              FM._saveDB(db);
-            }
-          } catch (localErr) {}
-        } else {
-          const receipt = PaymentEngine.recordPayment(afId, amtInput || null, note, currentUser?.username || 'admin', FM);
-          close('pv-ov-pay');
-          showToast(`Payment successful! Receipt: ${receipt.id}`, 'success');
-        }
-        renderCurrent();
-      } catch(err) {
-        showToast(err.message, 'error');
-      }
-    });
-
-    /* ── boot ── */
     renderCurrent();
   }
 }

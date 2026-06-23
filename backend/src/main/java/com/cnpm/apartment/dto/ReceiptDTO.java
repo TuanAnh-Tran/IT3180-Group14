@@ -36,5 +36,7 @@ public class ReceiptDTO {
     private FeeStatus status;
     private String note;
     private String createdBy;
+    private String payerName;
+    private String receiptStatus;
     private LocalDateTime createdAt;
 }

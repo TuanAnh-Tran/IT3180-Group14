@@ -385,6 +385,49 @@ public class ResidentManagementService {
     }
 
     @Transactional(readOnly = true)
+    public List<DemographicsTrendDTO> getDemographicsTrend(int year) {
+        List<DemographicsTrendDTO> list = new ArrayList<>();
+
+        long[] newRes = new long[13];
+        long[] tempAbs = new long[13];
+        long[] tempRes = new long[13];
+
+        List<Object[]> resRows = residentRepository.countNewResidentsByMonth(year);
+        for (Object[] row : resRows) {
+            int month = ((Number) row[0]).intValue();
+            long count = ((Number) row[1]).longValue();
+            if (month >= 1 && month <= 12) {
+                newRes[month] = count;
+            }
+        }
+
+        List<TemporaryResidenceRecord> records = temporaryResidenceRecordRepository.findAll();
+        for (TemporaryResidenceRecord tr : records) {
+            if (tr.getCreatedAt() != null && tr.getCreatedAt().getYear() == year) {
+                int m = tr.getCreatedAt().getMonthValue();
+                if (m >= 1 && m <= 12) {
+                    if (tr.getType() == ResidenceRecordType.TEMPORARY_ABSENCE) {
+                        tempAbs[m]++;
+                    } else if (tr.getType() == ResidenceRecordType.TEMPORARY_RESIDENCE) {
+                        tempRes[m]++;
+                    }
+                }
+            }
+        }
+
+        for (int m = 1; m <= 12; m++) {
+            list.add(DemographicsTrendDTO.builder()
+                    .month(m)
+                    .newResidents(newRes[m])
+                    .temporaryAbsences(tempAbs[m])
+                    .temporaryResidences(tempRes[m])
+                    .build());
+        }
+
+        return list;
+    }
+
+    @Transactional(readOnly = true)
     public List<ResidentSearchResultDTO> globalSearch(String query, String type) {
         String normalizedType = clean(type).toLowerCase(Locale.ROOT);
         Pageable limit = PageRequest.of(0, 10, Sort.by("id"));

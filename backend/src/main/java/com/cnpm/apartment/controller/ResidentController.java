@@ -201,6 +201,12 @@ public class ResidentController {
         return ResponseEntity.ok(ApiResponse.success(residentManagementService.getStats()));
     }
 
+    @GetMapping("/stats/trend")
+    public ResponseEntity<ApiResponse<List<DemographicsTrendDTO>>> getDemographicsTrend(
+            @RequestParam(defaultValue = "#{T(java.time.LocalDate).now().getYear()}") int year) {
+        return ResponseEntity.ok(ApiResponse.success(residentManagementService.getDemographicsTrend(year)));
+    }
+
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<List<ResidentSearchResultDTO>>> globalSearch(
             @RequestParam(required = false) String q,

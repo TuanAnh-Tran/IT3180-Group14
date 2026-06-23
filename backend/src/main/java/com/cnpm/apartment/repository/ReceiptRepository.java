@@ -10,9 +10,12 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ReceiptRepository extends JpaRepository<Receipt, String> {
+
+    Optional<Receipt> findByIdempotencyKey(String idempotencyKey);
 
     // Lịch sử đóng phí của một hộ
     Page<Receipt> findByAssignedFeeHouseholdId(String householdId, Pageable pageable);

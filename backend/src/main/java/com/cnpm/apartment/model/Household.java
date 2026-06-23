@@ -80,6 +80,10 @@ public class Household {
     private String ownershipNote;
 
     @Builder.Default
+    @Column(name = "balance", nullable = false, precision = 15, scale = 2)
+    private java.math.BigDecimal balance = java.math.BigDecimal.ZERO;
+
+    @Builder.Default
     @Column(name = "archived", nullable = false)
     private boolean archived = false;
 

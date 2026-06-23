@@ -19,6 +19,7 @@ public class StatisticsService {
 
     private final AssignedFeeRepository assignedFeeRepository;
     private final HouseholdRepository householdRepository;
+    private final com.cnpm.apartment.service.calculator.CalculatorFactory calculatorFactory;
 
     // =========================================================
     // THỐNG KÊ TỔNG QUAN
@@ -39,10 +40,17 @@ public class StatisticsService {
         double completionRate = (totalAssignments == 0) ? 0.0
                 : (double) paidCount / totalAssignments * 100;
 
-        // Calculate pending amount: sum of required - accumulated paid
-        // For simple representation in fallback, we can calculate totalPending as 0 if not scanned, 
-        // or just leave totalPending as null/zero or calculate it. We'll set it to zero for now or compute if needed.
         BigDecimal totalPending = BigDecimal.ZERO;
+        List<com.cnpm.apartment.model.AssignedFee> unpaidFees = assignedFeeRepository.findByStatusIn(
+                List.of(FeeStatus.UNPAID, FeeStatus.PARTIAL));
+        for (com.cnpm.apartment.model.AssignedFee af : unpaidFees) {
+            BigDecimal required = calculateAmount(af);
+            BigDecimal paid = af.getAmountPaidAccumulated() != null ? af.getAmountPaidAccumulated() : BigDecimal.ZERO;
+            BigDecimal debt = required.subtract(paid);
+            if (debt.compareTo(BigDecimal.ZERO) > 0) {
+                totalPending = totalPending.add(debt);
+            }
+        }
 
         return StatisticsDTO.builder()
                 .totalCollected(totalCollected)
@@ -52,6 +60,22 @@ public class StatisticsService {
                 .unpaidHouseholds(unpaidCount + partialCount)
                 .completionRate(Math.round(completionRate * 100.0) / 100.0)
                 .build();
+    }
+
+    private BigDecimal calculateAmount(com.cnpm.apartment.model.AssignedFee af) {
+        return calculatorFactory.getCalculator(af.getFee().getCalcMethod()).calculate(af);
+    }
+
+    public List<com.cnpm.apartment.dto.ContributionDTO> getVoluntaryContributions() {
+        return assignedFeeRepository.findVoluntaryContributions().stream()
+                .map(af -> com.cnpm.apartment.dto.ContributionDTO.builder()
+                        .householdId(af.getHousehold().getId())
+                        .ownerName(af.getHousehold().getOwnerName())
+                        .feeName(af.getFee().getName())
+                        .amountPaid(af.getAmountPaidAccumulated())
+                        .paidAt(af.getPaidAt())
+                        .build())
+                .collect(java.util.stream.Collectors.toList());
     }
 
     // =========================================================

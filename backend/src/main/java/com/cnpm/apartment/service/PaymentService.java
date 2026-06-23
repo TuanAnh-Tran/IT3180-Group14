@@ -8,6 +8,7 @@ import com.cnpm.apartment.model.CollectionPeriod;
 import com.cnpm.apartment.model.Fee;
 import com.cnpm.apartment.model.Household;
 import com.cnpm.apartment.model.Receipt;
+import com.cnpm.apartment.model.PaymentProof;
 import com.cnpm.apartment.model.enums.CalcMethod;
 import com.cnpm.apartment.model.enums.FeeStatus;
 import com.cnpm.apartment.model.enums.FeeType;
@@ -42,6 +43,7 @@ public class PaymentService {
     private final FeeRepository feeRepository;
     private final HouseholdRepository householdRepository;
     private final CalculatorFactory calculatorFactory;
+    private final com.cnpm.apartment.repository.PaymentProofRepository paymentProofRepository;
 
     // =========================================================
     // 1. GHI NHẬN NỘP TIỀN
@@ -54,6 +56,16 @@ public class PaymentService {
      */
     @Transactional
     public ReceiptDTO recordPayment(PaymentRequestDTO request) {
+        // Idempotency check
+        if (request.getIdempotencyKey() != null && !request.getIdempotencyKey().isBlank()) {
+            java.util.Optional<Receipt> existing = receiptRepository.findByIdempotencyKey(request.getIdempotencyKey());
+            if (existing.isPresent()) {
+                Receipt r = existing.get();
+                BigDecimal amountRequired = calculateAmount(r.getAssignedFee());
+                return mapToReceiptDTO(r, amountRequired);
+            }
+        }
+
         // Find AssignedFee using Pessimistic Lock
         AssignedFee af = assignedFeeRepository.findByIdForUpdate(request.getAssignedFeeId())
                 .orElseThrow(() -> new RuntimeException(
@@ -66,25 +78,68 @@ public class PaymentService {
 
         // Tính số tiền phải nộp
         BigDecimal amountRequired = calculateAmount(af);
+        BigDecimal currentAccumulated = af.getAmountPaidAccumulated() != null ? af.getAmountPaidAccumulated() : BigDecimal.ZERO;
+        BigDecimal remaining = amountRequired.subtract(currentAccumulated);
 
-        // Lấy số tiền người dùng nộp
+        Household hh = af.getHousehold();
+        BigDecimal balance = hh.getBalance() != null ? hh.getBalance() : BigDecimal.ZERO;
+
         BigDecimal userPayment = request.getAmountPaid();
+        BigDecimal balanceApplied = BigDecimal.ZERO;
+
         if (userPayment == null || userPayment.compareTo(BigDecimal.ZERO) <= 0) {
-            // Nếu để trống hoặc <= 0, mặc định thanh toán nốt phần còn lại
-            BigDecimal currentAccumulated = af.getAmountPaidAccumulated() != null ? af.getAmountPaidAccumulated() : BigDecimal.ZERO;
-            userPayment = amountRequired.subtract(currentAccumulated);
-            if (userPayment.compareTo(BigDecimal.ZERO) <= 0) {
+            // Mặc định thanh toán nốt phần còn lại
+            if (balance.compareTo(remaining) >= 0) {
+                balanceApplied = remaining;
                 userPayment = BigDecimal.ZERO;
+            } else {
+                balanceApplied = balance;
+                userPayment = remaining.subtract(balance);
+            }
+        } else {
+            // Người dùng nhập số tiền cụ thể
+            BigDecimal totalAvailable = userPayment.add(balance);
+            if (totalAvailable.compareTo(remaining) >= 0) {
+                balanceApplied = balance;
+                BigDecimal newBalance = totalAvailable.subtract(remaining);
+                hh.setBalance(newBalance);
+                userPayment = remaining;
+                balanceApplied = remaining.subtract(request.getAmountPaid());
+                if (balanceApplied.compareTo(BigDecimal.ZERO) < 0) {
+                    balanceApplied = BigDecimal.ZERO;
+                }
+            } else {
+                balanceApplied = balance;
+                hh.setBalance(BigDecimal.ZERO);
             }
         }
 
-        // Lấy tên người dùng hiện tại (từ JWT Security context)
-        String currentUser = SecurityContextHolder.getContext()
-                .getAuthentication().getName();
+        // Cập nhật số dư hộ nếu sử dụng balance
+        if (balanceApplied.compareTo(BigDecimal.ZERO) > 0 && userPayment.compareTo(remaining) < 0) {
+            BigDecimal usedFromBalance = balanceApplied;
+            if (usedFromBalance.compareTo(balance) > 0) {
+                usedFromBalance = balance;
+            }
+            hh.setBalance(balance.subtract(usedFromBalance));
+        }
+
 
         // Cập nhật số tiền lũy kế đã nộp
-        BigDecimal currentAccumulated = af.getAmountPaidAccumulated() != null ? af.getAmountPaidAccumulated() : BigDecimal.ZERO;
-        BigDecimal newAccumulated = currentAccumulated.add(userPayment);
+        BigDecimal actualAppliedToFee = request.getAmountPaid() != null ? request.getAmountPaid() : remaining;
+        if (balance.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal totalApplied = actualAppliedToFee.add(balance);
+            if (totalApplied.compareTo(remaining) >= 0) {
+                actualAppliedToFee = remaining;
+            } else {
+                actualAppliedToFee = totalApplied;
+            }
+        } else {
+            if (actualAppliedToFee.compareTo(remaining) > 0) {
+                actualAppliedToFee = remaining;
+            }
+        }
+
+        BigDecimal newAccumulated = currentAccumulated.add(actualAppliedToFee);
         af.setAmountPaidAccumulated(newAccumulated);
 
         // Cập nhật trạng thái
@@ -93,24 +148,181 @@ public class PaymentService {
         } else {
             af.setStatus(FeeStatus.PARTIAL);
         }
-        af.setPaidAt(LocalDateTime.now());
+
+        LocalDateTime paymentDate = request.getPaidAt() != null ? request.getPaidAt() : LocalDateTime.now();
+        af.setPaidAt(paymentDate);
         assignedFeeRepository.save(af);
+        householdRepository.save(hh);
+
+        // Lấy tên người dùng hiện tại (từ JWT Security context)
+        String currentUser = "system";
+        try {
+            currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
+        } catch (Exception e) {
+            // fallback
+        }
 
         // Tạo biên lai ghi nhận số tiền của giao dịch này
         Receipt receipt = Receipt.builder()
                 .id(UUID.randomUUID().toString())
                 .assignedFee(af)
-                .amountPaid(userPayment)
-                .paidAt(LocalDateTime.now())
+                .amountPaid(request.getAmountPaid() != null ? request.getAmountPaid() : actualAppliedToFee)
+                .paidAt(paymentDate)
                 .note(request.getNote())
                 .createdBy(currentUser)
+                .payerName(request.getPayerName())
+                .status(com.cnpm.apartment.model.enums.ReceiptStatus.ACTIVE)
+                .idempotencyKey(request.getIdempotencyKey())
                 .build();
         receiptRepository.save(receipt);
 
         log.info("Thu phí thành công: householdId={}, feeId={}, amountPaid={}, status={}",
-                af.getHousehold().getId(), af.getFee().getId(), userPayment, af.getStatus());
+                af.getHousehold().getId(), af.getFee().getId(), receipt.getAmountPaid(), af.getStatus());
 
         return mapToReceiptDTO(receipt, amountRequired);
+    }
+
+    @Transactional
+    public void cancelReceipt(String receiptId) {
+        Receipt r = receiptRepository.findById(receiptId)
+                .orElseThrow(() -> new RuntimeException("Receipt not found with id: " + receiptId));
+
+        if (r.getStatus() == com.cnpm.apartment.model.enums.ReceiptStatus.CANCELLED) {
+            throw new RuntimeException("Receipt is already cancelled.");
+        }
+
+        r.setStatus(com.cnpm.apartment.model.enums.ReceiptStatus.CANCELLED);
+        receiptRepository.save(r);
+
+        AssignedFee af = r.getAssignedFee();
+        BigDecimal amountPaidOnReceipt = r.getAmountPaid();
+
+        BigDecimal currentAccumulated = af.getAmountPaidAccumulated() != null ? af.getAmountPaidAccumulated() : BigDecimal.ZERO;
+        BigDecimal amountRequired = calculateAmount(af);
+
+        BigDecimal newAccumulated = currentAccumulated.subtract(amountPaidOnReceipt);
+        BigDecimal excessAppliedToBalance = BigDecimal.ZERO;
+        if (newAccumulated.compareTo(BigDecimal.ZERO) < 0) {
+            excessAppliedToBalance = newAccumulated.negate();
+            newAccumulated = BigDecimal.ZERO;
+        } else if (newAccumulated.compareTo(amountRequired) > 0) {
+            excessAppliedToBalance = newAccumulated.subtract(amountRequired);
+            newAccumulated = amountRequired;
+        }
+
+        af.setAmountPaidAccumulated(newAccumulated);
+
+        if (newAccumulated.compareTo(BigDecimal.ZERO) <= 0) {
+            af.setStatus(FeeStatus.UNPAID);
+            af.setPaidAt(null);
+        } else if (newAccumulated.compareTo(amountRequired) >= 0) {
+            af.setStatus(FeeStatus.PAID);
+        } else {
+            af.setStatus(FeeStatus.PARTIAL);
+        }
+        assignedFeeRepository.save(af);
+
+        if (excessAppliedToBalance.compareTo(BigDecimal.ZERO) > 0) {
+            Household hh = af.getHousehold();
+            BigDecimal currentBalance = hh.getBalance() != null ? hh.getBalance() : BigDecimal.ZERO;
+            BigDecimal newBalance = currentBalance.subtract(excessAppliedToBalance);
+            if (newBalance.compareTo(BigDecimal.ZERO) < 0) {
+                newBalance = BigDecimal.ZERO;
+            }
+            hh.setBalance(newBalance);
+            householdRepository.save(hh);
+        }
+
+        log.info("Hủy biên lai thành công: receiptId={}, assignedFeeId={}", receiptId, af.getId());
+    }
+
+    // =================================────────────────========
+    // PAYMENT PROOF LOGIC
+    // =================================────────────────========
+
+    @Transactional
+    public PaymentProof submitProof(String assignedFeeId, BigDecimal amount, String proofImage, String note, String transactionId, String payerName) {
+        AssignedFee af = assignedFeeRepository.findById(assignedFeeId)
+                .orElseThrow(() -> new RuntimeException("Assigned fee not found."));
+
+        PaymentProof proof = PaymentProof.builder()
+                .id("PRF-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                .assignedFee(af)
+                .amount(amount)
+                .proofImage(proofImage)
+                .note(note)
+                .transactionId(transactionId)
+                .payerName(payerName)
+                .status(PaymentProof.ProofStatus.PENDING)
+                .submittedAt(LocalDateTime.now())
+                .build();
+
+        return paymentProofRepository.save(proof);
+    }
+
+    @Transactional(readOnly = true)
+    public List<PaymentProof> getPendingProofs() {
+        return paymentProofRepository.findByStatus(PaymentProof.ProofStatus.PENDING);
+    }
+
+    @Transactional
+    public ReceiptDTO approveProof(String proofId, String note) {
+        PaymentProof proof = paymentProofRepository.findById(proofId)
+                .orElseThrow(() -> new RuntimeException("Proof not found."));
+
+        if (proof.getStatus() != PaymentProof.ProofStatus.PENDING) {
+            throw new RuntimeException("Proof is already processed.");
+        }
+
+        proof.setStatus(PaymentProof.ProofStatus.APPROVED);
+        paymentProofRepository.save(proof);
+
+        PaymentRequestDTO req = new PaymentRequestDTO();
+        req.setAssignedFeeId(proof.getAssignedFee().getId());
+        req.setAmountPaid(proof.getAmount());
+        req.setNote(note != null && !note.isBlank() ? note : proof.getNote());
+        req.setPayerName(proof.getPayerName());
+        req.setPaidAt(proof.getSubmittedAt());
+
+        return recordPayment(req);
+    }
+
+    @Transactional
+    public void rejectProof(String proofId, String note) {
+        PaymentProof proof = paymentProofRepository.findById(proofId)
+                .orElseThrow(() -> new RuntimeException("Proof not found."));
+
+        if (proof.getStatus() != PaymentProof.ProofStatus.PENDING) {
+            throw new RuntimeException("Proof is already processed.");
+        }
+
+        proof.setStatus(PaymentProof.ProofStatus.REJECTED);
+        proof.setNote(note);
+        paymentProofRepository.save(proof);
+    }
+
+    @Transactional(readOnly = true)
+    public String getQrCodeUrl(String assignedFeeId) {
+        AssignedFee af = assignedFeeRepository.findById(assignedFeeId)
+                .orElseThrow(() -> new RuntimeException("Assigned fee not found with id: " + assignedFeeId));
+        BigDecimal required = calculateAmount(af);
+        BigDecimal paid = af.getAmountPaidAccumulated() != null ? af.getAmountPaidAccumulated() : BigDecimal.ZERO;
+        BigDecimal remaining = required.subtract(paid);
+
+        String bankId = "MB"; // MBBank
+        String accountNo = "123456789";
+        String accountName = "CONG TY CP CYBERSPACE";
+        String description = "THANH TOAN PHI ASSIGNED_FEE_ID " + af.getId();
+
+        try {
+            description = java.net.URLEncoder.encode(description, "UTF-8");
+            accountName = java.net.URLEncoder.encode(accountName, "UTF-8");
+        } catch (Exception e) {
+            // fallback
+        }
+
+        return String.format("https://img.vietqr.io/image/%s-%s-compact2.png?amount=%s&addInfo=%s&accountName=%s",
+                bankId, accountNo, remaining.toPlainString(), description, accountName);
     }
 
     // =========================================================
@@ -310,6 +522,8 @@ public class PaymentService {
                 .status(af.getStatus())
                 .note(r.getNote())
                 .createdBy(r.getCreatedBy())
+                .payerName(r.getPayerName())
+                .receiptStatus(r.getStatus() != null ? r.getStatus().name() : "ACTIVE")
                 .createdAt(r.getCreatedAt())
                 .build();
     }

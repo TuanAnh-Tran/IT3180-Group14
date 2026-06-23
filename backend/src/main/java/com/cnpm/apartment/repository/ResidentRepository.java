@@ -67,4 +67,7 @@ public interface ResidentRepository extends JpaRepository<Resident, String> {
             @Param("gender") String gender,
             @Param("householdId") String householdId,
             Pageable pageable);
+
+    @Query("SELECT MONTH(r.createdAt) as month, COUNT(r) FROM Resident r WHERE YEAR(r.createdAt) = :year GROUP BY MONTH(r.createdAt)")
+    List<Object[]> countNewResidentsByMonth(@Param("year") int year);
 }
