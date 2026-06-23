@@ -53,6 +53,19 @@ public interface AssignedFeeRepository extends JpaRepository<AssignedFee, String
 
     List<AssignedFee> findByHouseholdIdAndStatusIn(String householdId, Collection<FeeStatus> statuses);
 
+    Page<AssignedFee> findByStatusIn(Collection<FeeStatus> statuses, Pageable pageable);
+
+    Page<AssignedFee> findByPeriodIdAndStatusIn(String periodId, Collection<FeeStatus> statuses, Pageable pageable);
+    List<AssignedFee> findByPeriodIdAndStatusIn(String periodId, Collection<FeeStatus> statuses);
+
+    Page<AssignedFee> findPageByHouseholdIdAndStatusIn(String householdId, Collection<FeeStatus> statuses, Pageable pageable);
+
+    Page<AssignedFee> findByPeriodIdAndHouseholdIdAndStatusIn(
+            String periodId, String householdId, Collection<FeeStatus> statuses, Pageable pageable);
+
+    List<AssignedFee> findByPeriodIdAndHouseholdIdAndStatusIn(
+            String periodId, String householdId, Collection<FeeStatus> statuses);
+
     // Đếm số phí đã nộp / chưa nộp theo đợt
     long countByPeriodIdAndStatus(String periodId, FeeStatus status);
 

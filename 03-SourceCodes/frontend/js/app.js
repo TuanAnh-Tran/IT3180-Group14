@@ -11,6 +11,7 @@ import { ProfileView }      from './components/profile.js?v=5';
 import { ResidentsManager } from './components/residents.js?v=7';
 import { FeeManagerView, FM }  from './components/fees.js?v=3';
 import { PaymentView, bridgeFM } from './components/payment.js?v=5';
+import { API } from './api.js';
 
 const app = document.getElementById('app');
 
@@ -293,8 +294,27 @@ function renderMainApp(user) {
               <div class="topbar-sub" id="topbar-sub">Overview</div>
             </div>
           </div>
-          <div class="topbar-right">
-            <div class="topbar-user">
+          <div class="topbar-right" style="position:relative; display:flex; align-items:center; gap:20px;">
+            <!-- Notification Bell -->
+            <div id="topbar-bell-btn" style="position:relative; cursor:pointer; padding:6px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; transition:var(--transition-fast);" class="hover-glass">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:22px;height:22px;color:var(--text-secondary);">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a9.04 9.04 0 01-1.657 0m0 0a15.998 15.998 0 00-3.351-1.657m3.351 1.657a1.002 1.002 0 00-.22.684l-.004.004M14.857 17.082a8.96 8.96 0 003.351-1.657m-3.351 1.657H9m6-11.25a3.375 3.375 0 00-6.75 0V7.5a1.5 1.5 0 001.5 1.5h3.75a1.5 1.5 0 001.5-1.5V5.832zM12 3v1.5" />
+              </svg>
+              <span id="notif-badge" style="display:none; position:absolute; top:2px; right:2px; background:#ef4444; color:#fff; font-size:10px; font-weight:800; padding:2px 5px; border-radius:10px; line-height:1; min-width:14px; text-align:center;">0</span>
+            </div>
+
+            <!-- Dropdown danh sách thông báo -->
+            <div id="notif-dropdown" style="display:none; position:absolute; top:46px; right:0; width:340px; background:var(--bg-secondary); border:1px solid var(--border-glass); border-radius:var(--border-radius-lg); box-shadow:var(--shadow-lg); z-index:1000; overflow:hidden;">
+              <div style="padding:12px 16px; border-bottom:1px solid var(--border-glass); display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight:700; font-size:13px; color:var(--text-primary);">Thông báo</span>
+                <span id="notif-mark-all-read-btn" style="font-size:11px; color:var(--color-primary); cursor:pointer; font-weight:600;">Đánh dấu tất cả đã đọc</span>
+              </div>
+              <div id="notif-list-container" style="max-height:280px; overflow-y:auto; font-size:12px;">
+                <!-- Dữ liệu thông báo đổ vào đây -->
+              </div>
+            </div>
+
+            <div class="topbar-user" style="display:flex; align-items:center; gap:8px;">
               <div class="user-avatar" style="width:36px;height:36px;font-size:14px;">${(user.fullname||'?').trim().split(' ').pop().charAt(0).toUpperCase()}</div>
               <span style="font-size:14px;color:var(--text-secondary);">${user.fullname}</span>
             </div>
@@ -308,6 +328,153 @@ function renderMainApp(user) {
   let activeTab = 'dashboard';
   const sidebar  = document.getElementById('sidebar');
   const content  = document.getElementById('content');
+
+  // --- LOGIC THÔNG BÁO ---
+  const bellBtn = document.getElementById('topbar-bell-btn');
+  const notifDropdown = document.getElementById('notif-dropdown');
+  const notifBadge = document.getElementById('notif-badge');
+  const notifListContainer = document.getElementById('notif-list-container');
+  const markAllReadBtn = document.getElementById('notif-mark-all-read-btn');
+
+  // Load danh sách thông báo
+  async function loadNotifications() {
+    const isBackend = await API.checkHealth();
+    let list = [];
+    if (isBackend) {
+      try {
+        list = await API.getNotifications();
+      } catch (e) {
+        console.error("Lỗi lấy thông báo backend:", e);
+      }
+    } else {
+      // Fallback LocalStorage
+      try {
+        const allLocal = JSON.parse(localStorage.getItem('smartfee_notifications')) || [];
+        list = allLocal.filter(n => n.username === user.username);
+      } catch (e) {
+        console.error("Lỗi lấy thông báo local:", e);
+      }
+    }
+
+    // Cập nhật Badge
+    const unreadCount = list.filter(n => !n.isRead && !n.read).length;
+    if (unreadCount > 0) {
+      notifBadge.textContent = unreadCount;
+      notifBadge.style.display = 'block';
+    } else {
+      notifBadge.style.display = 'none';
+    }
+
+    // Render danh sách
+    if (list.length === 0) {
+      notifListContainer.innerHTML = `<div style="padding:20px; text-align:center; color:var(--text-muted);">Không có thông báo nào</div>`;
+      return;
+    }
+
+    notifListContainer.innerHTML = list.map(n => {
+      const readState = n.isRead || n.read;
+      const bg = readState ? 'transparent' : 'var(--bg-tertiary)';
+      const fontWeight = readState ? '400' : '700';
+      const indicator = readState ? '' : `<span style="display:inline-block; width:6px; height:6px; background:var(--color-primary); border-radius:50%; margin-left:6px;"></span>`;
+      return `
+        <div class="notif-item" data-id="${n.id}" style="padding:12px 16px; border-bottom:1px solid var(--border-glass); background:${bg}; cursor:pointer; transition:var(--transition-fast);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <strong style="font-weight:${fontWeight}; color:var(--text-primary); display:flex; align-items:center;">${n.title}${indicator}</strong>
+            <span style="font-size:10px; color:var(--text-muted);">${new Date(n.createdAt).toLocaleDateString('vi-VN')}</span>
+          </div>
+          <div style="color:var(--text-secondary); line-height:1.4;">${n.content}</div>
+        </div>
+      `;
+    }).join('');
+
+    // Thêm sự kiện click cho từng thông báo để đánh dấu đã đọc
+    notifListContainer.querySelectorAll('.notif-item').forEach(el => {
+      el.addEventListener('click', async () => {
+        const id = el.dataset.id;
+        const isBackend = await API.checkHealth();
+        if (isBackend) {
+          try {
+            await API.markNotificationRead(id);
+          } catch (e) {
+            console.error("Lỗi đánh dấu đã đọc backend:", e);
+          }
+        } else {
+          // Fallback LocalStorage
+          try {
+            const allLocal = JSON.parse(localStorage.getItem('smartfee_notifications')) || [];
+            const found = allLocal.find(x => x.id === id);
+            if (found) {
+              found.isRead = true;
+              found.read = true;
+            }
+            localStorage.setItem('smartfee_notifications', JSON.stringify(allLocal));
+          } catch (e) { }
+        }
+        loadNotifications();
+      });
+    });
+  }
+
+  // Toggle Dropdown
+  if (bellBtn) {
+    bellBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isVisible = notifDropdown.style.display === 'block';
+      notifDropdown.style.display = isVisible ? 'none' : 'block';
+      if (!isVisible) {
+        loadNotifications();
+      }
+    });
+  }
+
+  document.addEventListener('click', () => {
+    if (notifDropdown) notifDropdown.style.display = 'none';
+  });
+
+  if (notifDropdown) {
+    notifDropdown.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+  }
+
+  // Đánh dấu tất cả đã đọc
+  if (markAllReadBtn) {
+    markAllReadBtn.addEventListener('click', async () => {
+      const isBackend = await API.checkHealth();
+      if (isBackend) {
+        try {
+          await API.markAllNotificationsRead();
+        } catch (e) {
+          console.error("Lỗi đánh dấu tất cả đã đọc backend:", e);
+        }
+      } else {
+        // Fallback LocalStorage
+        try {
+          const allLocal = JSON.parse(localStorage.getItem('smartfee_notifications')) || [];
+          allLocal.forEach(x => {
+            if (x.username === user.username) {
+              x.isRead = true;
+              x.read = true;
+            }
+          });
+          localStorage.setItem('smartfee_notifications', JSON.stringify(allLocal));
+        } catch (e) { }
+      }
+      loadNotifications();
+    });
+  }
+
+  // Tải thông báo ban đầu và lập lịch định kỳ 15 giây
+  if (bellBtn) {
+    loadNotifications();
+    const notifInterval = setInterval(() => {
+      if (document.getElementById('topbar-bell-btn')) {
+        loadNotifications();
+      } else {
+        clearInterval(notifInterval);
+      }
+    }, 15000);
+  }
 
   // Sidebar mobile toggle
   document.getElementById('menuToggle').addEventListener('click', () => {
@@ -427,7 +594,9 @@ async function boot() {
   // Inject global animation keyframe
   const style = document.createElement('style');
   style.textContent = `@keyframes slideUp { from { transform:translateY(16px); opacity:0; } to { transform:translateY(0); opacity:1; } }
-  .sidebar-open { transform: translateX(0) !important; }`;
+  .sidebar-open { transform: translateX(0) !important; }
+  .notif-item:hover { background: var(--bg-tertiary) !important; opacity: 0.95; }
+  .hover-glass:hover { background: var(--border-glass) !important; }`;
   document.head.appendChild(style);
 
   const user = AuthService.getCurrentUser();

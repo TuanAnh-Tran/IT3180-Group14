@@ -21,6 +21,29 @@ function fmLoad() {
 }
 function fmSave(db) { localStorage.setItem(FM_KEY, JSON.stringify(db)); }
 
+const LOCAL_NOTIF_KEY = 'smartfee_notifications';
+function localNotifLoad() {
+  try { return JSON.parse(localStorage.getItem(LOCAL_NOTIF_KEY)) || []; } catch { return []; }
+}
+function localNotifSave(arr) {
+  localStorage.setItem(LOCAL_NOTIF_KEY, JSON.stringify(arr));
+}
+function getLocalUsers() {
+  try { return JSON.parse(localStorage.getItem('apartment_mgmt_users')) || []; } catch { return []; }
+}
+function addLocalNotification(username, title, content) {
+  const arr = localNotifLoad();
+  arr.unshift({
+    id: 'NOTIF_' + Date.now() + Math.random().toString(36).substr(2, 4),
+    username,
+    title,
+    content,
+    isRead: false,
+    createdAt: new Date().toISOString()
+  });
+  localNotifSave(arr);
+}
+
 function fmGetDB() {
   let db = fmLoad();
   if (!db) { db = fmSeed(); fmSave(db); }
@@ -339,7 +362,24 @@ const FM = {
     db.periods.push(period);
     // Auto-assign cho tất cả hộ dân hiện có
     this._autoAssignAll(db, period.id, feeIds);
-    fmSave(db); return period;
+    fmSave(db);
+
+    // Gửi thông báo nhắc nộp tiền cho tất cả cư dân local
+    try {
+      const localUsers = getLocalUsers();
+      const residents = localUsers.filter(u => u.role === 'user');
+      residents.forEach(r => {
+        addLocalNotification(
+          r.username,
+          "New collection period: " + period.name,
+          "Đợt thu phí mới '" + period.name + "' đã được tạo. Vui lòng thanh toán các khoản phí trước ngày hạn đóng."
+        );
+      });
+    } catch (e) {
+      console.warn("Lỗi gửi thông báo đợt thu mới local:", e);
+    }
+
+    return period;
   },
 
   async closePeriod(id) {
@@ -358,8 +398,29 @@ const FM = {
     }
     const db = fmGetDB();
     const p = db.periods.find(x => x.id === id);
-    if (p) p.status = 'CLOSED';
-    fmSave(db);
+    if (p) {
+      p.status = 'CLOSED';
+      fmSave(db);
+
+      // Gửi thông báo quá hạn cho các hộ dân chưa thanh toán local
+      try {
+        const unpaidFees = db.assignedFees.filter(af => af.periodId === id && (af.status === 'UNPAID' || af.status === 'PARTIAL'));
+        const unpaidHouseholdIds = [...new Set(unpaidFees.map(af => af.householdId))];
+        const localUsers = getLocalUsers();
+        unpaidHouseholdIds.forEach(room => {
+          const residentsInRoom = localUsers.filter(u => u.room === room);
+          residentsInRoom.forEach(r => {
+            addLocalNotification(
+              r.username,
+              "Overdue Payment Alert: " + p.name,
+              "Đợt thu '" + p.name + "' đã bị đóng. Phòng của bạn vẫn còn khoản phí chưa hoàn thành thanh toán. Vui lòng thanh toán sớm."
+            );
+          });
+        });
+      } catch (e) {
+        console.warn("Lỗi gửi thông báo quá hạn local:", e);
+      }
+    }
   },
 
   async syncAssignedFees(periodId) {
@@ -584,18 +645,27 @@ const FM = {
   },
 
   _autoAssignSingle(db, hh, periodId, feeIds) {
-    // 1. Quét nợ cũ của hộ từ các đợt thu trước
+    // 1. Quét nợ cũ của hộ từ đợt thu liền trước
     let totalDebt = 0;
-    db.assignedFees.filter(a => a.householdId === hh.id && a.periodId !== periodId && (a.status === 'UNPAID' || a.status === 'PARTIAL')).forEach(af => {
-      const fee = db.fees.find(f => f.id === af.feeId);
-      if (!fee) return;
-      const req = fee.price * af.quantity;
-      const paid = af.amountPaidAccumulated || 0;
-      const debt = req - paid;
-      if (debt > 0) {
-        totalDebt += debt;
+    const currentPeriod = db.periods.find(p => p.id === periodId);
+    if (currentPeriod) {
+      const previousPeriod = db.periods
+        .filter(p => p.id !== periodId && new Date(p.createdAt) < new Date(currentPeriod.createdAt))
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+
+      if (previousPeriod) {
+        db.assignedFees.filter(a => a.householdId === hh.id && a.periodId === previousPeriod.id && (a.status === 'UNPAID' || a.status === 'PARTIAL')).forEach(af => {
+          const fee = db.fees.find(f => f.id === af.feeId);
+          if (!fee) return;
+          const req = fee.price * af.quantity;
+          const paid = af.amountPaidAccumulated || 0;
+          const debt = req - paid;
+          if (debt > 0) {
+            totalDebt += debt;
+          }
+        });
       }
-    });
+    }
 
     if (totalDebt > 0) {
       let debtFee = db.fees.find(f => f.id === 'FEE_DEBT');

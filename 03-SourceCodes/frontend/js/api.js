@@ -373,5 +373,21 @@ export const API = {
    */
   async getHouseholds() {
     return this.fetchJson('/residents/households?size=1000');
+  },
+
+  /* ─────────────────────────────────────────────
+     7. NOTIFICATIONS (Quản lý thông báo)
+     ───────────────────────────────────────────── */
+
+  async getNotifications() {
+    return this.fetchJson('/notifications');
+  },
+
+  async markAllNotificationsRead() {
+    return this.fetchJson('/notifications/mark-read', { method: 'PUT' });
+  },
+
+  async markNotificationRead(id) {
+    return this.fetchJson(`/notifications/${id}/read`, { method: 'PUT' });
   }
 };

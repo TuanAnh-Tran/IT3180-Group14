@@ -28,7 +28,7 @@ public class PaymentController {
      * Trả về biên lai sau khi thu thành công.
      */
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant', 'ROLE_user')")
     public ResponseEntity<ApiResponse<ReceiptDTO>> recordPayment(
             @Valid @RequestBody PaymentRequestDTO request) {
         ReceiptDTO receipt = paymentService.recordPayment(request);

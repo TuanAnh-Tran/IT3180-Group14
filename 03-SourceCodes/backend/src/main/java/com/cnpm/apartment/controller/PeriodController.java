@@ -53,7 +53,7 @@ public class PeriodController {
     public ResponseEntity<ApiResponse<PeriodDTO>> createPeriod(@Valid @RequestBody PeriodSaveDTO request) {
         // Tự sinh ID cho đợt thu định dạng PER_XXXXXXXX
         String uniqueId = "PER_" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-        CollectionPeriod created = paymentService.createPeriod(uniqueId, request.getName(), request.getFeeIds());
+        CollectionPeriod created = paymentService.createPeriod(uniqueId, request.getName(), request.getDueDate(), request.getFeeIds());
         PeriodDTO dto = paymentService.mapToPeriodDTO(created);
         return ResponseEntity.ok(ApiResponse.success("Tạo đợt thu phí thành công", dto));
     }

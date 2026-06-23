@@ -28,6 +28,35 @@ function uid() {
   return 'REC_' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substr(2,4).toUpperCase();
 }
 
+function generateMockQRCodeSVG() {
+  return `
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="width:140px;height:140px;display:block;margin:12px auto;background:#fff;padding:8px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+    <!-- Finder patterns (corners) -->
+    <rect x="5" y="5" width="25" height="25" fill="#1e1e2e" rx="2" />
+    <rect x="9" y="9" width="17" height="17" fill="#fff" rx="1" />
+    <rect x="13" y="13" width="9" height="9" fill="#6366f1" rx="0.5" />
+
+    <rect x="70" y="5" width="25" height="25" fill="#1e1e2e" rx="2" />
+    <rect x="74" y="9" width="17" height="17" fill="#fff" rx="1" />
+    <rect x="78" y="13" width="9" height="9" fill="#6366f1" rx="0.5" />
+
+    <rect x="5" y="70" width="25" height="25" fill="#1e1e2e" rx="2" />
+    <rect x="9" y="74" width="17" height="17" fill="#fff" rx="1" />
+    <rect x="13" y="78" width="9" height="9" fill="#6366f1" rx="0.5" />
+
+    <!-- Alignment pattern -->
+    <rect x="75" y="75" width="10" height="10" fill="#1e1e2e" rx="1" />
+    <rect x="78" y="78" width="4" height="4" fill="#6366f1" />
+
+    <!-- Random QR-like pixel blocks -->
+    <path d="M35 5h5v5h-5z M45 5h10v5h-10z M60 5h5v5h-5z M35 15h10v5h-10z M50 15h5v10h-5z M60 15h5v5h-5z M35 25h5v5h-5z M45 25h5v5h-5z M55 25h10v5h-10z" fill="#1e1e2e"/>
+    <path d="M5 35h5v10H5z M15 35h15v5H15z M5 50h10v5H5z M20 45h5v15h-5z M10 60h10v5H10z" fill="#1e1e2e"/>
+    <path d="M35 35h10v5h-10z M50 35h5v5h-5z M60 35h15v5h-15z M35 45h5v10h-5z M45 45h15v5h-15z M65 45h5v10h-5z M35 60h15v5h-15z M55 60h5v10h-5z M65 60h10v5h-10z" fill="#1e1e2e"/>
+    <path d="M35 70h10v5h-10z M50 70h5v15h-5z M60 70h5v5h-5z M35 80h10v5h-10z M65 80h15v5h-15z" fill="#1e1e2e"/>
+    <path d="M15 90h25v5H15z M45 90h15v5h-15z M65 90h10v5h-10z" fill="#1e1e2e"/>
+  </svg>`;
+}
+
 /* ─────────────────────────────────────────────
    2. PAYMENT ENGINE — port từ PaymentService.java
    ───────────────────────────────────────────── */
@@ -40,6 +69,12 @@ export const PaymentEngine = {
     const db = FM._getDB();
     const af = db.assignedFees.find(a => a.id === assignedFeeId);
     if (!af) throw new Error('Fee not found: ' + assignedFeeId);
+    
+    const period = db.periods.find(p => p.id === af.periodId);
+    if (period && (period.status === 'CLOSED' || period.status === 'CLOSE')) {
+      throw new Error('This collection period is closed. Payment is not allowed.');
+    }
+
     if (af.status === 'PAID') throw new Error('This fee has already been fully paid.');
 
     const fee = db.fees.find(f => f.id === af.feeId);
@@ -372,7 +407,7 @@ export class PaymentView {
                 <thead><tr>
                   <th>Household</th><th>Collection Period</th><th>Fee Name</th>
                   <th>Amount</th><th>Status</th>
-                  ${currentUser.role !== 'user' ? `<th style="text-align:right;">Actions</th>` : ''}
+                  <th style="text-align:right;">Actions</th>
                 </tr></thead>
                 <tbody id="pv-pay-tbody"></tbody>
               </table>
@@ -449,24 +484,92 @@ export class PaymentView {
       <div class="pv-ov" id="pv-ov-pay">
         <div class="pv-modal">
           <div class="pv-mh">
-            <div><h3>Record Payment</h3><p id="pv-pay-m-sub"></p></div>
+            <div><h3 id="pv-pay-m-title">Record Payment</h3><p id="pv-pay-m-sub"></p></div>
             <button class="pv-xbtn" data-pvclose="pv-ov-pay">&times;</button>
           </div>
           <div class="pv-mb">
-            <div class="pv-receipt-box" id="pv-pay-m-info" style="margin-bottom:16px;"></div>
-            <div class="pv-form">
-              <input type="hidden" id="pv-pay-m-afid">
-              <div class="pv-field">
-                <label>Amount Paid (VND)</label>
-                <input type="number" id="pv-pay-m-amount" min="0" placeholder="Automatically calculated if left blank">
+            <div id="pv-pay-m-admin-form" style="display:block;">
+              <div class="pv-receipt-box" id="pv-pay-m-info" style="margin-bottom:16px;"></div>
+              <div class="pv-form">
+                <input type="hidden" id="pv-pay-m-afid">
+                <div class="pv-field">
+                  <label>Amount Paid (VND)</label>
+                  <input type="number" id="pv-pay-m-amount" min="0" placeholder="Automatically calculated if left blank">
+                </div>
+                <div class="pv-field">
+                  <label>Note (Optional)</label>
+                  <textarea id="pv-pay-m-note" rows="2" placeholder="e.g. Bank Transfer, Paid on behalf..."></textarea>
+                </div>
+                <div style="display:flex;gap:10px;justify-content:flex-end;">
+                  <button class="pv-btn sec" data-pvclose="pv-ov-pay">Cancel</button>
+                  <button class="pv-btn suc" id="pv-pay-m-confirm">Confirm Payment</button>
+                </div>
               </div>
-              <div class="pv-field">
-                <label>Note (Optional)</label>
-                <textarea id="pv-pay-m-note" rows="2" placeholder="e.g. Bank Transfer, Paid on behalf..."></textarea>
+            </div>
+
+            <div id="pv-pay-m-resident-form" style="display:none;">
+              <div class="pv-receipt-box" id="pv-pay-m-res-info" style="margin-bottom:16px;"></div>
+              
+              <!-- Tab thanh toán -->
+              <div style="display:flex; gap:8px; background:var(--bg-tertiary); border-radius:12px; padding:4px; margin-bottom:16px; border:1px solid var(--border-glass);">
+                <button type="button" id="pv-tab-qr" class="pv-btn active" style="flex:1; border:none; padding:8px; border-radius:8px; font-weight:600; cursor:pointer; background:var(--color-primary); color:#fff; transition:var(--transition-fast);">Chuyển khoản QR</button>
+                <button type="button" id="pv-tab-card" class="pv-btn" style="flex:1; border:none; padding:8px; border-radius:8px; font-weight:600; cursor:pointer; background:transparent; color:var(--text-secondary); transition:var(--transition-fast);">Thẻ quốc tế (Mock)</button>
               </div>
-              <div style="display:flex;gap:10px;justify-content:flex-end;">
-                <button class="pv-btn sec" data-pvclose="pv-ov-pay">Cancel</button>
-                <button class="pv-btn suc" id="pv-pay-m-confirm">Confirm Payment</button>
+
+              <!-- Content QR -->
+              <div id="pv-content-qr" style="display:block;">
+                <div style="text-align:center; margin-bottom:12px; font-size:12px; color:var(--text-secondary);">
+                  Quét mã QR để thanh toán hoặc chuyển khoản thủ công qua ngân hàng:
+                </div>
+                
+                <!-- Mock QR Code SVG -->
+                <div id="pv-qr-code-svg-wrap"></div>
+
+                <div class="pv-receipt-box" style="margin-top:12px; font-size:13px;">
+                  <div class="pv-receipt-row"><span>Ngân hàng</span><strong>MB Bank</strong></div>
+                  <div class="pv-receipt-row"><span>Số tài khoản</span><strong style="display:inline-flex; align-items:center; gap:6px;">1902 8472 93847 <span style="cursor:pointer; color:var(--color-primary);" id="btn-copy-acc" title="Copy">📋</span></strong></div>
+                  <div class="pv-receipt-row"><span>Chủ tài khoản</span><strong>BLUE MOON MANAGEMENT</strong></div>
+                  <div class="pv-receipt-row"><span>Số tiền</span><strong id="pv-qr-amount-val"></strong></div>
+                  <div class="pv-receipt-row"><span>Nội dung CK</span><strong style="display:inline-flex; align-items:center; gap:6px; color:var(--color-accent);" id="copy-content-val"> <span style="cursor:pointer; color:var(--color-primary);" id="btn-copy-content" title="Copy">📋</span></strong></div>
+                </div>
+
+                <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+                  <button class="pv-btn sec" data-pvclose="pv-ov-pay">Hủy</button>
+                  <button class="pv-btn suc" id="pv-pay-qr-confirm" style="display:flex; align-items:center; gap:6px;">
+                    <span>Xác nhận đã chuyển khoản</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Content Credit Card -->
+              <div id="pv-content-card" style="display:none;">
+                <div class="pv-form" style="gap:12px;">
+                  <div class="pv-field">
+                    <label>Tên chủ thẻ</label>
+                    <input type="text" id="pv-card-name" placeholder="NGUYEN VAN A" style="text-transform:uppercase;">
+                  </div>
+                  <div class="pv-field">
+                    <label>Số thẻ</label>
+                    <input type="text" id="pv-card-number" placeholder="4111 2222 3333 4444" maxlength="19">
+                  </div>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <div class="pv-field">
+                      <label>Ngày hết hạn</label>
+                      <input type="text" id="pv-card-expiry" placeholder="MM/YY" maxlength="5">
+                    </div>
+                    <div class="pv-field">
+                      <label>Mã bảo mật CVV</label>
+                      <input type="password" id="pv-card-cvv" placeholder="123" maxlength="3">
+                    </div>
+                  </div>
+
+                  <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;">
+                    <button class="pv-btn sec" data-pvclose="pv-ov-pay">Hủy</button>
+                    <button class="pv-btn pri" id="pv-pay-card-confirm" style="display:flex; align-items:center; gap:6px;">
+                      <span>Thanh toán ngay</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -606,7 +709,8 @@ export class PaymentView {
             status: d.status,
             paidAt: d.paidAt,
             amountRequired: d.amountRequired,
-            amountPaidAccumulated: d.amountPaidAccumulated
+            amountPaidAccumulated: d.amountPaidAccumulated,
+            periodStatus: d.periodStatus
           }));
         } catch (e) {
           console.error("Lỗi lấy dữ liệu chưa nộp:", e);
@@ -636,24 +740,33 @@ export class PaymentView {
         const badge = af.status === 'PARTIAL'
           ? `<span class="pv-badge" style="background:#f59e0b;color:#fff;">Partial (${vnd(paidAcc)})</span>`
           : `<span class="pv-badge red">Unpaid</span>`;
+        
+        const isPeriodClosed = isBackend
+          ? (af.periodStatus === 'CLOSED')
+          : (() => {
+              const period = db.periods.find(p => p.id === af.periodId);
+              return period && (period.status === 'CLOSED' || period.status === 'CLOSE');
+            })();
+
+        const actionBtn = isPeriodClosed
+          ? `<button class="pv-btn sec" disabled style="cursor:not-allowed;" title="Đợt thu này đã đóng">Closed</button>`
+          : `<button class="pv-btn suc pv-do-pay" data-id="${af.id}" data-amt="${remaining}" data-fee="${fee?.name||''}" data-hh="${hh?.id||''}-${hh?.ownerName||''}">Pay</button>`;
+
         return `<tr>
           <td><strong>${hh?.id||'?'}</strong><br><small style="color:var(--text-muted);">${hh?.ownerName||'?'}</small></td>
           <td style="font-size:12px;">${per?.name||af.periodId}</td>
           <td>${fee?.name||'?'}</td>
           <td><strong>${vnd(amt)}</strong></td>
           <td>${badge}</td>
-          ${currentUser.role !== 'user' ? `
           <td style="text-align:right;">
-            <button class="pv-btn suc pv-do-pay" data-id="${af.id}" data-amt="${remaining}" data-fee="${fee?.name||''}" data-hh="${hh?.id||''}-${hh?.ownerName||''}">Pay</button>
-          </td>` : ''}
+            ${actionBtn}
+          </td>
         </tr>`;
       }).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">No unpaid fees found.</td></tr>`;
 
-      if (!isResident) {
-        q('#pv-pay-tbody').querySelectorAll('.pv-do-pay').forEach(b => {
-          b.addEventListener('click', () => openPayModal(b.dataset.id, b.dataset.amt, b.dataset.fee, b.dataset.hh));
-        });
-      }
+      q('#pv-pay-tbody').querySelectorAll('.pv-do-pay').forEach(b => {
+        b.addEventListener('click', () => openPayModal(b.dataset.id, b.dataset.amt, b.dataset.fee, b.dataset.hh));
+      });
     }
 
     /* ── RENDER: receipts ── */
@@ -903,30 +1016,17 @@ export class PaymentView {
       });
     }
 
-    /* ── Payment Modal ── */
-    function openPayModal(afId, amt, feeName, hhLabel) {
-      q('#pv-pay-m-afid').value = afId;
-      q('#pv-pay-m-amount').value = '';
-      q('#pv-pay-m-note').value = '';
-      q('#pv-pay-m-sub').textContent = `${hhLabel} — ${feeName}`;
-      q('#pv-pay-m-info').innerHTML = `
-        <div class="pv-receipt-row"><span>Household</span><strong>${hhLabel}</strong></div>
-        <div class="pv-receipt-row"><span>Fee Name</span><strong>${feeName}</strong></div>
-        <div class="pv-receipt-row"><span>Amount Required</span><strong style="color:var(--color-warning);">${vnd(parseFloat(amt))}</strong></div>
-      `;
-      open('pv-ov-pay');
-    }
-
-    q('#pv-pay-m-confirm').addEventListener('click', async () => {
-      const afId = q('#pv-pay-m-afid').value;
-      const amtInput = parseFloat(q('#pv-pay-m-amount').value) || 0;
-      const note = q('#pv-pay-m-note').value.trim();
-      
+    /* ── Payment Process Reusable Helper ── */
+    async function processPayment(afId, amtInput, note, buttonEl = null, originalText = '') {
+      if (buttonEl) {
+        buttonEl.disabled = true;
+        buttonEl.innerHTML = `<span style="display:inline-block;width:12px;height:12px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 0.6s linear infinite;margin-right:6px;"></span> Đang xử lý...`;
+      }
       try {
         if (isBackend) {
           const receipt = await API.recordPayment(afId, amtInput || null, note);
           close('pv-ov-pay');
-          showToast(`Payment successful! Receipt: ${receipt.receiptId || receipt.id}`, 'success');
+          showToast(`Thanh toán thành công! Mã biên lai: ${receipt.receiptId || receipt.id}`, 'success');
 
           // Đồng bộ lại vào LocalStorage của Frontend để tránh lệch số liệu ở các tab Resident/Dashboard khác chưa di chuyển sang Backend
           try {
@@ -942,11 +1042,162 @@ export class PaymentView {
         } else {
           const receipt = PaymentEngine.recordPayment(afId, amtInput || null, note, currentUser?.username || 'admin', FM);
           close('pv-ov-pay');
-          showToast(`Payment successful! Receipt: ${receipt.id}`, 'success');
+          showToast(`Thanh toán thành công! Mã biên lai: ${receipt.id}`, 'success');
         }
         renderCurrent();
       } catch(err) {
         showToast(err.message, 'error');
+      } finally {
+        if (buttonEl) {
+          buttonEl.disabled = false;
+          buttonEl.innerHTML = originalText;
+        }
+      }
+    }
+
+    /* ── Payment Modal ── */
+    function openPayModal(afId, amt, feeName, hhLabel) {
+      // Find hidden input or create it
+      let hiddenInput = q('#pv-pay-m-afid');
+      if (hiddenInput) hiddenInput.value = afId;
+      
+      const isResident = currentUser.role === 'user';
+      if (isResident) {
+        q('#pv-pay-m-title').textContent = "Thanh toán hóa đơn";
+        q('#pv-pay-m-sub').textContent = `${hhLabel} — ${feeName}`;
+        q('#pv-pay-m-admin-form').style.display = 'none';
+        q('#pv-pay-m-resident-form').style.display = 'block';
+
+        // Điền thông tin QR
+        q('#pv-pay-m-res-info').innerHTML = `
+          <div class="pv-receipt-row"><span>Căn hộ</span><strong>${hhLabel}</strong></div>
+          <div class="pv-receipt-row"><span>Khoản phí</span><strong>${feeName}</strong></div>
+          <div class="pv-receipt-row"><span>Số tiền cần nộp</span><strong style="color:var(--color-warning); font-size: 15px;">${vnd(parseFloat(amt))}</strong></div>
+        `;
+        q('#pv-qr-amount-val').textContent = vnd(parseFloat(amt));
+        
+        const cleanContent = `PAY_${afId}`;
+        q('#copy-content-val').innerHTML = `${cleanContent} <span style="cursor:pointer; color:var(--color-primary); font-size:12px; margin-left:6px;" id="btn-copy-content" title="Sao chép nội dung">📋 Sao chép</span>`;
+        q('#pv-qr-code-svg-wrap').innerHTML = generateMockQRCodeSVG();
+
+        // Register copy event listeners
+        q('#btn-copy-acc').onclick = () => {
+          navigator.clipboard.writeText("1902847293847");
+          showToast("Đã sao chép số tài khoản!", "success");
+        };
+        q('#btn-copy-content').onclick = () => {
+          navigator.clipboard.writeText(cleanContent);
+          showToast("Đã sao chép nội dung chuyển khoản!", "success");
+        };
+
+        // Reset tab
+        q('#pv-tab-qr').classList.add('active');
+        q('#pv-tab-qr').style.background = 'var(--color-primary)';
+        q('#pv-tab-qr').style.color = '#fff';
+        q('#pv-tab-card').classList.remove('active');
+        q('#pv-tab-card').style.background = 'transparent';
+        q('#pv-tab-card').style.color = 'var(--text-secondary)';
+        q('#pv-content-qr').style.display = 'block';
+        q('#pv-content-card').style.display = 'none';
+
+        // Clear card form inputs
+        q('#pv-card-name').value = '';
+        q('#pv-card-number').value = '';
+        q('#pv-card-expiry').value = '';
+        q('#pv-card-cvv').value = '';
+      } else {
+        q('#pv-pay-m-title').textContent = "Record Payment";
+        q('#pv-pay-m-sub').textContent = `${hhLabel} — ${feeName}`;
+        q('#pv-pay-m-admin-form').style.display = 'block';
+        q('#pv-pay-m-resident-form').style.display = 'none';
+
+        q('#pv-pay-m-amount').value = '';
+        q('#pv-pay-m-note').value = '';
+        q('#pv-pay-m-info').innerHTML = `
+          <div class="pv-receipt-row"><span>Household</span><strong>${hhLabel}</strong></div>
+          <div class="pv-receipt-row"><span>Fee Name</span><strong>${feeName}</strong></div>
+          <div class="pv-receipt-row"><span>Amount Required</span><strong style="color:var(--color-warning);">${vnd(parseFloat(amt))}</strong></div>
+        `;
+      }
+      open('pv-ov-pay');
+    }
+
+    q('#pv-pay-m-confirm').addEventListener('click', async () => {
+      const afId = q('#pv-pay-m-afid').value;
+      const amtInput = parseFloat(q('#pv-pay-m-amount').value) || 0;
+      const note = q('#pv-pay-m-note').value.trim();
+      await processPayment(afId, amtInput, note, q('#pv-pay-m-confirm'), "Confirm Payment");
+    });
+
+    // Resident Form Tab switches
+    q('#pv-tab-qr').addEventListener('click', () => {
+      q('#pv-tab-qr').classList.add('active');
+      q('#pv-tab-qr').style.background = 'var(--color-primary)';
+      q('#pv-tab-qr').style.color = '#fff';
+      q('#pv-tab-card').classList.remove('active');
+      q('#pv-tab-card').style.background = 'transparent';
+      q('#pv-tab-card').style.color = 'var(--text-secondary)';
+      q('#pv-content-qr').style.display = 'block';
+      q('#pv-content-card').style.display = 'none';
+    });
+
+    q('#pv-tab-card').addEventListener('click', () => {
+      q('#pv-tab-card').classList.add('active');
+      q('#pv-tab-card').style.background = 'var(--color-primary)';
+      q('#pv-tab-card').style.color = '#fff';
+      q('#pv-tab-qr').classList.remove('active');
+      q('#pv-tab-qr').style.background = 'transparent';
+      q('#pv-tab-qr').style.color = 'var(--text-secondary)';
+      q('#pv-content-card').style.display = 'block';
+      q('#pv-content-qr').style.display = 'none';
+    });
+
+    // Resident Payment Actions
+    q('#pv-pay-qr-confirm').addEventListener('click', async () => {
+      const afId = q('#pv-pay-m-afid').value;
+      const btn = q('#pv-pay-qr-confirm');
+      await processPayment(afId, null, "Chuyển khoản QR (MB Bank)", btn, "Xác nhận đã chuyển khoản");
+    });
+
+    q('#pv-pay-card-confirm').addEventListener('click', async () => {
+      const afId = q('#pv-pay-m-afid').value;
+      const cardName = q('#pv-card-name').value.trim();
+      const cardNo = q('#pv-card-number').value.replace(/\s+/g, '');
+      const expiry = q('#pv-card-expiry').value.trim();
+      const cvv = q('#pv-card-cvv').value.trim();
+
+      if (!cardName || cardNo.length < 16 || expiry.length < 5 || cvv.length < 3) {
+        showToast("Vui lòng nhập đầy đủ thông tin thẻ tín dụng hợp lệ.", "error");
+        return;
+      }
+
+      const btn = q('#pv-pay-card-confirm');
+      const note = `Thanh toán thẻ (Card ending in *${cardNo.slice(-4)})`;
+      await processPayment(afId, null, note, btn, "Thanh toán ngay");
+    });
+
+    // Format inputs
+    q('#pv-card-number').addEventListener('input', (e) => {
+      let val = e.target.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+      let matches = val.match(/\d{4,16}/g);
+      let match = matches && matches[0] || '';
+      let parts = [];
+      for (let i=0, len=match.length; i<len; i+=4) {
+        parts.push(match.substring(i, i+4));
+      }
+      if (parts.length > 0) {
+        e.target.value = parts.join(' ');
+      } else {
+        e.target.value = val;
+      }
+    });
+
+    q('#pv-card-expiry').addEventListener('input', (e) => {
+      let val = e.target.value.replace(/\//g, '').replace(/[^0-9]/gi, '');
+      if (val.length >= 2) {
+        e.target.value = val.substring(0, 2) + '/' + val.substring(2, 4);
+      } else {
+        e.target.value = val;
       }
     });
 

@@ -19,6 +19,10 @@ import com.cnpm.apartment.repository.CollectionPeriodRepository;
 import com.cnpm.apartment.repository.FeeRepository;
 import com.cnpm.apartment.repository.HouseholdRepository;
 import com.cnpm.apartment.repository.ReceiptRepository;
+import com.cnpm.apartment.repository.UserRepository;
+import com.cnpm.apartment.model.User;
+import com.cnpm.apartment.model.Notification;
+import com.cnpm.apartment.repository.NotificationRepository;
 import com.cnpm.apartment.service.calculator.CalculatorFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +47,8 @@ public class PaymentService {
     private final CollectionPeriodRepository collectionPeriodRepository;
     private final FeeRepository feeRepository;
     private final HouseholdRepository householdRepository;
+    private final UserRepository userRepository;
+    private final NotificationRepository notificationRepository;
     private final CalculatorFactory calculatorFactory;
 
     // =========================================================
@@ -61,6 +67,14 @@ public class PaymentService {
                 .orElseThrow(() -> new RuntimeException(
                         "Assigned fee not found with id: " + request.getAssignedFeeId()));
 
+        // Query đợt thu từ database để đảm bảo không bị stale/cache trạng thái từ JPA proxy
+        if (af.getPeriod() != null) {
+            CollectionPeriod period = collectionPeriodRepository.findById(af.getPeriod().getId())
+                    .orElseThrow(() -> new RuntimeException("Collection period not found"));
+            if (period.getStatus() == PeriodStatus.CLOSED) {
+                throw new RuntimeException("This collection period is closed. Payment is not allowed.");
+            }
+        }
         // Check if already fully paid
         if (af.getStatus() == FeeStatus.PAID) {
             throw new RuntimeException("This fee has already been fully paid.");
@@ -73,7 +87,8 @@ public class PaymentService {
         BigDecimal userPayment = request.getAmountPaid();
         if (userPayment == null || userPayment.compareTo(BigDecimal.ZERO) <= 0) {
             // Nếu để trống hoặc <= 0, mặc định thanh toán nốt phần còn lại
-            BigDecimal currentAccumulated = af.getAmountPaidAccumulated() != null ? af.getAmountPaidAccumulated() : BigDecimal.ZERO;
+            BigDecimal currentAccumulated = af.getAmountPaidAccumulated() != null ? af.getAmountPaidAccumulated()
+                    : BigDecimal.ZERO;
             userPayment = amountRequired.subtract(currentAccumulated);
             if (userPayment.compareTo(BigDecimal.ZERO) <= 0) {
                 userPayment = BigDecimal.ZERO;
@@ -84,8 +99,23 @@ public class PaymentService {
         String currentUser = SecurityContextHolder.getContext()
                 .getAuthentication().getName();
 
+        // Kiểm tra quyền hạn của cư dân (ROLE_user) để đảm bảo họ chỉ được đóng phí cho
+        // hộ của mình
+        org.springframework.security.core.Authentication authentication = SecurityContextHolder.getContext()
+                .getAuthentication();
+        boolean isResident = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_user"));
+        if (isResident) {
+            User userObj = userRepository.findByUsername(currentUser)
+                    .orElseThrow(() -> new RuntimeException("Logged in user not found"));
+            if (userObj.getRoom() == null || !userObj.getRoom().equals(af.getHousehold().getId())) {
+                throw new RuntimeException("You are not authorized to make payment for this household.");
+            }
+        }
+
         // Cập nhật số tiền lũy kế đã nộp
-        BigDecimal currentAccumulated = af.getAmountPaidAccumulated() != null ? af.getAmountPaidAccumulated() : BigDecimal.ZERO;
+        BigDecimal currentAccumulated = af.getAmountPaidAccumulated() != null ? af.getAmountPaidAccumulated()
+                : BigDecimal.ZERO;
         BigDecimal newAccumulated = currentAccumulated.add(userPayment);
         af.setAmountPaidAccumulated(newAccumulated);
 
@@ -121,21 +151,33 @@ public class PaymentService {
 
     @Transactional(readOnly = true)
     public Page<AssignedFeeDTO> getUnpaidFees(String periodId, String householdId, Pageable pageable) {
-        Page<AssignedFee> page;
+        // Kiểm tra quyền hạn của cư dân (ROLE_user) để giới hạn householdId
+        org.springframework.security.core.Authentication authentication = SecurityContextHolder.getContext()
+                .getAuthentication();
+        boolean isResident = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_user"));
+        if (isResident) {
+            String currentUser = authentication.getName();
+            User userObj = userRepository.findByUsername(currentUser)
+                    .orElseThrow(() -> new RuntimeException("Logged in user not found"));
+            householdId = userObj.getRoom();
+        }
 
-        if (periodId != null && householdId != null) {
+        Page<AssignedFee> page;
+        boolean hasPeriod = periodId != null && !periodId.trim().isEmpty();
+        boolean hasHousehold = householdId != null && !householdId.trim().isEmpty();
+        java.util.List<FeeStatus> unpaidStatuses = java.util.List.of(FeeStatus.UNPAID, FeeStatus.PARTIAL);
+
+        if (hasPeriod && hasHousehold) {
             // Đối với xem nợ, xem cả UNPAID và PARTIAL
-            page = assignedFeeRepository.findByPeriodIdAndHouseholdIdAndStatus(
-                    periodId, householdId, FeeStatus.UNPAID, pageable);
-        } else if (periodId != null) {
-            page = assignedFeeRepository.findByPeriodIdAndStatus(periodId, FeeStatus.UNPAID, pageable);
-        } else if (householdId != null) {
-            page = assignedFeeRepository.findByHouseholdIdAndStatus(householdId, FeeStatus.UNPAID)
-                    .stream().collect(java.util.stream.Collectors.collectingAndThen(
-                            java.util.stream.Collectors.toList(),
-                            list -> new org.springframework.data.domain.PageImpl<>(list, pageable, list.size())));
+            page = assignedFeeRepository.findByPeriodIdAndHouseholdIdAndStatusIn(
+                    periodId, householdId, unpaidStatuses, pageable);
+        } else if (hasPeriod) {
+            page = assignedFeeRepository.findByPeriodIdAndStatusIn(periodId, unpaidStatuses, pageable);
+        } else if (hasHousehold) {
+            page = assignedFeeRepository.findPageByHouseholdIdAndStatusIn(householdId, unpaidStatuses, pageable);
         } else {
-            page = assignedFeeRepository.findByStatus(FeeStatus.UNPAID, pageable);
+            page = assignedFeeRepository.findByStatusIn(unpaidStatuses, pageable);
         }
 
         return page.map(this::mapToAssignedFeeDTO);
@@ -156,14 +198,19 @@ public class PaymentService {
     // =========================================================
 
     /**
-     * Tạo một đợt thu phí mới và quét nợ cũ (UNPAID hoặc PARTIAL) để cộng dồn vào đợt này.
+     * Tạo một đợt thu phí mới và quét nợ cũ (UNPAID hoặc PARTIAL) để cộng dồn vào
+     * đợt này.
      */
     @Transactional
-    public CollectionPeriod createPeriod(String id, String name, List<String> feeIds) {
+    public CollectionPeriod createPeriod(String id, String name, LocalDateTime dueDate, List<String> feeIds) {
+        // Tìm đợt thu gần nhất trước đó (nếu có) trước khi lưu đợt mới
+        java.util.Optional<CollectionPeriod> latestPeriodOpt = collectionPeriodRepository.findFirstByOrderByCreatedAtDesc();
+
         CollectionPeriod period = CollectionPeriod.builder()
                 .id(id)
                 .name(name)
                 .status(PeriodStatus.OPEN)
+                .dueDate(dueDate)
                 .createdAt(LocalDateTime.now())
                 .build();
         collectionPeriodRepository.save(period);
@@ -185,17 +232,20 @@ public class PaymentService {
                 });
 
         for (Household hh : households) {
-            // Quét các khoản còn nợ của đợt cũ
+            // Quét các khoản còn nợ của đợt cũ (chỉ từ đợt gần nhất để tránh cộng dồn lặp)
             BigDecimal totalDebt = BigDecimal.ZERO;
-            List<AssignedFee> unpaidFees = assignedFeeRepository.findByHouseholdIdAndStatusIn(
-                    hh.getId(), List.of(FeeStatus.UNPAID, FeeStatus.PARTIAL));
+            if (latestPeriodOpt.isPresent()) {
+                List<AssignedFee> unpaidFees = assignedFeeRepository.findByPeriodIdAndHouseholdIdAndStatusIn(
+                        latestPeriodOpt.get().getId(), hh.getId(), List.of(FeeStatus.UNPAID, FeeStatus.PARTIAL));
 
-            for (AssignedFee af : unpaidFees) {
-                BigDecimal required = calculateAmount(af);
-                BigDecimal paidAccumulated = af.getAmountPaidAccumulated() != null ? af.getAmountPaidAccumulated() : BigDecimal.ZERO;
-                BigDecimal debt = required.subtract(paidAccumulated);
-                if (debt.compareTo(BigDecimal.ZERO) > 0) {
-                    totalDebt = totalDebt.add(debt);
+                for (AssignedFee af : unpaidFees) {
+                    BigDecimal required = calculateAmount(af);
+                    BigDecimal paidAccumulated = af.getAmountPaidAccumulated() != null ? af.getAmountPaidAccumulated()
+                            : BigDecimal.ZERO;
+                    BigDecimal debt = required.subtract(paidAccumulated);
+                    if (debt.compareTo(BigDecimal.ZERO) > 0) {
+                        totalDebt = totalDebt.add(debt);
+                    }
                 }
             }
 
@@ -215,7 +265,8 @@ public class PaymentService {
 
             // Auto-assign các phí bắt buộc trong đợt thu mới
             for (Fee fee : fees) {
-                if (fee.getId().equals("FEE_DEBT")) continue;
+                if (fee.getId().equals("FEE_DEBT"))
+                    continue;
 
                 boolean shouldAssign = false;
                 double qty = 1.0;
@@ -256,6 +307,25 @@ public class PaymentService {
             }
         }
 
+        // Gửi thông báo đến toàn bộ cư dân về đợt thu mới
+        try {
+            List<User> residents = userRepository.findByRole("user");
+            for (User resident : residents) {
+                Notification notif = Notification.builder()
+                        .id(UUID.randomUUID().toString())
+                        .username(resident.getUsername())
+                        .title("New collection period: " + period.getName())
+                        .content("Đợt thu phí mới '" + period.getName() + "' đã được tạo. Vui lòng thanh toán các khoản phí trước ngày hạn đóng.")
+                        .isRead(false)
+                        .createdAt(LocalDateTime.now())
+                        .build();
+                notificationRepository.save(notif);
+            }
+            log.info("Đã tạo thông báo đợt thu mới cho {} cư dân", residents.size());
+        } catch (Exception e) {
+            log.error("Lỗi khi tạo thông báo cho đợt thu mới: {}", e.getMessage(), e);
+        }
+
         return period;
     }
 
@@ -268,7 +338,9 @@ public class PaymentService {
      */
     @Transactional(readOnly = true)
     public List<PeriodDTO> getAllPeriods() {
-        return collectionPeriodRepository.findAll(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"))
+        return collectionPeriodRepository
+                .findAll(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC,
+                        "createdAt"))
                 .stream()
                 .map(this::mapToPeriodDTO)
                 .collect(java.util.stream.Collectors.toList());
@@ -294,6 +366,38 @@ public class PaymentService {
         period.setStatus(PeriodStatus.CLOSED);
         CollectionPeriod saved = collectionPeriodRepository.save(period);
         log.info("Đã đóng đợt thu phí thành công: {}", id);
+
+        // Gửi thông báo quá hạn cho các hộ chưa đóng hết tiền
+        try {
+            List<AssignedFee> unpaidFees = assignedFeeRepository.findByPeriodIdAndStatusIn(
+                    id, List.of(FeeStatus.UNPAID, FeeStatus.PARTIAL));
+            java.util.Set<String> unpaidHouseholdIds = new java.util.HashSet<>();
+            for (AssignedFee af : unpaidFees) {
+                if (af.getHousehold() != null) {
+                    unpaidHouseholdIds.add(af.getHousehold().getId());
+                }
+            }
+            int notifiedUsersCount = 0;
+            for (String room : unpaidHouseholdIds) {
+                List<User> residentsInRoom = userRepository.findByRoom(room);
+                for (User resident : residentsInRoom) {
+                    Notification notif = Notification.builder()
+                            .id(UUID.randomUUID().toString())
+                            .username(resident.getUsername())
+                            .title("Overdue Payment Alert: " + period.getName())
+                            .content("Đợt thu '" + period.getName() + "' đã bị đóng. Phòng của bạn vẫn còn khoản phí chưa hoàn thành thanh toán. Vui lòng thanh toán sớm.")
+                            .isRead(false)
+                            .createdAt(LocalDateTime.now())
+                            .build();
+                    notificationRepository.save(notif);
+                    notifiedUsersCount++;
+                }
+            }
+            log.info("Đã gửi thông báo quá hạn cho {} cư dân thuộc {} hộ", notifiedUsersCount, unpaidHouseholdIds.size());
+        } catch (Exception e) {
+            log.error("Lỗi gửi thông báo quá hạn khi đóng đợt thu: {}", e.getMessage(), e);
+        }
+
         return mapToPeriodDTO(saved);
     }
 
@@ -342,9 +446,12 @@ public class PaymentService {
                 .unitPrice(af.getFee().getPrice())
                 .quantity(af.getQuantity())
                 .amountRequired(calculateAmount(af))
-                .amountPaidAccumulated(af.getAmountPaidAccumulated() != null ? af.getAmountPaidAccumulated() : BigDecimal.ZERO)
+                .amountPaidAccumulated(
+                        af.getAmountPaidAccumulated() != null ? af.getAmountPaidAccumulated() : BigDecimal.ZERO)
                 .status(af.getStatus())
                 .paidAt(af.getPaidAt())
+                .dueDate(af.getPeriod() != null ? af.getPeriod().getDueDate() : null)
+                .periodStatus(af.getPeriod() != null ? af.getPeriod().getStatus().name() : null)
                 .build();
     }
 
@@ -361,7 +468,8 @@ public class PaymentService {
                 .feeType(af.getFee().getType().name())
                 .amountRequired(amountRequired)
                 .amountPaid(r.getAmountPaid())
-                .amountPaidAccumulated(af.getAmountPaidAccumulated() != null ? af.getAmountPaidAccumulated() : BigDecimal.ZERO)
+                .amountPaidAccumulated(
+                        af.getAmountPaidAccumulated() != null ? af.getAmountPaidAccumulated() : BigDecimal.ZERO)
                 .paidAt(r.getPaidAt())
                 .status(af.getStatus())
                 .note(r.getNote())

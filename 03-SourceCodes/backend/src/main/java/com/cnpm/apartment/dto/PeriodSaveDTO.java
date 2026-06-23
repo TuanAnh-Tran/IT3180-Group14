@@ -15,6 +15,8 @@ public class PeriodSaveDTO {
     @NotBlank(message = "Tên đợt thu không được để trống")
     private String name;
 
+    private java.time.LocalDateTime dueDate;
+
     @NotEmpty(message = "Danh sách khoản phí áp dụng không được để trống")
     private List<String> feeIds;
 }

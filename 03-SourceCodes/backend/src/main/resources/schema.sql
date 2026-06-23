@@ -10,6 +10,7 @@ CREATE DATABASE IF NOT EXISTS apartment_db
 USE apartment_db;
 
 SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS notification;
 DROP TABLE IF EXISTS resident;
 DROP TABLE IF EXISTS vehicle;
 DROP TABLE IF EXISTS utility_record_history;
@@ -214,6 +215,20 @@ CREATE TABLE IF NOT EXISTS activity_log (
     data_before  TEXT          NULL,
     data_after   TEXT          NULL,
     INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- 9. NOTIFICATION (Thông báo cho cư dân)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS notification (
+    id           VARCHAR(50)   PRIMARY KEY,
+    username     VARCHAR(255)  NOT NULL,
+    title        VARCHAR(255)  NOT NULL,
+    content      TEXT          NOT NULL,
+    is_read      TINYINT(1)    NOT NULL DEFAULT 0,
+    created_at   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_notification_username (username),
+    INDEX idx_notification_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
