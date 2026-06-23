@@ -94,11 +94,18 @@ export class UsersManager {
                 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
                   <div class="form-group" style="margin-bottom:0;">
                     <label class="form-label">Username *</label>
-                    <input type="text" class="form-control" name="username" required placeholder="e.g. nguyenan" style="padding-left:14px;">
+                    <input type="text" class="form-control" name="username" id="create-username" required placeholder="e.g. user1" style="padding-left:14px;">
+                    <small style="color:var(--text-muted); font-size:11px; margin-top:4px; display:block;">Tên đăng nhập tự động tăng dần</small>
                   </div>
                   <div class="form-group" style="margin-bottom:0;">
                     <label class="form-label">Password *</label>
-                    <input type="password" class="form-control" name="password" required placeholder="Min 6 chars" minlength="6" style="padding-left:14px;">
+                    <div style="display:flex; gap:8px;">
+                      <input type="text" class="form-control" name="password" id="create-password" required placeholder="Password" minlength="6" style="padding-left:14px; flex:1;">
+                      <button type="button" class="btn btn-secondary" id="btn-generate-password" style="padding:0 12px; height:42px; display:flex; align-items:center; justify-content:center;" title="Sinh lại mật khẩu ngẫu nhiên">
+                        🔄
+                      </button>
+                    </div>
+                    <small style="color:var(--text-muted); font-size:11px; margin-top:4px; display:block;">Mật khẩu ngẫu nhiên tự động sinh</small>
                   </div>
                   <div class="form-group" style="margin-bottom:0;">
                     <label class="form-label">Role *</label>
@@ -441,9 +448,43 @@ export class UsersManager {
       updateTable();
     });
 
+    // Hàm sinh mật khẩu ngẫu nhiên 8 ký tự
+    function generateRandomPassword(length = 8) {
+      const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let pass = '';
+      for (let i = 0; i < length; i++) {
+        pass += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return pass;
+    }
+
+    // Hàm sinh tên đăng nhập tự động tiếp theo (user1, user2...)
+    function getNextUsername(users) {
+      let maxNum = 0;
+      users.forEach(u => {
+        const match = u.username.match(/^user(\d+)$/i);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) {
+            maxNum = num;
+          }
+        }
+      });
+      return 'user' + (maxNum + 1);
+    }
+
     // Điều phối hoạt động bật/tắt Hộp thoại tạo mới (Dialog Modal)
     const openDialog = () => {
       createForm.reset();
+      
+      // Tự sinh Username tiếp theo
+      const nextUser = getNextUsername(usersList);
+      container.querySelector('#create-username').value = nextUser;
+      
+      // Tự sinh Password ngẫu nhiên
+      const randomPass = generateRandomPassword();
+      container.querySelector('#create-password').value = randomPass;
+      
       dialogOverlay.classList.add('active');
     };
 
@@ -456,6 +497,11 @@ export class UsersManager {
     cancelDialogBtn.addEventListener('click', closeDialog);
     dialogOverlay.addEventListener('click', (e) => {
       if (e.target === dialogOverlay) closeDialog();
+    });
+
+    // Lắng nghe sự kiện bấm nút sinh lại password
+    container.querySelector('#btn-generate-password').addEventListener('click', () => {
+      container.querySelector('#create-password').value = generateRandomPassword();
     });
 
     // Xử lý sự kiện Submit của Form tạo cư dân mới

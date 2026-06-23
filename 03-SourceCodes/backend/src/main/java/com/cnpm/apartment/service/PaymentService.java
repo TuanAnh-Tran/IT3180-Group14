@@ -175,7 +175,7 @@ public class PaymentService {
         } else if (hasPeriod) {
             page = assignedFeeRepository.findByPeriodIdAndStatusIn(periodId, unpaidStatuses, pageable);
         } else if (hasHousehold) {
-            page = assignedFeeRepository.findPageByHouseholdIdAndStatusIn(householdId, unpaidStatuses, pageable);
+            page = assignedFeeRepository.findByHouseholdIdAndStatusIn(householdId, unpaidStatuses, pageable);
         } else {
             page = assignedFeeRepository.findByStatusIn(unpaidStatuses, pageable);
         }
@@ -316,7 +316,7 @@ public class PaymentService {
                         .username(resident.getUsername())
                         .title("New collection period: " + period.getName())
                         .content("Đợt thu phí mới '" + period.getName() + "' đã được tạo. Vui lòng thanh toán các khoản phí trước ngày hạn đóng.")
-                        .isRead(false)
+                        .read(false)
                         .createdAt(LocalDateTime.now())
                         .build();
                 notificationRepository.save(notif);
@@ -367,35 +367,112 @@ public class PaymentService {
         CollectionPeriod saved = collectionPeriodRepository.save(period);
         log.info("Đã đóng đợt thu phí thành công: {}", id);
 
-        // Gửi thông báo quá hạn cho các hộ chưa đóng hết tiền
+        // Gửi thông báo cho toàn bộ cư dân
         try {
-            List<AssignedFee> unpaidFees = assignedFeeRepository.findByPeriodIdAndStatusIn(
-                    id, List.of(FeeStatus.UNPAID, FeeStatus.PARTIAL));
-            java.util.Set<String> unpaidHouseholdIds = new java.util.HashSet<>();
-            for (AssignedFee af : unpaidFees) {
-                if (af.getHousehold() != null) {
-                    unpaidHouseholdIds.add(af.getHousehold().getId());
+            List<User> residents = userRepository.findByRole("user");
+            int overdueNotified = 0;
+            int closedNotified = 0;
+
+            for (User resident : residents) {
+                String room = resident.getRoom();
+                if (room == null || room.trim().isEmpty()) {
+                    continue;
                 }
-            }
-            int notifiedUsersCount = 0;
-            for (String room : unpaidHouseholdIds) {
-                List<User> residentsInRoom = userRepository.findByRoom(room);
-                for (User resident : residentsInRoom) {
-                    Notification notif = Notification.builder()
+
+                // Kiểm tra xem phòng của cư dân này có khoản phí chưa đóng trong đợt này không
+                List<AssignedFee> unpaidFees = assignedFeeRepository.findByPeriodIdAndHouseholdIdAndStatusIn(
+                        id, room, List.of(FeeStatus.UNPAID, FeeStatus.PARTIAL));
+
+                Notification notif;
+                if (!unpaidFees.isEmpty()) {
+                    // Phòng còn nợ phí -> Gửi cảnh báo quá hạn
+                    notif = Notification.builder()
                             .id(UUID.randomUUID().toString())
                             .username(resident.getUsername())
                             .title("Overdue Payment Alert: " + period.getName())
                             .content("Đợt thu '" + period.getName() + "' đã bị đóng. Phòng của bạn vẫn còn khoản phí chưa hoàn thành thanh toán. Vui lòng thanh toán sớm.")
-                            .isRead(false)
+                            .read(false)
                             .createdAt(LocalDateTime.now())
                             .build();
-                    notificationRepository.save(notif);
-                    notifiedUsersCount++;
+                    overdueNotified++;
+                } else {
+                    // Phòng đã đóng đủ phí -> Gửi thông báo cảm ơn
+                    notif = Notification.builder()
+                            .id(UUID.randomUUID().toString())
+                            .username(resident.getUsername())
+                            .title("Collection Period Closed: " + period.getName())
+                            .content("Đợt thu phí '" + period.getName() + "' đã được đóng. Cảm ơn bạn đã hoàn thành đóng phí đầy đủ và đúng hạn.")
+                            .read(false)
+                            .createdAt(LocalDateTime.now())
+                            .build();
+                    closedNotified++;
                 }
+                notificationRepository.save(notif);
             }
-            log.info("Đã gửi thông báo quá hạn cho {} cư dân thuộc {} hộ", notifiedUsersCount, unpaidHouseholdIds.size());
+            log.info("Đã gửi thông báo đóng đợt thu: {} cảnh báo quá hạn, {} cảm ơn hoàn thành", overdueNotified, closedNotified);
         } catch (Exception e) {
-            log.error("Lỗi gửi thông báo quá hạn khi đóng đợt thu: {}", e.getMessage(), e);
+            log.error("Lỗi gửi thông báo khi đóng đợt thu: {}", e.getMessage(), e);
+        }
+
+        return mapToPeriodDTO(saved);
+    }
+
+    /**
+     * Mở lại đợt thu phí đã đóng.
+     */
+    @Transactional
+    public PeriodDTO reopenPeriod(String id) {
+        CollectionPeriod period = collectionPeriodRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đợt thu phí với ID: " + id));
+        if (period.getStatus() == PeriodStatus.OPEN) {
+            throw new RuntimeException("Đợt thu phí này hiện đang mở.");
+        }
+        period.setStatus(PeriodStatus.OPEN);
+        CollectionPeriod saved = collectionPeriodRepository.save(period);
+        log.info("Đã mở lại đợt thu phí thành công: {}", id);
+
+        // Gửi thông báo mở lại cho toàn bộ cư dân
+        try {
+            List<User> residents = userRepository.findByRole("user");
+            int overdueNotified = 0;
+            int closedNotified = 0;
+
+            for (User resident : residents) {
+                String room = resident.getRoom();
+                if (room == null || room.trim().isEmpty()) {
+                    continue;
+                }
+
+                List<AssignedFee> unpaidFees = assignedFeeRepository.findByPeriodIdAndHouseholdIdAndStatusIn(
+                        id, room, List.of(FeeStatus.UNPAID, FeeStatus.PARTIAL));
+
+                Notification notif;
+                if (!unpaidFees.isEmpty()) {
+                    notif = Notification.builder()
+                            .id(UUID.randomUUID().toString())
+                            .username(resident.getUsername())
+                            .title("Collection Period Reopened: " + period.getName())
+                            .content("Đợt thu '" + period.getName() + "' đã được mở lại. Vui lòng hoàn thành các khoản phí còn thiếu.")
+                            .read(false)
+                            .createdAt(LocalDateTime.now())
+                            .build();
+                    overdueNotified++;
+                } else {
+                    notif = Notification.builder()
+                            .id(UUID.randomUUID().toString())
+                            .username(resident.getUsername())
+                            .title("Collection Period Reopened: " + period.getName())
+                            .content("Đợt thu phí '" + period.getName() + "' đã được mở lại. Phòng của bạn đã hoàn thành đóng phí đợt này. Cảm ơn bạn.")
+                            .read(false)
+                            .createdAt(LocalDateTime.now())
+                            .build();
+                    closedNotified++;
+                }
+                notificationRepository.save(notif);
+            }
+            log.info("Đã gửi thông báo mở lại đợt thu: {} nhắc nợ, {} cảm ơn hoàn thành", overdueNotified, closedNotified);
+        } catch (Exception e) {
+            log.error("Lỗi gửi thông báo khi mở lại đợt thu: {}", e.getMessage(), e);
         }
 
         return mapToPeriodDTO(saved);

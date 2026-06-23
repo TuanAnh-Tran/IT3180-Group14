@@ -273,9 +273,9 @@ public class AuthController {
         profile.put("householdCode", resident != null && resident.getHouseholdId() != null ? resident.getHouseholdId() : "");
         profile.put("householdHeadName", household != null && household.getOwnerName() != null ? household.getOwnerName() : "");
         profile.put("houseNo", household != null && household.getId() != null ? household.getId() : "");
-        profile.put("street", "BlueMoon Street");
-        profile.put("ward", "Me Tri Ward");
-        profile.put("district", "Nam Tu Liem District");
+        profile.put("street", user.getStreet() != null ? user.getStreet() : "");
+        profile.put("ward", user.getWard() != null ? user.getWard() : "");
+        profile.put("district", user.getDistrict() != null ? user.getDistrict() : "");
 
         return ResponseEntity.ok(profile);
     }
@@ -304,41 +304,64 @@ public class AuthController {
         user.setPhone(request.get("phone"));
         user.setRoom(request.get("room"));
         user.setIdentityNo(newIdentityNo);
+        user.setStreet(request.get("street"));
+        user.setWard(request.get("ward"));
+        user.setDistrict(request.get("district"));
         userRepository.save(user);
 
+        // 1. Load resident
         Resident resident = null;
         if (newIdentityNo != null && !newIdentityNo.isEmpty()) {
             resident = residentRepository.findByIdentityNo(newIdentityNo).orElse(null);
         }
-        if (resident == null) {
+        if (resident == null && newIdentityNo != null && !newIdentityNo.isEmpty()) {
             resident = new Resident();
             resident.setId("RES-" + System.currentTimeMillis());
             resident.setIdentityNo(newIdentityNo);
             resident.setStatus("PERMANENT");
+            resident.setGender("Other");
         }
-        resident.setFullName(request.get("fullname"));
-        resident.setPhone(request.get("phone"));
-        resident.setAlias(request.get("alias"));
-        resident.setDateOfBirth(request.get("dob"));
-        resident.setBirthPlace(request.get("birthPlace"));
-        resident.setHometown(request.get("hometown"));
-        resident.setEthnicity(request.get("ethnicity"));
-        resident.setOccupation(request.get("occupation"));
-        resident.setWorkplace(request.get("workplace"));
-        resident.setIssueDate(request.get("issueDate"));
-        resident.setIssuePlace(request.get("issuePlace"));
-        resident.setPreviousResidence(request.get("previousResidence"));
-        resident.setHouseholdId(request.get("householdCode"));
-        residentRepository.save(resident);
 
+        // 2. Save Household FIRST
         String householdCode = request.get("householdCode");
         Household household = null;
         if (householdCode != null && !householdCode.isEmpty()) {
             household = householdRepository.findById(householdCode).orElse(null);
-            if (household != null) {
-                household.setOwnerName(request.get("householdHeadName"));
-                householdRepository.save(household);
+            if (household == null) {
+                household = new Household();
+                household.setId(householdCode);
+                household.setOwnerName(request.get("householdHeadName") != null && !request.get("householdHeadName").isEmpty() ? request.get("householdHeadName") : request.get("fullname"));
+                household.setApartmentNo(request.get("houseNo") != null && !request.get("houseNo").isEmpty() ? request.get("houseNo") : request.get("room"));
+                household.setFloor(1); // Default floor
+                household.setStatus("OCCUPIED");
+                household.setMembersCount(1);
+            } else {
+                if (request.get("householdHeadName") != null && !request.get("householdHeadName").isEmpty()) {
+                    household.setOwnerName(request.get("householdHeadName"));
+                }
+                if (request.get("houseNo") != null && !request.get("houseNo").isEmpty()) {
+                    household.setApartmentNo(request.get("houseNo"));
+                }
             }
+            householdRepository.saveAndFlush(household);
+        }
+
+        // 3. Save Resident SECOND
+        if (resident != null) {
+            resident.setFullName(request.get("fullname"));
+            resident.setPhone(request.get("phone"));
+            resident.setAlias(request.get("alias"));
+            resident.setDateOfBirth(request.get("dob"));
+            resident.setBirthPlace(request.get("birthPlace"));
+            resident.setHometown(request.get("hometown"));
+            resident.setEthnicity(request.get("ethnicity"));
+            resident.setOccupation(request.get("occupation"));
+            resident.setWorkplace(request.get("workplace"));
+            resident.setIssueDate(request.get("issueDate"));
+            resident.setIssuePlace(request.get("issuePlace"));
+            resident.setPreviousResidence(request.get("previousResidence"));
+            resident.setHouseholdId(householdCode);
+            residentRepository.save(resident);
         }
 
         Map<String, Object> profile = new HashMap<>();
@@ -350,23 +373,23 @@ public class AuthController {
         profile.put("identityNo", user.getIdentityNo());
         profile.put("email", user.getEmail());
         
-        profile.put("dob", resident.getDateOfBirth() != null ? resident.getDateOfBirth() : "");
-        profile.put("alias", resident.getAlias() != null ? resident.getAlias() : "");
-        profile.put("birthPlace", resident.getBirthPlace() != null ? resident.getBirthPlace() : "");
-        profile.put("hometown", resident.getHometown() != null ? resident.getHometown() : "");
-        profile.put("ethnicity", resident.getEthnicity() != null ? resident.getEthnicity() : "");
-        profile.put("occupation", resident.getOccupation() != null ? resident.getOccupation() : "");
-        profile.put("workplace", resident.getWorkplace() != null ? resident.getWorkplace() : "");
-        profile.put("issueDate", resident.getIssueDate() != null ? resident.getIssueDate() : "");
-        profile.put("issuePlace", resident.getIssuePlace() != null ? resident.getIssuePlace() : "");
-        profile.put("previousResidence", resident.getPreviousResidence() != null ? resident.getPreviousResidence() : "");
+        profile.put("dob", resident != null && resident.getDateOfBirth() != null ? resident.getDateOfBirth() : "");
+        profile.put("alias", resident != null && resident.getAlias() != null ? resident.getAlias() : "");
+        profile.put("birthPlace", resident != null && resident.getBirthPlace() != null ? resident.getBirthPlace() : "");
+        profile.put("hometown", resident != null && resident.getHometown() != null ? resident.getHometown() : "");
+        profile.put("ethnicity", resident != null && resident.getEthnicity() != null ? resident.getEthnicity() : "");
+        profile.put("occupation", resident != null && resident.getOccupation() != null ? resident.getOccupation() : "");
+        profile.put("workplace", resident != null && resident.getWorkplace() != null ? resident.getWorkplace() : "");
+        profile.put("issueDate", resident != null && resident.getIssueDate() != null ? resident.getIssueDate() : "");
+        profile.put("issuePlace", resident != null && resident.getIssuePlace() != null ? resident.getIssuePlace() : "");
+        profile.put("previousResidence", resident != null && resident.getPreviousResidence() != null ? resident.getPreviousResidence() : "");
         
-        profile.put("householdCode", resident.getHouseholdId() != null ? resident.getHouseholdId() : "");
+        profile.put("householdCode", resident != null && resident.getHouseholdId() != null ? resident.getHouseholdId() : "");
         profile.put("householdHeadName", household != null && household.getOwnerName() != null ? household.getOwnerName() : "");
         profile.put("houseNo", household != null && household.getId() != null ? household.getId() : "");
-        profile.put("street", "BlueMoon Street");
-        profile.put("ward", "Me Tri Ward");
-        profile.put("district", "Nam Tu Liem District");
+        profile.put("street", user.getStreet() != null ? user.getStreet() : "");
+        profile.put("ward", user.getWard() != null ? user.getWard() : "");
+        profile.put("district", user.getDistrict() != null ? user.getDistrict() : "");
 
         return ResponseEntity.ok(profile);
     }

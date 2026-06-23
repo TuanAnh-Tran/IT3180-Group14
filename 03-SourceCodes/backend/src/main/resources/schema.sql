@@ -37,7 +37,13 @@ CREATE TABLE IF NOT EXISTS users (
     phone           VARCHAR(20)    NULL,
     identity_no     VARCHAR(50)    NULL,
     status          VARCHAR(20)    NOT NULL DEFAULT 'ACTIVE',
-    failed_login_attempts INT      NOT NULL DEFAULT 0
+    failed_login_attempts INT      NOT NULL DEFAULT 0,
+    email           VARCHAR(255)   NULL UNIQUE,
+    reset_otp       VARCHAR(10)    NULL,
+    reset_otp_expiry DATETIME      NULL,
+    street          VARCHAR(255)   NULL,
+    ward            VARCHAR(255)   NULL,
+    district        VARCHAR(255)   NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
@@ -105,6 +111,7 @@ CREATE TABLE IF NOT EXISTS collection_period (
     id          VARCHAR(50)     PRIMARY KEY,
     name        VARCHAR(255)    NOT NULL COMMENT 'Tên đợt thu',
     status      ENUM('OPEN','CLOSED') NOT NULL DEFAULT 'OPEN',
+    due_date    DATETIME        NULL COMMENT 'Hạn đóng phí',
     created_at  DATETIME        DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

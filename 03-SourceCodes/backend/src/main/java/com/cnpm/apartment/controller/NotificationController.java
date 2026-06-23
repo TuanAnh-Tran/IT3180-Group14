@@ -39,7 +39,7 @@ public class NotificationController {
     @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant', 'ROLE_user')")
     public ResponseEntity<ApiResponse<Void>> markAllAsRead() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        List<Notification> unread = notificationRepository.findByUsernameAndIsReadOrderByCreatedAtDesc(username, false);
+        List<Notification> unread = notificationRepository.findByUsernameAndReadOrderByCreatedAtDesc(username, false);
         for (Notification n : unread) {
             n.setRead(true);
         }

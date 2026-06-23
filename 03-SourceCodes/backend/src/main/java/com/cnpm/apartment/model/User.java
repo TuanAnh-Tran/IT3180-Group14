@@ -52,4 +52,10 @@ public class User {
 
     @Column(name = "reset_otp_expiry")
     private java.time.LocalDateTime resetOtpExpiry;
+
+    private String street;
+
+    private String ward;
+
+    private String district;
 }

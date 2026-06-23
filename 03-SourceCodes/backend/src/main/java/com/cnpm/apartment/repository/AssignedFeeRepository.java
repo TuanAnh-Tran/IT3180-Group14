@@ -58,7 +58,7 @@ public interface AssignedFeeRepository extends JpaRepository<AssignedFee, String
     Page<AssignedFee> findByPeriodIdAndStatusIn(String periodId, Collection<FeeStatus> statuses, Pageable pageable);
     List<AssignedFee> findByPeriodIdAndStatusIn(String periodId, Collection<FeeStatus> statuses);
 
-    Page<AssignedFee> findPageByHouseholdIdAndStatusIn(String householdId, Collection<FeeStatus> statuses, Pageable pageable);
+    Page<AssignedFee> findByHouseholdIdAndStatusIn(String householdId, Collection<FeeStatus> statuses, Pageable pageable);
 
     Page<AssignedFee> findByPeriodIdAndHouseholdIdAndStatusIn(
             String periodId, String householdId, Collection<FeeStatus> statuses, Pageable pageable);
@@ -94,11 +94,11 @@ public interface AssignedFeeRepository extends JpaRepository<AssignedFee, String
 
     // Optimized overview query returning native projection DTO
     @Query(value = "SELECT " +
-           "    COUNT(af.id) as totalAssignments, " +
-           "    SUM(CASE WHEN af.status = 'PAID' THEN 1 ELSE 0 END) as paidCount, " +
-           "    SUM(CASE WHEN af.status = 'UNPAID' THEN 1 ELSE 0 END) as unpaidCount, " +
-           "    SUM(CASE WHEN af.status = 'PARTIAL' THEN 1 ELSE 0 END) as partialCount, " +
-           "    COALESCE(SUM(af.amount_paid_accumulated), 0) as totalCollected " +
+           "    COUNT(af.id) as total_assignments, " +
+           "    SUM(CASE WHEN af.status = 'PAID' THEN 1 ELSE 0 END) as paid_count, " +
+           "    SUM(CASE WHEN af.status = 'UNPAID' THEN 1 ELSE 0 END) as unpaid_count, " +
+           "    SUM(CASE WHEN af.status = 'PARTIAL' THEN 1 ELSE 0 END) as partial_count, " +
+           "    COALESCE(SUM(af.amount_paid_accumulated), 0) as total_collected " +
            "FROM assigned_fee af", nativeQuery = true)
     OverviewProjection getOverviewStatistics();
 }

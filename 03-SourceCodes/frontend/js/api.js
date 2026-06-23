@@ -368,6 +368,12 @@ export const API = {
     });
   },
 
+  async reopenPeriod(id) {
+    return this.fetchJson(`/payments/periods/${id}/reopen`, {
+      method: 'POST'
+    });
+  },
+
   /**
    * Lấy toàn bộ danh sách hộ gia đình từ backend (GET /api/residents/households).
    */

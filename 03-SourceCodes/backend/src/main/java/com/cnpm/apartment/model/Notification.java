@@ -28,7 +28,7 @@ public class Notification {
     private String content;
 
     @Column(name = "is_read", nullable = false)
-    private boolean isRead;
+    private boolean read;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;

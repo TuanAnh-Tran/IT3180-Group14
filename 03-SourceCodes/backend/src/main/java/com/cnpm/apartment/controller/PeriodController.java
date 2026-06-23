@@ -67,5 +67,15 @@ public class PeriodController {
         PeriodDTO dto = paymentService.closePeriod(id);
         return ResponseEntity.ok(ApiResponse.success("Đóng đợt thu phí thành công", dto));
     }
+
+    /**
+     * Mở lại đợt thu phí đã đóng.
+     */
+    @PostMapping("/{id}/reopen")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
+    public ResponseEntity<ApiResponse<PeriodDTO>> reopenPeriod(@PathVariable String id) {
+        PeriodDTO dto = paymentService.reopenPeriod(id);
+        return ResponseEntity.ok(ApiResponse.success("Mở lại đợt thu phí thành công", dto));
+    }
 }
 

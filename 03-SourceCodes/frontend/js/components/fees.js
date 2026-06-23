@@ -423,6 +423,43 @@ const FM = {
     }
   },
 
+  async reopenPeriod(id) {
+    if (isBackendActive) {
+      try {
+        const saved = await API.reopenPeriod(id);
+        const db = fmGetDB();
+        const p = db.periods.find(x => x.id === id);
+        if (p) p.status = 'ACTIVE';
+        fmSave(db);
+        return saved;
+      } catch (err) {
+        console.error("Backend reopenPeriod failed:", err.message);
+        throw err;
+      }
+    }
+    const db = fmGetDB();
+    const p = db.periods.find(x => x.id === id);
+    if (p) {
+      p.status = 'ACTIVE';
+      fmSave(db);
+
+      // Gửi thông báo nhắc nộp tiền local
+      try {
+        const localUsers = getLocalUsers();
+        const residents = localUsers.filter(u => u.role === 'user');
+        residents.forEach(r => {
+          addLocalNotification(
+            r.username,
+            "Collection period reopened: " + p.name,
+            "Đợt thu phí '" + p.name + "' đã được mở lại. Vui lòng kiểm tra và hoàn thành các khoản phí."
+          );
+        });
+      } catch (e) {
+        console.warn("Lỗi gửi thông báo mở lại đợt thu local:", e);
+      }
+    }
+  },
+
   async syncAssignedFees(periodId) {
     if (isBackendActive && periodId) {
       try {
@@ -1201,7 +1238,7 @@ export class FeeManagerView {
           : '<span class="sf-badge red">Closed</span>';
         const action = p.status === 'ACTIVE'
           ? `<button class="sf-btn dan sf-close-p" data-id="${p.id}">Close Period</button>`
-          : `<span style="font-size:11px;color:var(--text-muted);">—</span>`;
+          : `<button class="sf-btn suc sf-reopen-p" data-id="${p.id}">Reopen Period</button>`;
         return `<tr>
           <td><strong>${p.name}</strong><br><small style="color:var(--text-muted);">${p.id}</small></td>
           <td><span class="sf-badge blue">${p.feeIds.length} fees</span></td>
@@ -1216,6 +1253,16 @@ export class FeeManagerView {
           try {
             await FM.closePeriod(b.dataset.id);
             showToast('Period closed', 'info');
+            await renderAll();
+          } catch (err) {
+            showToast(err.message, 'error');
+          }
+        }));
+        q('#sf-periods-tbody').querySelectorAll('.sf-reopen-p').forEach(b => b.addEventListener('click', async () => {
+          if (!confirm('Reopen this collection period?')) return;
+          try {
+            await FM.reopenPeriod(b.dataset.id);
+            showToast('Period reopened', 'success');
             await renderAll();
           } catch (err) {
             showToast(err.message, 'error');
