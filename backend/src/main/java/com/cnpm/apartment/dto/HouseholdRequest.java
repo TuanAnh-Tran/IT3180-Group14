@@ -5,6 +5,8 @@ import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+import java.time.LocalDate;
+
 @Data
 public class HouseholdRequest {
     @NotBlank(message = "Household code is required")
@@ -27,6 +29,22 @@ public class HouseholdRequest {
 
     @Size(max = 30, message = "Phone must be at most 30 characters")
     private String phone;
+
+    @Size(max = 100, message = "House number must be at most 100 characters")
+    private String houseNo;
+
+    @Size(max = 255, message = "Street must be at most 255 characters")
+    private String street;
+
+    @Size(max = 255, message = "Ward must be at most 255 characters")
+    private String ward;
+
+    @Size(max = 255, message = "District must be at most 255 characters")
+    private String district;
+
+    private LocalDate registrationDate;
+
+    private String headIdentityNo;
 
     private String status;
 

@@ -18,15 +18,28 @@ CREATE TABLE IF NOT EXISTS household (
     apartment_no    VARCHAR(50)    NULL COMMENT 'Apartment number',
     floor           INT            NULL COMMENT 'Floor number',
     owner_name      VARCHAR(255)   NOT NULL COMMENT 'Tên chủ hộ',
+    head_resident_id VARCHAR(50)   NULL COMMENT 'Current household head resident id',
     phone           VARCHAR(30)    NULL COMMENT 'Phone number',
+    house_no        VARCHAR(100)   NULL COMMENT 'House number',
+    street          VARCHAR(255)   NULL COMMENT 'Street',
+    ward            VARCHAR(255)   NULL COMMENT 'Ward',
+    district        VARCHAR(255)   NULL COMMENT 'District',
+    registration_date DATE         NULL COMMENT 'Household registration date',
     members_count   INT            DEFAULT 0 COMMENT 'Số thành viên',
     area            DOUBLE         DEFAULT 0 COMMENT 'Diện tích (m2)',
     motorcycle_count INT           DEFAULT 0 COMMENT 'Số xe máy',
     car_count       INT            DEFAULT 0 COMMENT 'Số ô tô',
     status          ENUM('OCCUPIED','TEMPORARILY_AWAY','MOVED_OUT','VACANT')
                     NOT NULL DEFAULT 'OCCUPIED',
+    previous_owner_name VARCHAR(255) NULL COMMENT 'Previous owner before transfer',
+    ownership_transferred_at DATETIME NULL COMMENT 'Ownership transfer timestamp',
+    ownership_note VARCHAR(1000) NULL COMMENT 'Ownership transfer note',
+    archived        BOOLEAN        NOT NULL DEFAULT FALSE COMMENT 'Soft delete flag',
+    archived_at     DATETIME       NULL COMMENT 'Soft delete timestamp',
     note            VARCHAR(1000)  NULL,
-    UNIQUE KEY uk_household_apartment_no (apartment_no)
+    UNIQUE KEY uk_household_apartment_no (apartment_no),
+    INDEX idx_household_archived (archived),
+    INDEX idx_household_head (head_resident_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
@@ -40,12 +53,24 @@ CREATE TABLE IF NOT EXISTS resident (
     date_of_birth        DATE           NULL,
     identity_no          VARCHAR(30)    NOT NULL UNIQUE,
     phone                VARCHAR(30)    NULL,
+    alias                VARCHAR(100)   NULL,
+    birth_place          VARCHAR(255)   NULL,
     hometown             VARCHAR(255)   NULL,
+    ethnicity            VARCHAR(100)   NULL,
+    religion             VARCHAR(100)   NULL,
     occupation           VARCHAR(255)   NULL,
+    workplace            VARCHAR(255)   NULL,
+    issue_date           DATE           NULL,
+    issue_place          VARCHAR(255)   NULL,
+    previous_residence   VARCHAR(500)   NULL,
     relationship_to_head VARCHAR(100)   NULL,
-    status               ENUM('PERMANENT','TEMPORARY','TEMPORARILY_AWAY','MOVED_OUT')
+    status               ENUM('PERMANENT','TEMPORARY','TEMPORARILY_AWAY','MOVED_OUT','DECEASED')
                          NOT NULL DEFAULT 'PERMANENT',
     household_id         VARCHAR(50)    NULL,
+    alive                BOOLEAN        NOT NULL DEFAULT TRUE,
+    date_of_death        DATE           NULL,
+    archived             BOOLEAN        NOT NULL DEFAULT FALSE,
+    archived_at          DATETIME       NULL,
     created_at           DATETIME       DEFAULT CURRENT_TIMESTAMP,
     updated_at           DATETIME       DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
@@ -53,7 +78,26 @@ CREATE TABLE IF NOT EXISTS resident (
 
     INDEX idx_resident_identity (identity_no),
     INDEX idx_resident_household (household_id),
-    INDEX idx_resident_status (status)
+    INDEX idx_resident_status (status),
+    INDEX idx_resident_archived (archived)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS temporary_residence_record (
+    id           VARCHAR(50)    PRIMARY KEY,
+    resident_id  VARCHAR(50)    NOT NULL,
+    type         ENUM('PERMANENT_REGISTRATION','TEMPORARY_RESIDENCE','TEMPORARY_ABSENCE')
+                 NOT NULL,
+    address      VARCHAR(500)   NULL,
+    start_date   DATE           NULL,
+    end_date     DATE           NULL,
+    reason       VARCHAR(1000)  NULL,
+    actor        VARCHAR(100)   NULL,
+    created_at   DATETIME       DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (resident_id) REFERENCES resident(id),
+    INDEX idx_temp_resident (resident_id),
+    INDEX idx_temp_type (type),
+    INDEX idx_temp_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS resident_activity_log (
@@ -175,6 +219,9 @@ VALUES
 ('RES-HA002',   'Le Thu Ha',     'Female', '1988-08-20', '001188000222', '0977000111', 'Hanoi',     'Teacher',    'Spouse', 'PERMANENT', 'HH001'),
 ('RES-BINH003', 'Tran Thi Binh', 'Female', '1979-01-15', '031079000333', '0911222333', 'Nam Dinh',  'Accountant', 'Head',   'PERMANENT', 'HH002'),
 ('RES-DUC004',  'Pham Minh Duc', 'Male',   '1998-11-02', '022098000444', '0909090909', 'Hai Phong', 'Student',    'Tenant', 'TEMPORARY', 'HH002');
+
+UPDATE household SET head_resident_id = 'RES-AN001' WHERE id = 'HH001';
+UPDATE household SET head_resident_id = 'RES-BINH003' WHERE id = 'HH002';
 
 -- Khoản phí mẫu
 INSERT IGNORE INTO fee (id, name, type, calc_method, price) VALUES

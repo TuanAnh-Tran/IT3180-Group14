@@ -9,7 +9,7 @@ const STORE_KEY = 'residents_manager_v2_en';
 const FEE_STORE_KEY = 'smartfee_v1';
 
 const HOUSEHOLD_STATUSES = ['OCCUPIED', 'TEMPORARILY_AWAY', 'MOVED_OUT', 'VACANT'];
-const RESIDENT_STATUSES = ['PERMANENT', 'TEMPORARY', 'TEMPORARILY_AWAY', 'MOVED_OUT'];
+const RESIDENT_STATUSES = ['PERMANENT', 'TEMPORARY', 'TEMPORARILY_AWAY', 'MOVED_OUT', 'DECEASED'];
 const GENDERS = ['Male', 'Female', 'Other'];
 
 const state = {
@@ -52,10 +52,17 @@ function seedStore() {
       floor: 12,
       area: 72.5,
       headName: 'Nguyen Van An',
+      headIdentityNo: '001085000111',
       phone: '0987654321',
+      houseNo: '12',
+      street: 'Tran Duy Hung',
+      ward: 'Trung Hoa',
+      district: 'Cau Giay',
+      registrationDate: '2024-01-10',
       status: 'OCCUPIED',
       note: 'Completed permanent residence registration.',
       memberCount: 2,
+      activeMemberCount: 2,
       motorcycleCount: 2,
       carCount: 0
     },
@@ -66,10 +73,17 @@ function seedStore() {
       floor: 8,
       area: 65,
       headName: 'Tran Thi Binh',
+      headIdentityNo: '031079000333',
       phone: '0911222333',
+      houseNo: '8',
+      street: 'Pham Hung',
+      ward: 'My Dinh 1',
+      district: 'Nam Tu Liem',
+      registrationDate: '2024-03-15',
       status: 'OCCUPIED',
       note: 'One temporary resident.',
       memberCount: 2,
+      activeMemberCount: 2,
       motorcycleCount: 1,
       carCount: 1
     },
@@ -81,9 +95,15 @@ function seedStore() {
       area: 58,
       headName: 'Le Hoang Nam',
       phone: '0901111222',
+      houseNo: '',
+      street: '',
+      ward: '',
+      district: '',
+      registrationDate: '',
       status: 'VACANT',
       note: 'Ready for handover.',
       memberCount: 0,
+      activeMemberCount: 0,
       motorcycleCount: 0,
       carCount: 0
     }
@@ -97,10 +117,19 @@ function seedStore() {
       dateOfBirth: '1985-04-12',
       identityNo: '001085000111',
       phone: '0987654321',
+      alias: '',
+      birthPlace: 'Hanoi',
       hometown: 'Hanoi',
+      ethnicity: 'Kinh',
+      religion: 'None',
       occupation: 'Engineer',
+      workplace: 'Tech Company',
+      issueDate: '2021-05-20',
+      issuePlace: 'Police Department',
+      previousResidence: 'Cau Giay, Hanoi',
       relationshipToHead: 'Head',
       status: 'PERMANENT',
+      alive: true,
       householdId: 'HH-A1201'
     },
     {
@@ -110,10 +139,19 @@ function seedStore() {
       dateOfBirth: '1988-08-20',
       identityNo: '001188000222',
       phone: '0977000111',
+      alias: '',
+      birthPlace: 'Hanoi',
       hometown: 'Hanoi',
+      ethnicity: 'Kinh',
+      religion: 'None',
       occupation: 'Teacher',
+      workplace: 'Secondary School',
+      issueDate: '2021-06-11',
+      issuePlace: 'Police Department',
+      previousResidence: 'Cau Giay, Hanoi',
       relationshipToHead: 'Spouse',
       status: 'PERMANENT',
+      alive: true,
       householdId: 'HH-A1201'
     },
     {
@@ -123,10 +161,19 @@ function seedStore() {
       dateOfBirth: '1979-01-15',
       identityNo: '031079000333',
       phone: '0911222333',
+      alias: '',
+      birthPlace: 'Nam Dinh',
       hometown: 'Nam Dinh',
+      ethnicity: 'Kinh',
+      religion: 'None',
       occupation: 'Accountant',
+      workplace: 'Finance Office',
+      issueDate: '2020-09-09',
+      issuePlace: 'Police Department',
+      previousResidence: 'Nam Dinh',
       relationshipToHead: 'Head',
       status: 'PERMANENT',
+      alive: true,
       householdId: 'HH-B0805'
     },
     {
@@ -136,10 +183,19 @@ function seedStore() {
       dateOfBirth: '1998-11-02',
       identityNo: '022098000444',
       phone: '0909090909',
+      alias: '',
+      birthPlace: 'Hai Phong',
       hometown: 'Hai Phong',
+      ethnicity: 'Kinh',
+      religion: 'None',
       occupation: 'Student',
+      workplace: 'University',
+      issueDate: '2022-02-15',
+      issuePlace: 'Police Department',
+      previousResidence: 'Hai Phong',
       relationshipToHead: 'Tenant',
       status: 'TEMPORARY',
+      alive: true,
       householdId: 'HH-B0805'
     }
   ];
@@ -165,26 +221,12 @@ function saveStore(store) {
   syncSmartFeeHouseholds(store.households);
 }
 
-<<<<<<< HEAD:merge_final/final-project/js/components/residents.js
 function syncMemberCounts(store) {
   store.households = store.households.map(h => ({
     ...h,
-    memberCount: store.residents.filter(r => r.householdId === h.id).length
+    memberCount: store.residents.filter(r => r.householdId === h.id && isActiveResident(r)).length,
+    activeMemberCount: store.residents.filter(r => r.householdId === h.id && isActiveResident(r)).length
   }));
-=======
-function bmSeedData() {
-  households = [
-    { id:'hh_1', code:'HH-A1201', apartmentNo:'A1201', floor:12, area:72.5, headName:'Michael Scott', phone:'0912345678', status:'Occupied', note:'Completed permanent residence registration.', members:['rs_1','rs_2'] },
-    { id:'hh_2', code:'HH-B0805', apartmentNo:'B0805', floor:8,  area:65,   headName:'Jim Halpert', phone:'0987654321', status:'Occupied', note:'One temporary resident.', members:['rs_3','rs_4'] },
-  ];
-  residents = [
-    { id:'rs_1', fullName:'Michael Scott',  gender:'Male',   dob:'1985-04-12', identityNo:'001085000111', phone:'0912345678', hometown:'Scranton',     occupation:'Manager',   status:'Permanent resident', householdId:'hh_1' },
-    { id:'rs_2', fullName:'Pam Beesly',      gender:'Female', dob:'1988-08-20', identityNo:'001188000222', phone:'0977000111', hometown:'Scranton',     occupation:'Receptionist',    status:'Permanent resident', householdId:'hh_1' },
-    { id:'rs_3', fullName:'Jim Halpert',  gender:'Male', dob:'1979-01-15', identityNo:'031079000333', phone:'0987654321', hometown:'Philadelphia',  occupation:'Sales', status:'Permanent resident', householdId:'hh_2' },
-    { id:'rs_4', fullName:'Dwight Schrute',  gender:'Male',   dob:'1998-11-02', identityNo:'022098000444', phone:'0909090909', hometown:'Scranton', occupation:'Assistant Manager',    status:'Temporary resident', householdId:'hh_2' },
-  ];
-  selectedHouseholdId = null;
->>>>>>> origin/v2-VietCuong:03-SourceCodes/frontend/js/components/residents.js
 }
 
 function syncSmartFeeHouseholds(households) {
@@ -234,14 +276,15 @@ function statusLabel(value) {
     MOVED_OUT: 'Moved out',
     VACANT: 'Vacant',
     PERMANENT: 'Permanent',
-    TEMPORARY: 'Temporary'
+    TEMPORARY: 'Temporary',
+    DECEASED: 'Deceased'
   };
   return labels[value] || value || '-';
 }
 
 function statusClass(value) {
   if (value === 'VACANT') return 'gray';
-  if (value === 'MOVED_OUT') return 'danger';
+  if (value === 'MOVED_OUT' || value === 'DECEASED') return 'danger';
   if (value === 'TEMPORARY' || value === 'TEMPORARILY_AWAY') return 'warning';
   return 'success';
 }
@@ -250,6 +293,20 @@ function formatDate(value) {
   if (!value) return '-';
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('en-GB');
+}
+
+function isActiveResident(resident) {
+  return resident
+    && !resident.archived
+    && resident.alive !== false
+    && resident.status !== 'MOVED_OUT'
+    && resident.status !== 'DECEASED';
+}
+
+function formatAddress(source = {}) {
+  return [source.houseNo, source.street, source.ward, source.district]
+    .filter(Boolean)
+    .join(', ');
 }
 
 function makePage(content, page, size) {
@@ -333,14 +390,16 @@ const DataService = {
     if (api) return api;
     const store = loadStore();
     return {
-      totalHouseholds: store.households.length,
-      totalResidents: store.residents.length,
-      occupiedHouseholds: store.households.filter(h => h.status === 'OCCUPIED').length,
-      vacantHouseholds: store.households.filter(h => h.status === 'VACANT').length,
-      permanentResidents: store.residents.filter(r => r.status === 'PERMANENT').length,
-      temporaryResidents: store.residents.filter(r => r.status === 'TEMPORARY').length,
-      temporarilyAwayResidents: store.residents.filter(r => r.status === 'TEMPORARILY_AWAY').length,
-      movedOutResidents: store.residents.filter(r => r.status === 'MOVED_OUT').length
+      totalHouseholds: store.households.filter(h => !h.archived).length,
+      totalResidents: store.residents.filter(r => !r.archived).length,
+      occupiedHouseholds: store.households.filter(h => !h.archived && h.status === 'OCCUPIED').length,
+      vacantHouseholds: store.households.filter(h => !h.archived && h.status === 'VACANT').length,
+      permanentResidents: store.residents.filter(r => !r.archived && r.status === 'PERMANENT').length,
+      temporaryResidents: store.residents.filter(r => !r.archived && r.status === 'TEMPORARY').length,
+      temporarilyAwayResidents: store.residents.filter(r => !r.archived && r.status === 'TEMPORARILY_AWAY').length,
+      movedOutResidents: store.residents.filter(r => !r.archived && r.status === 'MOVED_OUT').length,
+      deceasedResidents: store.residents.filter(r => !r.archived && r.status === 'DECEASED').length,
+      archivedResidents: store.residents.filter(r => r.archived).length
     };
   },
 
@@ -358,7 +417,8 @@ const DataService = {
     }
     const store = loadStore();
     const filtered = store.households.filter(h => {
-      const haystack = norm(`${h.id} ${h.apartmentNo} ${h.headName} ${h.phone} ${h.status}`);
+      if (h.archived) return false;
+      const haystack = norm(`${h.id} ${h.apartmentNo} ${h.headName} ${h.headIdentityNo} ${h.phone} ${h.status} ${formatAddress(h)}`);
       const statusOk = state.householdStatus === 'ALL' || h.status === state.householdStatus;
       return statusOk && haystack.includes(norm(state.householdsSearch));
     });
@@ -378,8 +438,9 @@ const DataService = {
     if (api) return api;
     const store = loadStore();
     const filtered = store.residents.filter(r => {
+      if (r.archived) return false;
       const household = store.households.find(h => h.id === r.householdId);
-      const haystack = norm(`${r.fullName} ${r.identityNo} ${r.phone} ${r.hometown} ${r.occupation} ${household?.apartmentNo || ''}`);
+      const haystack = norm(`${r.fullName} ${r.identityNo} ${r.phone} ${r.alias} ${r.birthPlace} ${r.hometown} ${r.ethnicity} ${r.occupation} ${r.workplace} ${household?.apartmentNo || ''}`);
       const statusOk = state.residentStatus === 'ALL' || r.status === state.residentStatus;
       const genderOk = !state.residentGender || r.gender === state.residentGender;
       const householdOk = !state.residentHouseholdId || r.householdId === state.residentHouseholdId;
@@ -393,12 +454,12 @@ const DataService = {
     const api = await tryApi(`/households/${encodeURIComponent(id)}`);
     if (api) return api;
     const store = loadStore();
-    const household = store.households.find(h => h.id === id);
+    const household = store.households.find(h => h.id === id && !h.archived);
     if (!household) return null;
     return {
       ...household,
       members: store.residents
-        .filter(r => r.householdId === id)
+        .filter(r => r.householdId === id && !r.archived)
         .map(r => enrichResident(r, store.households))
     };
   },
@@ -408,7 +469,7 @@ const DataService = {
     const api = await tryApi(`/residents/${encodeURIComponent(id)}`);
     if (api) return api;
     const store = loadStore();
-    const resident = store.residents.find(r => r.id === id);
+    const resident = store.residents.find(r => r.id === id && !r.archived);
     return resident ? enrichResident(resident, store.households) : null;
   },
 
@@ -436,13 +497,34 @@ const DataService = {
       floor: Number(payload.floor) || 0,
       area: Number(payload.area) || 0,
       headName: payload.headName,
+      headIdentityNo: payload.headIdentityNo || '',
       phone: payload.phone || '',
+      houseNo: payload.houseNo || '',
+      street: payload.street || '',
+      ward: payload.ward || '',
+      district: payload.district || '',
+      registrationDate: payload.registrationDate || '',
       status: payload.status || 'OCCUPIED',
       note: payload.note || '',
       memberCount: 0,
+      activeMemberCount: 0,
       motorcycleCount: Number(payload.motorcycleCount) || 0,
       carCount: Number(payload.carCount) || 0
     };
+    if (next.headIdentityNo) {
+      const head = store.residents.find(r => norm(r.identityNo) === norm(next.headIdentityNo));
+      if (!head) throw new Error('Household head was not found by Citizen ID.');
+      if (head.status === 'DECEASED' || head.alive === false) throw new Error('Deceased residents cannot be household head.');
+      head.householdId = next.id;
+      head.relationshipToHead = 'Head';
+      head.archived = false;
+      store.residents.forEach(r => {
+        if (r.id !== head.id && r.householdId === next.id && norm(r.relationshipToHead) === 'head') {
+          r.relationshipToHead = 'Member';
+        }
+      });
+      next.headName = head.fullName;
+    }
     const index = store.households.findIndex(h => h.id === next.id);
     if (index >= 0) store.households[index] = { ...store.households[index], ...next };
     else store.households.push(next);
@@ -455,11 +537,16 @@ const DataService = {
     const api = await tryApi(`/households/${encodeURIComponent(id)}?actor=${encodeURIComponent(actor)}`, { method: 'DELETE' });
     if (api !== null) return true;
     const store = loadStore();
-    if (store.residents.some(r => r.householdId === id)) {
-      throw new Error('Cannot delete a household that still has residents.');
+    if (store.residents.some(r => r.householdId === id && isActiveResident(r))) {
+      throw new Error('Cannot archive a household that still has active residents.');
     }
-    store.households = store.households.filter(h => h.id !== id);
-    localLog(store, 'DELETE', 'HOUSEHOLD', id, `Deleted household ${id}`);
+    const household = store.households.find(h => h.id === id);
+    if (household) {
+      household.archived = true;
+      household.archivedAt = new Date().toISOString();
+      household.status = 'VACANT';
+    }
+    localLog(store, 'ARCHIVE', 'HOUSEHOLD', id, `Archived household ${id}`);
     saveStore(store);
     return true;
   },
@@ -480,10 +567,29 @@ const DataService = {
       throw new Error('Citizen ID already exists.');
     }
     const id = isEdit ? state.editingResidentId : `RES-${Date.now().toString(36).toUpperCase()}`;
-    const next = { id, ...payload, householdId: payload.householdId || '' };
+    const next = {
+      id,
+      ...payload,
+      householdId: payload.householdId || '',
+      alive: payload.alive !== false && payload.status !== 'DECEASED',
+      dateOfDeath: payload.status === 'DECEASED' ? (payload.dateOfDeath || new Date().toISOString().slice(0, 10)) : (payload.dateOfDeath || ''),
+      archived: false
+    };
     const index = store.residents.findIndex(r => r.id === id);
     if (index >= 0) store.residents[index] = { ...store.residents[index], ...next };
     else store.residents.push(next);
+    if (next.householdId && norm(next.relationshipToHead) === 'head' && isActiveResident(next)) {
+      const household = store.households.find(h => h.id === next.householdId);
+      if (household) {
+        household.headName = next.fullName;
+        household.headIdentityNo = next.identityNo;
+      }
+      store.residents.forEach(r => {
+        if (r.id !== next.id && r.householdId === next.householdId && norm(r.relationshipToHead) === 'head') {
+          r.relationshipToHead = 'Member';
+        }
+      });
+    }
     localLog(store, isEdit ? 'UPDATE' : 'CREATE', 'RESIDENT', id, `${isEdit ? 'Updated' : 'Created'} resident ${payload.fullName}`);
     saveStore(store);
     return next;
@@ -494,8 +600,18 @@ const DataService = {
     if (api !== null) return true;
     const store = loadStore();
     const resident = store.residents.find(r => r.id === id);
-    store.residents = store.residents.filter(r => r.id !== id);
-    localLog(store, 'DELETE', 'RESIDENT', id, `Deleted resident ${resident?.fullName || id}`);
+    if (resident) {
+      const household = store.households.find(h => h.id === resident.householdId);
+      resident.archived = true;
+      resident.archivedAt = new Date().toISOString();
+      resident.status = 'MOVED_OUT';
+      resident.householdId = '';
+      if (household && norm(resident.relationshipToHead) === 'head') {
+        household.headIdentityNo = '';
+        household.note = `${household.note || ''} | Household head archived; choose a new head.`.trim();
+      }
+    }
+    localLog(store, 'ARCHIVE', 'RESIDENT', id, `Archived resident ${resident?.fullName || id}`);
     saveStore(store);
     return true;
   },
@@ -524,6 +640,192 @@ const DataService = {
     return resident;
   },
 
+  async changeHouseholdHead(householdId, identityNo, reason, actor) {
+    const api = await tryApi(`/households/${encodeURIComponent(householdId)}/head?actor=${encodeURIComponent(actor)}`, {
+      method: 'POST',
+      body: JSON.stringify({ identityNo, reason })
+    });
+    if (api) return api;
+
+    const store = loadStore();
+    const household = store.households.find(h => h.id === householdId && !h.archived);
+    const head = store.residents.find(r => norm(r.identityNo) === norm(identityNo) && !r.archived);
+    if (!household) throw new Error('Household not found.');
+    if (!head) throw new Error('Resident with the given Citizen ID was not found.');
+    if (head.householdId !== householdId) throw new Error('New household head must already be a member of this household.');
+    if (!isActiveResident(head)) throw new Error('Inactive or deceased residents cannot be household head.');
+
+    store.residents.forEach(r => {
+      if (r.householdId === householdId && norm(r.relationshipToHead) === 'head') r.relationshipToHead = 'Member';
+    });
+    head.relationshipToHead = 'Head';
+    household.headName = head.fullName;
+    household.headIdentityNo = head.identityNo;
+    localLog(store, 'CHANGE_HEAD', 'HOUSEHOLD', householdId, `Changed household head to ${head.fullName}`);
+    saveStore(store);
+    return household;
+  },
+
+  async transferOwnership(householdId, payload, actor) {
+    const api = await tryApi(`/households/${encodeURIComponent(householdId)}/ownership-transfer?actor=${encodeURIComponent(actor)}`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    if (api) return api;
+
+    const store = loadStore();
+    const household = store.households.find(h => h.id === householdId && !h.archived);
+    if (!household) throw new Error('Household not found.');
+    household.previousOwnerName = household.headName || household.ownerName || '';
+    household.headName = payload.newOwnerName;
+    household.phone = payload.newOwnerPhone || household.phone || '';
+    household.ownershipTransferredAt = new Date().toISOString();
+    household.ownershipNote = payload.note || '';
+
+    if (payload.newOwnerIdentityNo) {
+      let owner = store.residents.find(r => norm(r.identityNo) === norm(payload.newOwnerIdentityNo));
+      if (!owner) {
+        owner = {
+          id: `RES-${Date.now().toString(36).toUpperCase()}`,
+          fullName: payload.newOwnerName,
+          gender: 'Other',
+          dateOfBirth: '',
+          identityNo: payload.newOwnerIdentityNo,
+          phone: payload.newOwnerPhone || '',
+          relationshipToHead: 'Head',
+          status: 'PERMANENT',
+          alive: true,
+          householdId
+        };
+        store.residents.push(owner);
+      }
+      owner.householdId = householdId;
+      owner.fullName = payload.newOwnerName || owner.fullName;
+      owner.phone = payload.newOwnerPhone || owner.phone || '';
+      owner.relationshipToHead = 'Head';
+      owner.status = owner.status === 'MOVED_OUT' ? 'PERMANENT' : owner.status;
+      owner.alive = true;
+      owner.archived = false;
+      household.headIdentityNo = owner.identityNo;
+      store.residents.forEach(r => {
+        if (r.id !== owner.id && r.householdId === householdId && norm(r.relationshipToHead) === 'head') {
+          r.relationshipToHead = 'Member';
+        }
+      });
+    }
+    localLog(store, 'TRANSFER_OWNERSHIP', 'HOUSEHOLD', householdId, `Transferred ownership to ${payload.newOwnerName}`);
+    saveStore(store);
+    return household;
+  },
+
+  async splitHousehold(sourceHouseholdId, payload, actor) {
+    const api = await tryApi(`/households/${encodeURIComponent(sourceHouseholdId)}/split?actor=${encodeURIComponent(actor)}`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    if (api) return api;
+
+    const store = loadStore();
+    const source = store.households.find(h => h.id === sourceHouseholdId && !h.archived);
+    if (!source) throw new Error('Source household not found.');
+    const moving = (payload.residentIds || []).map(id => store.residents.find(r => r.id === id)).filter(Boolean);
+    if (!moving.length) throw new Error('Select at least one resident to move.');
+    if (moving.some(r => r.householdId !== sourceHouseholdId)) throw new Error('All selected residents must belong to the source household.');
+    const activeSource = store.residents.filter(r => r.householdId === sourceHouseholdId && isActiveResident(r)).length;
+    const activeMoving = moving.filter(isActiveResident).length;
+    if (activeSource - activeMoving < 1) throw new Error('The source household must keep at least one active resident after split.');
+
+    const newHousehold = {
+      ...payload.newHousehold,
+      id: payload.newHousehold.code,
+      code: payload.newHousehold.code,
+      headName: payload.newHousehold.headName || '',
+      memberCount: 0,
+      activeMemberCount: 0
+    };
+    if (store.households.some(h => h.id === newHousehold.id)) throw new Error('New household code already exists.');
+    store.households.push(newHousehold);
+    moving.forEach(r => { r.householdId = newHousehold.id; });
+    const head = payload.headIdentityNo
+      ? moving.find(r => norm(r.identityNo) === norm(payload.headIdentityNo))
+      : moving.find(r => norm(r.relationshipToHead) === 'head') || moving.find(isActiveResident);
+    if (head) {
+      moving.forEach(r => { if (norm(r.relationshipToHead) === 'head') r.relationshipToHead = 'Member'; });
+      head.relationshipToHead = 'Head';
+      newHousehold.headName = head.fullName;
+      newHousehold.headIdentityNo = head.identityNo;
+    }
+    localLog(store, 'SPLIT_HOUSEHOLD', 'HOUSEHOLD', sourceHouseholdId, `Split ${moving.length} resident(s) to ${newHousehold.id}`);
+    saveStore(store);
+    return newHousehold;
+  },
+
+  async reportDeath(residentId, payload, actor) {
+    const api = await tryApi(`/residents/${encodeURIComponent(residentId)}/death?actor=${encodeURIComponent(actor)}`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    if (api) return api;
+
+    const store = loadStore();
+    const resident = store.residents.find(r => r.id === residentId && !r.archived);
+    if (!resident) throw new Error('Resident not found.');
+    resident.alive = false;
+    resident.status = 'DECEASED';
+    resident.dateOfDeath = payload.dateOfDeath || new Date().toISOString().slice(0, 10);
+    const household = store.households.find(h => h.id === resident.householdId);
+    if (household && norm(resident.relationshipToHead) === 'head') {
+      resident.relationshipToHead = 'Former Head (Deceased)';
+      household.headIdentityNo = '';
+      household.note = `${household.note || ''} | Household head deceased; choose a new head.`.trim();
+      if (payload.replacementHeadIdentityNo) {
+        const replacement = store.residents.find(r =>
+          r.householdId === household.id
+          && norm(r.identityNo) === norm(payload.replacementHeadIdentityNo)
+          && isActiveResident(r)
+        );
+        if (!replacement) throw new Error('Replacement head must be an active member of the same household.');
+        store.residents.forEach(r => {
+          if (r.householdId === household.id && norm(r.relationshipToHead) === 'head') r.relationshipToHead = 'Member';
+        });
+        replacement.relationshipToHead = 'Head';
+        household.headName = replacement.fullName;
+        household.headIdentityNo = replacement.identityNo;
+      }
+    }
+    localLog(store, 'MARK_DECEASED', 'RESIDENT', residentId, `Marked resident deceased: ${resident.fullName}`);
+    saveStore(store);
+    return resident;
+  },
+
+  async createTemporaryRecord(residentId, payload, actor) {
+    const api = await tryApi(`/residents/${encodeURIComponent(residentId)}/temporary-records?actor=${encodeURIComponent(actor)}`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    if (api) return api;
+
+    const store = loadStore();
+    store.temporaryResidenceRecords = store.temporaryResidenceRecords || [];
+    const resident = store.residents.find(r => r.id === residentId && !r.archived);
+    if (!resident) throw new Error('Resident not found.');
+    const record = {
+      id: `TRR-${Date.now().toString(36).toUpperCase()}`,
+      residentId,
+      residentName: resident.fullName,
+      ...payload,
+      actor,
+      createdAt: new Date().toISOString()
+    };
+    store.temporaryResidenceRecords.unshift(record);
+    if (payload.type === 'TEMPORARY_RESIDENCE') resident.status = 'TEMPORARY';
+    if (payload.type === 'TEMPORARY_ABSENCE') resident.status = 'TEMPORARILY_AWAY';
+    if (payload.type === 'PERMANENT_REGISTRATION') resident.status = 'PERMANENT';
+    localLog(store, payload.type, 'RESIDENT', residentId, `Created residence record for ${resident.fullName}`);
+    saveStore(store);
+    return record;
+  },
+
   async globalSearch() {
     const url = appendQuery(`${API_ROOT}/search`, { q: state.globalSearch, type: state.globalType });
     const api = await tryApi(url.replace(API_ROOT, ''));
@@ -532,9 +834,9 @@ const DataService = {
     const rows = [];
     const query = norm(state.globalSearch);
     if (state.globalType === 'all' || state.globalType === 'resident') {
-      store.residents.forEach(r => {
+      store.residents.filter(r => !r.archived).forEach(r => {
         const household = store.households.find(h => h.id === r.householdId);
-        const text = norm(`${r.fullName} ${r.identityNo} ${r.phone} ${r.hometown} ${r.occupation} ${household?.apartmentNo || ''}`);
+        const text = norm(`${r.fullName} ${r.identityNo} ${r.phone} ${r.alias} ${r.birthPlace} ${r.hometown} ${r.ethnicity} ${r.occupation} ${r.workplace} ${household?.apartmentNo || ''}`);
         if (!query || text.includes(query)) {
           rows.push({
             type: 'Resident',
@@ -546,8 +848,8 @@ const DataService = {
       });
     }
     if (state.globalType === 'all' || state.globalType === 'household') {
-      store.households.forEach(h => {
-        const text = norm(`${h.id} ${h.apartmentNo} ${h.headName} ${h.phone} ${h.status}`);
+      store.households.filter(h => !h.archived).forEach(h => {
+        const text = norm(`${h.id} ${h.apartmentNo} ${h.headName} ${h.headIdentityNo} ${h.phone} ${h.status} ${formatAddress(h)}`);
         if (!query || text.includes(query)) {
           rows.push({
             type: 'Household',
@@ -582,12 +884,16 @@ const DataService = {
     const store = loadStore();
     const rows = kind === 'households'
       ? [
-          ['Code', 'Apartment', 'Floor', 'Area', 'Head', 'Phone', 'Status', 'Members', 'Motorcycles', 'Cars', 'Note'],
-          ...store.households.map(h => [h.id, h.apartmentNo, h.floor, h.area, h.headName, h.phone, statusLabel(h.status), h.memberCount, h.motorcycleCount, h.carCount, h.note])
+          ['Code', 'Apartment', 'Floor', 'Area', 'Head', 'Head Citizen ID', 'Phone', 'Address', 'Registration Date', 'Status', 'Active Members', 'Motorcycles', 'Cars', 'Note'],
+          ...store.households
+            .filter(h => !h.archived)
+            .map(h => [h.id, h.apartmentNo, h.floor, h.area, h.headName, h.headIdentityNo, h.phone, formatAddress(h), h.registrationDate, statusLabel(h.status), h.memberCount, h.motorcycleCount, h.carCount, h.note])
         ]
       : [
-          ['ID', 'Full Name', 'Gender', 'Date of Birth', 'Citizen ID', 'Phone', 'Hometown', 'Occupation', 'Relationship', 'Status', 'Household'],
-          ...store.residents.map(r => [r.id, r.fullName, r.gender, r.dateOfBirth, r.identityNo, r.phone, r.hometown, r.occupation, r.relationshipToHead, statusLabel(r.status), r.householdId])
+          ['ID', 'Full Name', 'Alias', 'Gender', 'Date of Birth', 'Citizen ID', 'Issue Date', 'Issue Place', 'Phone', 'Birth Place', 'Hometown', 'Ethnicity', 'Religion', 'Occupation', 'Workplace', 'Previous Residence', 'Relationship', 'Status', 'Alive', 'Date of Death', 'Household'],
+          ...store.residents
+            .filter(r => !r.archived)
+            .map(r => [r.id, r.fullName, r.alias, r.gender, r.dateOfBirth, r.identityNo, r.issueDate, r.issuePlace, r.phone, r.birthPlace, r.hometown, r.ethnicity, r.religion, r.occupation, r.workplace, r.previousResidence, r.relationshipToHead, statusLabel(r.status), r.alive !== false ? 'Yes' : 'No', r.dateOfDeath, r.householdId])
         ];
     const csv = rows.map(row => row.map(cell => `"${String(cell ?? '').replaceAll('"', '""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
@@ -631,7 +937,13 @@ function readHouseholdForm(container) {
     floor: Number(container.querySelector('#rm-hh-floor').value) || 0,
     area: Number(container.querySelector('#rm-hh-area').value) || 0,
     headName: container.querySelector('#rm-hh-head').value.trim(),
+    headIdentityNo: container.querySelector('#rm-hh-head-identity').value.trim(),
     phone: container.querySelector('#rm-hh-phone').value.trim(),
+    houseNo: container.querySelector('#rm-hh-house-no').value.trim(),
+    street: container.querySelector('#rm-hh-street').value.trim(),
+    ward: container.querySelector('#rm-hh-ward').value.trim(),
+    district: container.querySelector('#rm-hh-district').value.trim(),
+    registrationDate: container.querySelector('#rm-hh-registration').value || null,
     status: container.querySelector('#rm-hh-status').value,
     note: container.querySelector('#rm-hh-note').value.trim(),
     motorcycleCount: Number(container.querySelector('#rm-hh-motos').value) || 0,
@@ -646,10 +958,20 @@ function readResidentForm(container) {
     dateOfBirth: container.querySelector('#rm-res-dob').value || null,
     identityNo: container.querySelector('#rm-res-identity').value.trim(),
     phone: container.querySelector('#rm-res-phone').value.trim(),
+    alias: container.querySelector('#rm-res-alias').value.trim(),
+    birthPlace: container.querySelector('#rm-res-birth-place').value.trim(),
     hometown: container.querySelector('#rm-res-hometown').value.trim(),
+    ethnicity: container.querySelector('#rm-res-ethnicity').value.trim(),
+    religion: container.querySelector('#rm-res-religion').value.trim(),
     occupation: container.querySelector('#rm-res-occupation').value.trim(),
+    workplace: container.querySelector('#rm-res-workplace').value.trim(),
+    issueDate: container.querySelector('#rm-res-issue-date').value || null,
+    issuePlace: container.querySelector('#rm-res-issue-place').value.trim(),
+    previousResidence: container.querySelector('#rm-res-previous').value.trim(),
     relationshipToHead: container.querySelector('#rm-res-relationship').value.trim(),
     status: container.querySelector('#rm-res-status').value,
+    alive: container.querySelector('#rm-res-status').value !== 'DECEASED',
+    dateOfDeath: container.querySelector('#rm-res-death-date').value || null,
     householdId: container.querySelector('#rm-res-household').value
   };
 }
@@ -663,7 +985,13 @@ function fillHouseholdForm(container, household) {
   container.querySelector('#rm-hh-floor').value = household?.floor ?? '';
   container.querySelector('#rm-hh-area').value = household?.area ?? '';
   container.querySelector('#rm-hh-head').value = household?.headName || '';
+  container.querySelector('#rm-hh-head-identity').value = household?.headIdentityNo || '';
   container.querySelector('#rm-hh-phone').value = household?.phone || '';
+  container.querySelector('#rm-hh-house-no').value = household?.houseNo || '';
+  container.querySelector('#rm-hh-street').value = household?.street || '';
+  container.querySelector('#rm-hh-ward').value = household?.ward || '';
+  container.querySelector('#rm-hh-district').value = household?.district || '';
+  container.querySelector('#rm-hh-registration').value = household?.registrationDate || '';
   container.querySelector('#rm-hh-status').value = household?.status || 'OCCUPIED';
   container.querySelector('#rm-hh-note').value = household?.note || '';
   container.querySelector('#rm-hh-motos').value = household?.motorcycleCount ?? 0;
@@ -678,10 +1006,19 @@ function fillResidentForm(container, resident) {
   container.querySelector('#rm-res-dob').value = resident?.dateOfBirth || '';
   container.querySelector('#rm-res-identity').value = resident?.identityNo || '';
   container.querySelector('#rm-res-phone').value = resident?.phone || '';
+  container.querySelector('#rm-res-alias').value = resident?.alias || '';
+  container.querySelector('#rm-res-birth-place').value = resident?.birthPlace || '';
   container.querySelector('#rm-res-hometown').value = resident?.hometown || '';
+  container.querySelector('#rm-res-ethnicity').value = resident?.ethnicity || '';
+  container.querySelector('#rm-res-religion').value = resident?.religion || '';
   container.querySelector('#rm-res-occupation').value = resident?.occupation || '';
+  container.querySelector('#rm-res-workplace').value = resident?.workplace || '';
+  container.querySelector('#rm-res-issue-date').value = resident?.issueDate || '';
+  container.querySelector('#rm-res-issue-place').value = resident?.issuePlace || '';
+  container.querySelector('#rm-res-previous').value = resident?.previousResidence || '';
   container.querySelector('#rm-res-relationship').value = resident?.relationshipToHead || '';
   container.querySelector('#rm-res-status').value = resident?.status || 'PERMANENT';
+  container.querySelector('#rm-res-death-date').value = resident?.dateOfDeath || '';
   container.querySelector('#rm-res-household').value = resident?.householdId || '';
 }
 
@@ -893,6 +1230,7 @@ export class ResidentsManager {
         .rm-table th { background:var(--bg-tertiary); color:var(--text-muted); font-size:11px; text-transform:uppercase; padding:10px 12px; text-align:left; }
         .rm-table td { border-bottom:1px solid var(--border-glass); color:var(--text-primary); font-size:13px; padding:11px 12px; vertical-align:middle; }
         .rm-muted { color:var(--text-muted); font-size:12px; }
+        .rm-alert { background:var(--color-warning-light); color:var(--color-warning); border:1px solid var(--color-warning); border-radius:10px; padding:10px 12px; font-size:12px; font-weight:700; margin-bottom:14px; }
         .rm-badge { display:inline-flex; padding:4px 9px; border-radius:999px; font-size:11px; font-weight:800; }
         .rm-badge.success { background:var(--color-success-light); color:var(--color-success); }
         .rm-badge.warning { background:var(--color-warning-light); color:var(--color-warning); }
@@ -967,6 +1305,8 @@ export class ResidentsManager {
         <div class="rm-stat"><span>${stats.totalResidents ?? 0}</span><p>Residents</p></div>
         <div class="rm-stat"><span>${stats.occupiedHouseholds ?? 0}</span><p>Occupied</p></div>
         <div class="rm-stat"><span>${(stats.temporaryResidents ?? 0) + (stats.temporarilyAwayResidents ?? 0)}</span><p>Temporary / Away</p></div>
+        <div class="rm-stat"><span>${stats.deceasedResidents ?? 0}</span><p>Deceased</p></div>
+        <div class="rm-stat"><span>${stats.archivedResidents ?? 0}</span><p>Archived</p></div>
       `;
       const badge = container.querySelector('#rm-mode');
       badge.textContent = state.apiMode ? 'Backend API' : 'Local Demo';
@@ -990,7 +1330,7 @@ export class ResidentsManager {
           <td><strong>${esc(h.id)}</strong><br><span class="rm-muted">${esc(h.apartmentNo || '-')}</span></td>
           <td>${esc(h.headName || h.ownerName || '-')}<br><span class="rm-muted">${esc(h.phone || '-')}</span></td>
           <td>${h.floor ?? '-'} / ${esc(h.area ?? '-')} m2</td>
-          <td>${h.memberCount ?? h.membersCount ?? 0}</td>
+          <td>${h.activeMemberCount ?? h.memberCount ?? h.membersCount ?? 0}${h.headChangeRequired ? '<br><span class="rm-muted">Head change required</span>' : ''}</td>
           <td>${renderBadge(h.status)}</td>
           <td><div class="rm-actions">
             <button class="rm-btn pri" data-action="select-household" data-id="${esc(h.id)}">Open</button>
@@ -1013,11 +1353,23 @@ export class ResidentsManager {
                 <div class="rm-field"><label>Floor</label><input id="rm-hh-floor" type="number" min="0"></div>
                 <div class="rm-field"><label>Area (m2)</label><input id="rm-hh-area" type="number" min="0" step="0.1"></div>
               </div>
-              <div class="rm-field"><label>Household head</label><input id="rm-hh-head" required></div>
+              <div class="rm-2">
+                <div class="rm-field"><label>Household head</label><input id="rm-hh-head" required></div>
+                <div class="rm-field"><label>Head Citizen ID</label><input id="rm-hh-head-identity" placeholder="CCCD"></div>
+              </div>
               <div class="rm-2">
                 <div class="rm-field"><label>Phone</label><input id="rm-hh-phone"></div>
                 <div class="rm-field"><label>Status</label><select id="rm-hh-status">${HOUSEHOLD_STATUSES.map(s => `<option value="${s}">${statusLabel(s)}</option>`).join('')}</select></div>
               </div>
+              <div class="rm-2">
+                <div class="rm-field"><label>House number</label><input id="rm-hh-house-no"></div>
+                <div class="rm-field"><label>Street</label><input id="rm-hh-street"></div>
+              </div>
+              <div class="rm-2">
+                <div class="rm-field"><label>Ward / Commune</label><input id="rm-hh-ward"></div>
+                <div class="rm-field"><label>District</label><input id="rm-hh-district"></div>
+              </div>
+              <div class="rm-field"><label>Registration date</label><input id="rm-hh-registration" type="date"></div>
               <div class="rm-2">
                 <div class="rm-field"><label>Motorcycles</label><input id="rm-hh-motos" type="number" min="0" value="0"></div>
                 <div class="rm-field"><label>Cars</label><input id="rm-hh-cars" type="number" min="0" value="0"></div>
@@ -1068,12 +1420,21 @@ export class ResidentsManager {
               <h2 style="margin:0;">${esc(selected.apartmentNo || selected.id)}</h2>
               <p class="rm-muted" style="margin-top:4px;">${esc(selected.id)} - ${esc(selected.headName || selected.ownerName || '')}</p>
             </div>
-            ${renderBadge(selected.status)}
+            <div class="rm-actions">
+              ${renderBadge(selected.status)}
+              <button class="rm-btn sec" data-action="change-head" data-id="${esc(selected.id)}">Change Head</button>
+              <button class="rm-btn sec" data-action="transfer-ownership" data-id="${esc(selected.id)}">Transfer Owner</button>
+              <button class="rm-btn sec" data-action="split-household" data-id="${esc(selected.id)}">Split</button>
+            </div>
           </div>
+          ${selected.headChangeRequired ? '<div class="rm-alert">Household head is missing or inactive. Choose a new head by Citizen ID.</div>' : ''}
           <div class="rm-detail-grid">
             <div>
               <h3>Apartment Details</h3>
               <p class="rm-muted">Floor ${selected.floor ?? '-'} | ${selected.area ?? 0} m2 | ${selected.motorcycleCount ?? 0} motorcycles | ${selected.carCount ?? 0} cars</p>
+              <p class="rm-muted">Address: ${esc(formatAddress(selected) || '-')}</p>
+              <p class="rm-muted">Registration date: ${formatDate(selected.registrationDate)} | Head CCCD: ${esc(selected.headIdentityNo || '-')}</p>
+              ${selected.previousOwnerName ? `<p class="rm-muted">Previous owner: ${esc(selected.previousOwnerName)} | ${formatDate(selected.ownershipTransferredAt)}</p>` : ''}
               <p class="rm-muted">${esc(selected.note || '')}</p>
               ${!state.apiMode ? `
                 <div class="rm-actions" style="margin-top:12px;">
@@ -1091,10 +1452,13 @@ export class ResidentsManager {
                 ${members.length ? members.map(member => `
                   <div class="rm-member">
                     <h4>${esc(member.fullName)}</h4>
+                    <p>ID: ${esc(member.id)}</p>
                     <p>${esc(member.identityNo)}</p>
-                    <p>${esc(member.relationshipToHead || '-')} | ${statusLabel(member.status)}</p>
+                    <p>${esc(member.relationshipToHead || '-')} | ${statusLabel(member.status)} | ${member.alive === false ? 'Deceased' : 'Alive'}</p>
                     <div class="rm-actions" style="margin-top:8px;">
                       <button class="rm-btn sec" data-action="edit-resident" data-id="${esc(member.id)}">Edit</button>
+                      <button class="rm-btn sec" data-action="residence-record" data-id="${esc(member.id)}">Residence</button>
+                      <button class="rm-btn dan" data-action="mark-deceased" data-id="${esc(member.id)}">Deceased</button>
                       <button class="rm-btn dan" data-action="remove-member" data-household="${esc(selected.id)}" data-id="${esc(member.id)}">Remove</button>
                     </div>
                   </div>
@@ -1111,12 +1475,14 @@ export class ResidentsManager {
       const page = state.residentPageData || emptyPage();
       const rows = page.content?.map(r => `
         <tr>
-          <td><strong>${esc(r.fullName)}</strong><br><span class="rm-muted">${esc(r.gender || '-')} - ${formatDate(r.dateOfBirth)}</span></td>
-          <td>${esc(r.identityNo)}</td>
+          <td><strong>${esc(r.fullName)}</strong><br><span class="rm-muted">${esc(r.gender || '-')} - ${formatDate(r.dateOfBirth)} - ${r.alive === false ? 'Deceased' : 'Alive'}</span></td>
+          <td>${esc(r.identityNo)}<br><span class="rm-muted">${esc(r.issuePlace || '-')} ${formatDate(r.issueDate)}</span></td>
           <td>${esc(r.apartmentNo || r.householdId || 'No household')}</td>
           <td>${renderBadge(r.status)}</td>
           <td><div class="rm-actions">
             <button class="rm-btn sec" data-action="edit-resident" data-id="${esc(r.id)}">Edit</button>
+            <button class="rm-btn sec" data-action="residence-record" data-id="${esc(r.id)}">Residence</button>
+            <button class="rm-btn dan" data-action="mark-deceased" data-id="${esc(r.id)}">Deceased</button>
             <button class="rm-btn dan" data-action="delete-resident" data-id="${esc(r.id)}">Delete</button>
           </div></td>
         </tr>
@@ -1138,9 +1504,26 @@ export class ResidentsManager {
                 <div class="rm-field"><label>Status</label><select id="rm-res-status">${RESIDENT_STATUSES.map(s => `<option value="${s}">${statusLabel(s)}</option>`).join('')}</select></div>
               </div>
               <div class="rm-2">
+                <div class="rm-field"><label>Alias</label><input id="rm-res-alias"></div>
+                <div class="rm-field"><label>Birth place</label><input id="rm-res-birth-place"></div>
+              </div>
+              <div class="rm-2">
                 <div class="rm-field"><label>Hometown</label><input id="rm-res-hometown"></div>
+                <div class="rm-field"><label>Ethnicity</label><input id="rm-res-ethnicity"></div>
+              </div>
+              <div class="rm-2">
+                <div class="rm-field"><label>Religion</label><input id="rm-res-religion"></div>
                 <div class="rm-field"><label>Occupation</label><input id="rm-res-occupation"></div>
               </div>
+              <div class="rm-2">
+                <div class="rm-field"><label>Workplace</label><input id="rm-res-workplace"></div>
+                <div class="rm-field"><label>Date of death</label><input id="rm-res-death-date" type="date"></div>
+              </div>
+              <div class="rm-2">
+                <div class="rm-field"><label>CCCD issue date</label><input id="rm-res-issue-date" type="date"></div>
+                <div class="rm-field"><label>CCCD issue place</label><input id="rm-res-issue-place"></div>
+              </div>
+              <div class="rm-field"><label>Previous residence</label><input id="rm-res-previous"></div>
               <div class="rm-2">
                 <div class="rm-field"><label>Relationship</label><input id="rm-res-relationship"></div>
                 <div class="rm-field"><label>Household</label><select id="rm-res-household">${householdOptions()}</select></div>
@@ -1294,6 +1677,85 @@ export class ResidentsManager {
           await DataService.removeMember(button.dataset.household, id, actor());
           showToast('Member removed', 'success');
         }
+        if (action === 'change-head') {
+          const identityNo = prompt('New household head Citizen ID (CCCD):');
+          if (!identityNo) return;
+          const reason = prompt('Reason for head change (optional):') || '';
+          await DataService.changeHouseholdHead(id, identityNo.trim(), reason.trim(), actor());
+          showToast('Household head changed', 'success');
+        }
+        if (action === 'transfer-ownership') {
+          const newOwnerName = prompt('New owner full name:');
+          if (!newOwnerName) return;
+          const newOwnerIdentityNo = prompt('New owner Citizen ID (CCCD, optional):') || '';
+          const newOwnerPhone = prompt('New owner phone (optional):') || '';
+          const note = prompt('Ownership transfer note (optional):') || '';
+          await DataService.transferOwnership(id, {
+            newOwnerName: newOwnerName.trim(),
+            newOwnerIdentityNo: newOwnerIdentityNo.trim(),
+            newOwnerPhone: newOwnerPhone.trim(),
+            note: note.trim()
+          }, actor());
+          showToast('Ownership transferred', 'success');
+        }
+        if (action === 'split-household') {
+          const code = prompt('New household code:');
+          if (!code) return;
+          const apartmentNo = prompt('New apartment number:');
+          if (!apartmentNo) return;
+          const residentIds = (prompt('Resident IDs to move, separated by commas:') || '')
+            .split(',')
+            .map(item => item.trim())
+            .filter(Boolean);
+          if (!residentIds.length) { showToast('Enter at least one resident ID', 'warning'); return; }
+          const headIdentityNo = prompt('New household head Citizen ID (optional):') || '';
+          const headName = prompt('New household head name (optional):') || '';
+          await DataService.splitHousehold(id, {
+            newHousehold: {
+              code: code.trim(),
+              apartmentNo: apartmentNo.trim(),
+              floor: 0,
+              area: 0,
+              headName: headName.trim() || 'Pending head',
+              phone: '',
+              status: 'OCCUPIED',
+              note: 'Created from household split.',
+              motorcycleCount: 0,
+              carCount: 0
+            },
+            residentIds,
+            headIdentityNo: headIdentityNo.trim(),
+            reason: 'Household split'
+          }, actor());
+          showToast('Household split created', 'success');
+        }
+        if (action === 'mark-deceased') {
+          const dateOfDeath = prompt('Date of death (YYYY-MM-DD, leave blank for today):') || '';
+          const replacementHeadIdentityNo = prompt('Replacement head Citizen ID if this resident is household head (optional):') || '';
+          const note = prompt('Note (optional):') || '';
+          await DataService.reportDeath(id, {
+            dateOfDeath: dateOfDeath.trim() || null,
+            replacementHeadIdentityNo: replacementHeadIdentityNo.trim(),
+            note: note.trim()
+          }, actor());
+          showToast('Resident marked deceased', 'success');
+        }
+        if (action === 'residence-record') {
+          const type = prompt('Record type: PERMANENT_REGISTRATION, TEMPORARY_RESIDENCE, or TEMPORARY_ABSENCE');
+          if (!type) return;
+          const address = prompt('Residence address (optional):') || '';
+          const startDate = prompt('Start date (YYYY-MM-DD, optional):') || '';
+          const endDate = prompt('End date (YYYY-MM-DD, optional):') || '';
+          const reason = prompt('Reason (optional):') || '';
+          await DataService.createTemporaryRecord(id, {
+            type: type.trim().toUpperCase(),
+            address: address.trim(),
+            startDate: startDate.trim() || null,
+            endDate: endDate.trim() || null,
+            reason: reason.trim()
+          }, actor());
+          showToast('Residence record saved', 'success');
+        }
         if (action === 'reset-local') {
           if (!confirm('Reset local demo data? Backend data will not be changed.')) return;
           await DataService.resetLocal();
@@ -1374,205 +1836,7 @@ export class ResidentsManager {
       });
     });
 
-<<<<<<< HEAD:merge_final/final-project/js/components/residents.js
     setLoading();
     refresh();
-=======
-    function renderHHSelects() {
-      const opts = [
-        `<option value="">-- No household --</option>`,
-        ...households.map(h=>`<option value="${h.id}">${bmEsc(h.apartmentNo)} - ${bmEsc(h.headName)}</option>`)
-      ].join('');
-      q('bm-resHousehold').innerHTML = opts;
-
-      if (!selectedHouseholdId) {
-        q('bm-residentToAdd').innerHTML = `<option value="">-- Select a household first --</option>`;
-        q('bm-residentToAdd').disabled = true;
-        q('bm-addMemberBtn').disabled = true;
-        return;
-      }
-      const candidates = residents.filter(r=>r.householdId!==selectedHouseholdId);
-      q('bm-residentToAdd').disabled = false;
-      q('bm-addMemberBtn').disabled = false;
-      q('bm-residentToAdd').innerHTML = candidates.length
-        ? [`<option value="">-- Select a resident --</option>`,
-            ...candidates.map(r=>{
-              const oh = bmFindHH(r.householdId);
-              return `<option value="${r.id}">${bmEsc(r.fullName)} - ${oh?'in '+oh.apartmentNo:'no household'}</option>`;
-            })].join('')
-        : `<option value="">No available residents</option>`;
-    }
-
-    function renderMembers() {
-      const title = q('bm-memberTitle');
-      const list  = q('bm-memberList');
-      if (!selectedHouseholdId) {
-        title.textContent = 'Select a household to view, add or remove members.';
-        list.innerHTML = ''; return;
-      }
-      const hh = bmFindHH(selectedHouseholdId);
-      if (!hh) { selectedHouseholdId = null; renderMembers(); return; }
-      const members = bmGetMembers(selectedHouseholdId);
-      title.innerHTML = `Managing household <strong>${bmEsc(hh.code)}</strong>, apartment <strong>${bmEsc(hh.apartmentNo)}</strong>, head <strong>${bmEsc(hh.headName)}</strong>.`;
-      list.innerHTML = members.length
-        ? members.map(r=>`
-            <div class="bm-member-card">
-              <h3>${bmEsc(r.fullName)}</h3>
-              <p>Citizen ID: ${bmEsc(r.identityNo)}</p>
-              <p>Status: ${bmEsc(r.status)}</p>
-              <p>Phone: ${bmEsc(r.phone||'-')}</p>
-              <div class="bm-actions" style="margin-top:10px;">
-                <button class="bm-btn sec" data-bm-action="edit-res" data-bm-id="${r.id}">Edit</button>
-                <button class="bm-btn danger" data-bm-action="remove-member" data-bm-id="${r.id}">Remove</button>
-              </div>
-            </div>`).join('')
-        : `<p class="bm-empty">This household has no members.</p>`;
-    }
-
-    function renderSearch() {
-      const kw   = bmNorm(q('bm-globalSearch').value);
-      const type = q('bm-searchType').value;
-      const rows = [];
-
-      if (type==='all'||type==='resident') {
-        residents.forEach(r => {
-          const h = bmFindHH(r.householdId);
-          if (!kw || bmNorm(`${r.fullName} ${r.identityNo} ${r.phone} ${r.hometown} ${r.occupation} ${r.status} ${h?h.apartmentNo:''}`).includes(kw)) {
-            rows.push({ type:'Resident', main:`${r.fullName} - ${r.identityNo}`,
-              detail:`Phone: ${r.phone||'-'} | Apt: ${h?h.apartmentNo:'No household'} | ${r.status}`,
-              action:`<button class="bm-btn sec" data-bm-action="edit-res" data-bm-id="${r.id}">View / Edit</button>` });
-          }
-        });
-      }
-      if (type==='all'||type==='apartment') {
-        households.forEach(h => {
-          const mc = bmGetMembers(h.id).length;
-          if (!kw || bmNorm(`${h.code} ${h.apartmentNo} ${h.headName} ${h.phone} ${h.status}`).includes(kw)) {
-            rows.push({ type:'Apartment / Household', main:`${h.code} - ${h.apartmentNo}`,
-              detail:`Head: ${h.headName} | Floor: ${h.floor||'-'} | Members: ${mc} | ${h.status}`,
-              action:`<button class="bm-btn" data-bm-action="view-hh" data-bm-id="${h.id}">View household</button>` });
-          }
-        });
-      }
-      q('bm-searchTbody').innerHTML = rows.length
-        ? rows.map(row=>`<tr><td>${bmEsc(row.type)}</td><td><strong>${bmEsc(row.main)}</strong></td><td>${bmEsc(row.detail)}</td><td>${row.action}</td></tr>`).join('')
-        : `<tr><td colspan="4" class="bm-empty">No matching results found</td></tr>`;
-    }
-
-    /* ---- CRUD ---- */
-    function saveHousehold(e) {
-      e.preventDefault();
-      const id = q('bm-hhId').value;
-      const code = q('bm-hhCode').value.trim();
-      const apartmentNo = q('bm-apartmentNo').value.trim();
-      const headName = q('bm-headName').value.trim();
-      if (!code||!apartmentNo||!headName) { showToast('Please fill in required fields','warning'); return; }
-      if (households.some(h=>bmNorm(h.apartmentNo)===bmNorm(apartmentNo)&&h.id!==id)) { showToast('Apartment number already exists','warning'); return; }
-      const data = { code, apartmentNo, floor:Number(q('bm-floor').value)||'', area:Number(q('bm-area').value)||'', headName, phone:q('bm-hhPhone').value.trim(), status:q('bm-hhStatus').value, note:q('bm-hhNote').value.trim() };
-      if (id) {
-        const idx = households.findIndex(h=>h.id===id);
-        households[idx] = {...households[idx],...data};
-        showToast('Household updated','success');
-      } else {
-        households.push({id:bmCreateId('hh'),...data,members:[]});
-        showToast('Household added','success');
-      }
-      bmSaveData(); resetHHForm(); renderAll();
-    }
-
-    function saveResident(e) {
-      e.preventDefault();
-      const id = q('bm-resId').value;
-      const fullName = q('bm-fullName').value.trim();
-      const identityNo = q('bm-identityNo').value.trim();
-      const phone = q('bm-phone').value.trim();
-      if (!fullName||!identityNo) { showToast('Please fill in required fields','warning'); return; }
-      if (phone && !/^0\d{9}$/.test(phone)) {
-        showToast('Phone number must start with 0 and contain exactly 10 digits','warning');
-        return;
-      }
-      if (!/^\d{12}$/.test(identityNo)) {
-        showToast('Citizen ID (CCCD) must contain exactly 12 digits','warning');
-        return;
-      }
-      if (residents.some(r=>bmNorm(r.identityNo)===bmNorm(identityNo)&&r.id!==id)) { showToast('Citizen ID already exists','warning'); return; }
-      const data = { fullName, gender:q('bm-gender').value, dob:q('bm-dob').value, identityNo, phone, hometown:q('bm-hometown').value.trim(), occupation:q('bm-occupation').value.trim(), status:q('bm-resStatus').value, householdId:q('bm-resHousehold').value };
-      if (id) {
-        const idx = residents.findIndex(r=>r.id===id);
-        residents[idx] = {...residents[idx],...data};
-        showToast('Resident updated','success');
-      } else {
-        residents.push({id:bmCreateId('rs'),...data});
-        showToast('Resident added','success');
-      }
-      bmSyncMembers(); bmSaveData(); resetResForm(); renderAll();
-    }
-
-    function editHH(id) {
-      const h = bmFindHH(id); if (!h) return;
-      q('bm-hhId').value=h.id; q('bm-hhCode').value=h.code; q('bm-apartmentNo').value=h.apartmentNo;
-      q('bm-floor').value=h.floor; q('bm-area').value=h.area; q('bm-headName').value=h.headName;
-      q('bm-hhPhone').value=h.phone; q('bm-hhStatus').value=h.status; q('bm-hhNote').value=h.note;
-      q('bm-hhFormTitle').textContent='Update household';
-      container.querySelectorAll('.bm-tab').forEach(b=>b.classList.remove('active'));
-      container.querySelectorAll('.bm-panel').forEach(p=>p.classList.remove('active'));
-      container.querySelector('[data-bm-tab="bm-hhTab"]').classList.add('active');
-      container.querySelector('#bm-hhTab').classList.add('active');
-      q('bm-hhForm').scrollIntoView({behavior:'smooth'});
-    }
-
-    function deleteHH(id) {
-      const h = bmFindHH(id); if (!h) return;
-      if (!confirm(`Delete household ${h.code} - ${h.apartmentNo}? Members will be unassigned.`)) return;
-      households = households.filter(item=>item.id!==id);
-      residents  = residents.map(r=>r.householdId===id?{...r,householdId:''}:r);
-      if (selectedHouseholdId===id) selectedHouseholdId=null;
-      bmSaveData(); resetHHForm(); renderAll(); showToast('Household deleted','info');
-    }
-
-    function editRes(id) {
-      const r = bmFindRes(id); if (!r) return;
-      q('bm-resId').value=r.id; q('bm-fullName').value=r.fullName; q('bm-gender').value=r.gender;
-      q('bm-dob').value=r.dob; q('bm-identityNo').value=r.identityNo; q('bm-phone').value=r.phone;
-      q('bm-hometown').value=r.hometown; q('bm-occupation').value=r.occupation;
-      q('bm-resStatus').value=r.status; q('bm-resHousehold').value=r.householdId;
-      q('bm-resFormTitle').textContent='Update resident';
-      container.querySelectorAll('.bm-tab').forEach(b=>b.classList.remove('active'));
-      container.querySelectorAll('.bm-panel').forEach(p=>p.classList.remove('active'));
-      container.querySelector('[data-bm-tab="bm-resTab"]').classList.add('active');
-      container.querySelector('#bm-resTab').classList.add('active');
-      q('bm-resForm').scrollIntoView({behavior:'smooth'});
-    }
-
-    function deleteRes(id) {
-      const r = bmFindRes(id); if (!r) return;
-      if (!confirm(`Delete resident ${r.fullName}?`)) return;
-      residents = residents.filter(item=>item.id!==id);
-      bmSyncMembers(); bmSaveData(); resetResForm(); renderAll(); showToast('Resident deleted','info');
-    }
-
-    function addMember() {
-      if (!selectedHouseholdId) { showToast('Select a household first','warning'); return; }
-      const resId = q('bm-residentToAdd').value;
-      if (!resId) { showToast('Select a resident to add','warning'); return; }
-      const r = bmFindRes(resId); if (!r) return;
-      r.householdId = selectedHouseholdId;
-      bmSyncMembers(); bmSaveData(); renderAll(); showToast('Member added to household','success');
-    }
-
-    function removeMember(resId) {
-      const r = bmFindRes(resId); if (!r) return;
-      if (!confirm(`Remove ${r.fullName} from this household?`)) return;
-      r.householdId='';
-      bmSyncMembers(); bmSaveData(); renderAll(); showToast('Member removed','info');
-    }
-
-    function resetHHForm() {
-      q('bm-hhForm').reset(); q('bm-hhId').value=''; q('bm-hhFormTitle').textContent='Add household';
-    }
-    function resetResForm() {
-      q('bm-resForm').reset(); q('bm-resId').value=''; q('bm-resFormTitle').textContent='Add resident';
-    }
->>>>>>> origin/v2-VietCuong:03-SourceCodes/frontend/js/components/residents.js
   }
 }
