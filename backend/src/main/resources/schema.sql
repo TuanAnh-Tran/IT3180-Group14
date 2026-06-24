@@ -247,9 +247,9 @@ CREATE TABLE IF NOT EXISTS user (
 -- ============================================================
 
 INSERT IGNORE INTO user (username, password_hash, email, fullname, room, phone, identity_no, role, status) VALUES
-('admin', '$2a$10$wYp7Bf3a5q17wYp7Bf3a5uxUf9KbeG4j7tN9z/4b82d9vKBeG4j7t', 'admin@cyberspace.vn', 'System Admin', NULL, '0987654321', '001085000111', 'ROLE_ADMIN', 'APPROVED'),
-('accountant', '$2a$10$wYp7Bf3a5q17wYp7Bf3a5uxUf9KbeG4j7tN9z/4b82d9vKBeG4j7t', 'accountant@cyberspace.vn', 'Accountant Rep', NULL, '0911222333', '031079000333', 'ROLE_ACCOUNTANT', 'APPROVED'),
-('resident1', '$2a$10$wYp7Bf3a5q17wYp7Bf3a5uxUf9KbeG4j7tN9z/4b82d9vKBeG4j7t', 'resident1@cyberspace.vn', 'Nguyen Van An', 'HH001', '0987654321', '001085000222', 'ROLE_USER', 'APPROVED');
+('admin', '$2a$10$tMhI4K.mZfepR5F07X6aNupg/bU86Y78h8B.d5Z2h42n3B0vKBeG4', 'admin@cyberspace.vn', 'System Admin', NULL, '0987654321', '001085000111', 'ROLE_ADMIN', 'APPROVED'),
+('accountant', '$2a$10$tMhI4K.mZfepR5F07X6aNupg/bU86Y78h8B.d5Z2h42n3B0vKBeG4', 'accountant@cyberspace.vn', 'Accountant Rep', NULL, '0911222333', '031079000333', 'ROLE_ACCOUNTANT', 'APPROVED'),
+('resident1', '$2a$10$iMhI4K.mZfepR5F07X6aNupg/bU86Y78h8B.d5Z2h42n3B0vKBeG4', 'resident1@cyberspace.vn', 'Nguyen Van An', 'HH001', '0987654321', '001085000222', 'ROLE_USER', 'APPROVED');
 
 -- Hộ gia đình mẫu
 INSERT IGNORE INTO household

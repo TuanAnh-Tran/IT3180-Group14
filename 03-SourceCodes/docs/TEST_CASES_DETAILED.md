@@ -445,24 +445,24 @@
   * Modal chi tiết hóa đơn hiện lên. Hiển thị danh sách đầy đủ tất cả các khoản phí của hộ trong kỳ được chọn.
   * Hiển thị tổng số tiền cần đóng, số tiền đã đóng, số tiền còn nợ.
 
-#### **TC-FEE-12: Kiểm tra tính toán công thức theo diện tích (PER_AREA)**
+#### **TC-FEE-12: Kiểm tra tính toán công thức theo diện tích (PER_AREA / PER_M2)**
 * **Mức độ:** Critical (Tính toán)
-* **Dữ liệu kiểm thử:** Hộ P201 (diện tích = 110 m²), Phí quản lý căn hộ đơn giá = `7000đ/m²`.
+* **Dữ liệu kiểm thử:** Hộ HH003 (phòng P201, diện tích = 50.0 m²), Phí dịch vụ chung cư (FEE001) đơn giá = `15000đ/m²`.
 * **Kết quả mong đợi:**
-  * Thành tiền = `110 * 7000` = **`770.000đ`**.
+  * Thành tiền = `50 * 15000` = **`750.000đ`**.
 
-#### **TC-FEE-13: Kiểm tra tính toán công thức theo nhân khẩu (PER_MEMBER)**
+#### **TC-FEE-13: Kiểm tra tính toán công thức theo nhân khẩu (PER_MEMBER / PER_PERSON)**
 * **Mức độ:** Critical (Tính toán)
-* **Dữ liệu kiểm thử:** Hộ P201 (số nhân khẩu = 5), Phí an ninh đơn giá = `10000đ/người`.
+* **Dữ liệu kiểm thử:** Hộ HH001 (phòng P101, số nhân khẩu = 3), Phí vệ sinh (FEE002) đơn giá = `72000đ/người`.
 * **Kết quả mong đợi:**
-  * Thành tiền = `5 * 10000` = **`50.000đ`**.
+  * Thành tiền = `3 * 72000` = **`216.000đ`**.
 
 #### **TC-FEE-14: Kiểm tra tự động gán phí xe máy/ô tô theo số lượng xe đăng ký**
 * **Mức độ:** High
-* **Dữ liệu kiểm thử:** Hộ P101 (2 xe máy, 1 ô tô), Hộ P301 (0 xe máy, 0 ô tô).
+* **Dữ liệu kiểm thử:** Hộ HH002 (phòng P102, 2 xe máy, 1 ô tô), Hộ HH004 (phòng P202, 0 xe máy, 1 ô tô).
 * **Kết quả mong đợi:**
-  * Hộ P101 tự động nhận phí gửi xe máy với hệ số nhân = 2, xe ô tô với hệ số = 1.
-  * Hộ P301 hoàn toàn không có khoản phí gửi xe nào được tạo tự động.
+  * Hộ HH002 tự động nhận phí gửi xe máy với số lượng = 2 (FEE003, đơn giá 70.000đ), xe ô tô với số lượng = 1 (FEE004, đơn giá 150.000đ).
+  * Hộ HH004 tự động nhận phí gửi xe ô tô với số lượng = 1, không nhận phí gửi xe máy.
 
 ---
 
