@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BlueMoon Apartment Portal — Nhóm 14 IT3180</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; background: #0f1117; color: #fff; overflow: hidden; }
+
+  /* SLIDE CONTAINER */
+  .slideshow { width: 100vw; height: 100vh; position: relative; }
+  .slide {
+    display: none; width: 100%; height: 100%;
+    position: absolute; top: 0; left: 0;
+    animation: fadeIn 0.5s ease;
+  }
+  .slide.active { display: flex; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* NAVIGATION */
+  .nav {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 12px; z-index: 100; align-items: center;
+    background: rgba(255,255,255,0.08); backdrop-filter: blur(10px);
+    padding: 10px 20px; border-radius: 50px; border: 1px solid rgba(255,255,255,0.15);
+  }
+  .nav button {
+    background: rgba(255,255,255,0.15); border: none; color: #fff;
+    padding: 8px 20px; border-radius: 25px; cursor: pointer; font-size: 14px;
+    transition: all 0.2s;
+  }
+  .nav button:hover { background: #4f8ef7; }
+  .nav .counter { color: rgba(255,255,255,0.7); font-size: 13px; min-width: 60px; text-align: center; }
+  .dot-nav { display: flex; gap: 6px; align-items: center; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.3); cursor: pointer; transition: all 0.2s; }
+  .dot.active { background: #4f8ef7; width: 24px; border-radius: 4px; }
+
+  /* COMMON LAYOUT */
+  .slide-inner {
+    width: 100%; height: 100%; display: flex; flex-direction: column;
+    justify-content: center; align-items: center; padding: 50px 80px;
+    position: relative; overflow: hidden;
+  }
+  h1 { font-size: 2.8rem; font-weight: 700; line-height: 1.2; }
+  h2 { font-size: 2rem; font-weight: 700; margin-bottom: 30px; }
+  h3 { font-size: 1.3rem; font-weight: 600; }
+  p { font-size: 1rem; line-height: 1.7; }
+
+  /* COLORS */
+  .blue  { color: #4f8ef7; }
+  .cyan  { color: #00d4ff; }
+  .green { color: #36d399; }
+  .orange{ color: #f59e0b; }
+  .pink  { color: #f472b6; }
+  .purple{ color: #a78bfa; }
+
+  /* SLIDE SPECIFIC STYLES */
+
+  /* SLIDE 1 — Cover */
+  .s1 { background: linear-gradient(135deg, #0d1b3e 0%, #0f2560 50%, #0a1628 100%); }
+  .s1 .slide-inner { text-align: center; }
+  .s1 .logo-circle {
+    width: 90px; height: 90px; border-radius: 50%;
+    background: linear-gradient(135deg, #4f8ef7, #00d4ff);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2.2rem; margin: 0 auto 24px;
+    box-shadow: 0 0 40px rgba(79,142,247,0.5);
+  }
+  .s1 h1 { font-size: 3.2rem; background: linear-gradient(to right, #4f8ef7, #00d4ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .s1 .subtitle { font-size: 1.15rem; color: rgba(255,255,255,0.7); margin: 14px 0 30px; }
+  .s1 .tags { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .tag { background: rgba(79,142,247,0.18); border: 1px solid rgba(79,142,247,0.4); padding: 6px 18px; border-radius: 20px; font-size: 0.85rem; color: #93c5fd; }
+  .s1 .course { margin-top: 28px; color: rgba(255,255,255,0.5); font-size: 0.9rem; }
+
+  /* GRID LAYOUTS */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; width: 100%; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; width: 100%; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; width: 100%; }
+
+  /* CARD */
+  .card {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px; padding: 24px; position: relative; overflow: hidden;
+  }
+  .card.blue-border  { border-color: rgba(79,142,247,0.4); }
+  .card.green-border { border-color: rgba(54,211,153,0.4); }
+  .card.orange-border{ border-color: rgba(245,158,11,0.4); }
+  .card.purple-border{ border-color: rgba(167,139,250,0.4); }
+  .card .icon { font-size: 2rem; margin-bottom: 12px; display: block; }
+  .card h3 { margin-bottom: 8px; }
+  .card p, .card ul { font-size: 0.88rem; color: rgba(255,255,255,0.7); }
+  .card ul { list-style: none; padding: 0; }
+  .card ul li { padding: 3px 0; }
+  .card ul li::before { content: "▶ "; color: #4f8ef7; font-size: 0.7rem; }
+
+  /* SLIDE HEADER STRIP */
+  .slide-header {
+    width: 100%; margin-bottom: 32px; text-align: center;
+  }
+  .slide-num {
+    display: inline-block; background: linear-gradient(135deg,#4f8ef7,#00d4ff);
+    color: #fff; font-size: 0.75rem; padding: 4px 14px; border-radius: 20px;
+    font-weight: 700; letter-spacing: 1px; margin-bottom: 10px; text-transform: uppercase;
+  }
+
+  /* BACKGROUND DECORATIONS */
+  .bg-circle {
+    position: absolute; border-radius: 50%;
+    background: radial-gradient(circle, rgba(79,142,247,0.15), transparent 70%);
+    pointer-events: none;
+  }
+
+  /* DARK BG VARIANTS */
+  .bg-dark   { background: #0f1117; }
+  .bg-dark2  { background: linear-gradient(160deg, #0f1a2e 0%, #0f1117 100%); }
+  .bg-dark3  { background: linear-gradient(160deg, #14101a 0%, #0f1117 100%); }
+  .bg-dark4  { background: linear-gradient(160deg, #0a1a12 0%, #0f1117 100%); }
+
+  /* TABLE */
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th { background: rgba(79,142,247,0.25); padding: 10px 14px; text-align: left; }
+  td { padding: 9px 14px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  tr:hover td { background: rgba(255,255,255,0.04); }
+
+  /* TIMELINE */
+  .timeline { display: flex; flex-direction: column; gap: 14px; width: 100%; }
+  .tl-item { display: flex; gap: 16px; align-items: flex-start; }
+  .tl-dot { width: 12px; height: 12px; border-radius: 50%; background: #4f8ef7; margin-top: 5px; flex-shrink: 0; }
+  .tl-body h4 { font-size: 0.95rem; margin-bottom: 4px; }
+  .tl-body p  { font-size: 0.82rem; color: rgba(255,255,255,0.6); }
+
+  /* ARCH DIAGRAM */
+  .arch-box {
+    border: 1px solid; border-radius: 12px; padding: 14px 20px;
+    text-align: center; font-size: 0.85rem; font-weight: 600;
+  }
+  .arch-arrow { text-align: center; font-size: 1.4rem; color: #4f8ef7; line-height: 1; }
+
+  /* STAT CARD */
+  .stat-card {
+    background: rgba(255,255,255,0.04); border-radius: 14px;
+    padding: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.08);
+  }
+  .stat-card .num { font-size: 2.2rem; font-weight: 700; }
+  .stat-card .lbl { font-size: 0.8rem; color: rgba(255,255,255,0.5); margin-top: 4px; }
+
+  /* DB TABLE */
+  .db-table {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px; padding: 14px; font-size: 0.8rem;
+  }
+  .db-table .tname { font-weight: 700; color: #4f8ef7; margin-bottom: 6px; font-size: 0.9rem; }
+  .db-table .field { color: rgba(255,255,255,0.6); padding: 2px 0; }
+  .db-table .pk { color: #f59e0b; }
+  .db-table .fk { color: #36d399; }
+</style>
+</head>
+<body>
+<div class="slideshow" id="slideshow">
+
+<!-- SLIDE 1 — COVER -->
+<div class="slide s1 active" id="slide-1">
+  <div class="slide-inner">
+    <div class="bg-circle" style="width:600px;height:600px;top:-200px;right:-200px;"></div>
+    <div class="bg-circle" style="width:400px;height:400px;bottom:-150px;left:-150px;"></div>
+    <div class="logo-circle">🏢</div>
+    <h1>BlueMoon<br>Apartment Portal</h1>
+    <p class="subtitle">Hệ thống Quản lý Thu phí Chung cư Thông minh</p>
+    <div class="tags">
+      <span class="tag">Spring Boot 3</span>
+      <span class="tag">MySQL 8</span>
+      <span class="tag">Vanilla JS SPA</span>
+      <span class="tag">Docker</span>
+      <span class="tag">JWT Security</span>
+    </div>
+    <p class="course">Môn: Công Nghệ Phần Mềm — IT3180 &nbsp;|&nbsp; <strong>Nhóm 14</strong></p>
+  </div>
+</div>
+
+<!-- SLIDE 2 — ĐẶT VẤN ĐỀ -->
+<div class="slide bg-dark2" id="slide-2">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">01 · Giới Thiệu</div>
+      <h2>Bối cảnh & Đặt vấn đề</h2>
+    </div>
+    <div class="grid-2" style="gap:32px; width:100%; max-width:1000px;">
+      <div>
+        <div class="card blue-border" style="margin-bottom:20px;">
+          <span class="icon">🏙️</span>
+          <h3 class="blue">Thực trạng quản lý chung cư</h3>
+          <p>Thu phí dịch vụ bằng sổ sách thủ công dẫn đến sai lệch dữ liệu, thiếu minh bạch, khó tra cứu lịch sử nộp tiền. Cư dân không nắm được chi tiết công nợ của gia đình.</p>
+        </div>
+        <div class="card orange-border">
+          <span class="icon">🎯</span>
+          <h3 class="orange">Mục tiêu dự án</h3>
+          <p>Xây dựng cổng thông tin thống nhất BlueMoon Portal giúp số hóa hồ sơ cư dân/hộ khẩu, tự động hóa tính toán phí, ghi nhận biên lai tức thời và trực quan hóa thống kê.</p>
+        </div>
+      </div>
+      <div>
+        <div class="card green-border" style="height:100%;">
+          <span class="icon">✅</span>
+          <h3 class="green">Kết quả thực tế đạt được</h3>
+          <ul>
+            <li>Hệ thống fullstack RESTful API hoàn chỉnh</li>
+            <li>Database MySQL lưu trữ tập trung</li>
+            <li>Phân quyền chặt chẽ: Admin, Kế toán, Cư dân</li>
+            <li>Tích hợp Spring Security & mã hóa BCrypt</li>
+            <li>Tự động hóa 7 phương thức tính phí dịch vụ</li>
+            <li>Xuất báo cáo Excel thông qua Apache POI</li>
+            <li>Triển khai nhanh bằng Docker Compose</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 3 — THÀNH VIÊN NHÓM -->
+<div class="slide bg-dark3" id="slide-3">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">02 · Nhóm thực hiện</div>
+      <h2>Thành viên & Phân công nhiệm vụ</h2>
+    </div>
+    <div class="grid-4" style="max-width:1080px; width:100%;">
+      <div class="card blue-border" style="text-align:center;">
+        <div style="font-size:2rem; margin-bottom:10px;">👑</div>
+        <h3 class="blue" style="font-size:0.95rem;">Phùng Việt Cường</h3>
+        <p style="margin:4px 0; font-size:0.8rem; color:#fff;">202416148 (25%)</p>
+        <p style="font-size:0.75rem;">Phân tích nghiệp vụ khoản phí; xây dựng giao diện quản lý phí và đợt thu; thiết kế Backend chính.</p>
+      </div>
+      <div class="card green-border" style="text-align:center;">
+        <div style="font-size:2rem; margin-bottom:10px;">💻</div>
+        <h3 class="green" style="font-size:0.95rem;">Trần Sinh T. Hiếu</h3>
+        <p style="margin:4px 0; font-size:0.8rem; color:#fff;">20224984 (25%)</p>
+        <p style="font-size:0.75rem;">Xây dựng module thu phí, biên lai, thống kê doanh thu và xuất báo cáo Excel server-side.</p>
+      </div>
+      <div class="card orange-border" style="text-align:center;">
+        <div style="font-size:2rem; margin-bottom:10px;">🏠</div>
+        <h3 class="orange" style="font-size:0.95rem;">Vũ Đình Khôi</h3>
+        <p style="margin:4px 0; font-size:0.8rem; color:#fff;">20235124 (25%)</p>
+        <p style="font-size:0.75rem;">Xây dựng module quản lý hộ gia đình và cư dân; phân tích CSDL; tổng hợp báo cáo và kiểm thử.</p>
+      </div>
+      <div class="card purple-border" style="text-align:center;">
+        <div style="font-size:2rem; margin-bottom:10px;">🔑</div>
+        <h3 class="purple" style="font-size:0.95rem;">Trần Tuấn Anh</h3>
+        <p style="margin:4px 0; font-size:0.8rem; color:#fff;">202416114 (25%)</p>
+        <p style="font-size:0.75rem;">Thiết kế module tài khoản, đăng nhập, bảo mật JWT/Spring Security và đồng bộ hồ sơ cá nhân.</p>
+      </div>
+    </div>
+    <div style="margin-top:24px; max-width:1080px; width:100%;">
+      <div class="card" style="text-align:center; padding:15px;">
+        <p style="color:rgba(255,255,255,0.6); font-size:0.85rem;">
+          🏫 Trường Công nghệ Thông tin & Truyền thông — <strong>Đại học Bách Khoa Hà Nội</strong>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 4 — KIẾN TRÚC HỆ THỐNG -->
+<div class="slide bg-dark" id="slide-4">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">03 · Kiến Trúc</div>
+      <h2>Kiến trúc hệ thống BlueMoon</h2>
+    </div>
+    <div style="display:flex; gap:20px; align-items:center; width:100%; max-width:1000px; justify-content:center;">
+      <div style="flex:1;">
+        <div class="arch-box" style="border-color:#4f8ef7; color:#4f8ef7; background:rgba(79,142,247,0.08); margin-bottom:10px;">
+          🌐 Client SPA Frontend<br>
+          <span style="font-size:0.75rem; color:rgba(255,255,255,0.5); font-weight:400;">Vanilla HTML + CSS + JS Modules</span>
+        </div>
+        <div class="arch-arrow">⇅</div>
+        <div class="arch-box" style="border-color:#00d4ff; color:#00d4ff; background:rgba(0,212,255,0.08); margin-bottom:10px;">
+          🔵 Nginx Web Server (Port 80)<br>
+          <span style="font-size:0.75rem; color:rgba(255,255,255,0.5); font-weight:400;">Static Content Serving & Routing</span>
+        </div>
+        <div class="arch-arrow">⇅ (REST API / JSON)</div>
+        <div class="arch-box" style="border-color:#36d399; color:#36d399; background:rgba(54,211,153,0.08); margin-bottom:10px;">
+          ☕ Spring Boot Backend (Port 8080)<br>
+          <span style="font-size:0.75rem; color:rgba(255,255,255,0.5); font-weight:400;">Service/Repository Layers + JWT Security</span>
+        </div>
+        <div class="arch-arrow">⇅</div>
+        <div class="arch-box" style="border-color:#f59e0b; color:#f59e0b; background:rgba(245,158,11,0.08);">
+          🗄️ MySQL 8 Database (Port 3306)<br>
+          <span style="font-size:0.75rem; color:rgba(255,255,255,0.5); font-weight:400;">Data Storage + Persistent Volume</span>
+        </div>
+      </div>
+      <div style="flex:1; display:flex; flex-direction:column; gap:14px;">
+        <div class="card blue-border">
+          <h3 class="blue" style="font-size:0.9rem; margin-bottom:6px;">🐳 Triển khai Docker Container</h3>
+          <p style="font-size:0.8rem;">Toàn bộ môi trường bao gồm Nginx, Backend, và Database được ảo hóa bằng Docker Compose giúp triển khai tức thời và tránh xung đột cấu hình.</p>
+        </div>
+        <div class="card green-border">
+          <h3 class="green" style="font-size:0.9rem; margin-bottom:6px;">🛡️ Tách biệt Frontend & Backend</h3>
+          <p style="font-size:0.8rem;">Giao tiếp hoàn toàn qua RESTful API không lưu trạng thái (Stateless). Token bảo mật được trao đổi qua Authorization Header.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 5 — STACK CÔNG NGHỆ -->
+<div class="slide bg-dark2" id="slide-5">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">04 · Công Nghệ</div>
+      <h2>Công nghệ sử dụng trong dự án</h2>
+    </div>
+    <div class="grid-3" style="max-width:1000px; width:100%;">
+      <div class="card blue-border">
+        <h3 class="blue" style="margin-bottom:12px;">☕ Backend</h3>
+        <ul>
+          <li>Spring Boot 3.2.5</li>
+          <li>Spring Security</li>
+          <li>Spring Data JPA</li>
+          <li>JJWT (0.11.5)</li>
+          <li>Apache POI (Excel)</li>
+          <li>iText 7 (PDF)</li>
+        </ul>
+      </div>
+      <div class="card green-border">
+        <h3 class="green" style="margin-bottom:12px;">🎨 Frontend</h3>
+        <ul>
+          <li>HTML5 & CSS3</li>
+          <li>Vanilla ES6 Modules</li>
+          <li>SPA Router</li>
+          <li>HTML5 Canvas API</li>
+          <li>LocalStorage Fallback</li>
+          <li>Nginx Web Server</li>
+        </ul>
+      </div>
+      <div class="card orange-border">
+        <h3 class="orange" style="margin-bottom:12px;">🗄️ Database & Tooling</h3>
+        <ul>
+          <li>MySQL 8.0</li>
+          <li>Pessimistic Locking</li>
+          <li>Docker & Compose</li>
+          <li>Maven Build Tool</li>
+          <li>Git / GitHub</li>
+          <li>Swagger/OpenAPI 2.5</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 6 — THIẾT KẾ CƠ SỞ DỮ LIỆU -->
+<div class="slide bg-dark3" id="slide-6">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">05 · Dữ Liệu</div>
+      <h2>Thiết kế Cơ sở dữ liệu (MySQL Schema)</h2>
+    </div>
+    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; width:100%; max-width:1080px;">
+      <div class="db-table">
+        <div class="tname">👤 user</div>
+        <div class="field pk">🔑 username</div>
+        <div class="field">password_hash</div>
+        <div class="field">email (unique)</div>
+        <div class="field">fullname</div>
+        <div class="field">role / status</div>
+        <div class="field">failed_attempts</div>
+        <div class="field">lock_time</div>
+      </div>
+      <div class="db-table">
+        <div class="tname">🏠 household</div>
+        <div class="field pk">🔑 id</div>
+        <div class="field">apartment_no</div>
+        <div class="field">owner_name</div>
+        <div class="field">members_count</div>
+        <div class="field">area / balance</div>
+        <div class="field">motorcycle_count</div>
+        <div class="field">car_count / status</div>
+      </div>
+      <div class="db-table">
+        <div class="tname">👥 resident</div>
+        <div class="field pk">🔑 id</div>
+        <div class="field">full_name</div>
+        <div class="field pk">🔑 identity_no</div>
+        <div class="field">phone / status</div>
+        <div class="field">relationship_to_head</div>
+        <div class="field fk">🔗 household_id</div>
+      </div>
+      <div class="db-table">
+        <div class="tname">💰 fee</div>
+        <div class="field pk">🔑 id</div>
+        <div class="field">name</div>
+        <div class="field">type (MANDATORY/...)</div>
+        <div class="field">calc_method</div>
+        <div class="field">price (đơn giá)</div>
+      </div>
+      <div class="db-table">
+        <div class="tname">📅 period</div>
+        <div class="field pk">🔑 id</div>
+        <div class="field">name</div>
+        <div class="field">status (OPEN/CLOSED)</div>
+      </div>
+      <div class="db-table" style="border-color:#36d399; background:rgba(54,211,153,0.05);">
+        <div class="tname" style="color:#36d399;">⭐ assigned_fee</div>
+        <div class="field pk">🔑 id</div>
+        <div class="field fk">🔗 household_id</div>
+        <div class="field fk">🔗 period_id</div>
+        <div class="field fk">🔗 fee_id</div>
+        <div class="field">quantity / status</div>
+        <div class="field">amount_paid_acc</div>
+      </div>
+      <div class="db-table">
+        <div class="tname">🧾 receipt</div>
+        <div class="field pk">🔑 id</div>
+        <div class="field fk">🔗 assigned_fee_id</div>
+        <div class="field">amount_paid</div>
+        <div class="field">created_by</div>
+        <div class="field">idempotency_key</div>
+      </div>
+      <div class="db-table">
+        <div class="tname">⚡ utility_record</div>
+        <div class="field pk">🔑 id</div>
+        <div class="field fk">🔗 household_id</div>
+        <div class="field fk">🔗 period_id</div>
+        <div class="field">type (WATER/...)</div>
+        <div class="field">old_index / new_index</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 7 — BẢO MẬT VÀ XÁC THỰC -->
+<div class="slide bg-dark4" id="slide-7">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">06 · Bảo Mật</div>
+      <h2>Cơ chế Bảo mật, Xác thực & Phân quyền</h2>
+    </div>
+    <div class="grid-2" style="max-width:1000px; width:100%; gap:32px;">
+      <div>
+        <div class="card blue-border" style="margin-bottom:16px;">
+          <h3 class="blue">🔒 Spring Security & JWT</h3>
+          <p style="font-size:0.82rem; margin-top:8px;">Hệ thống áp dụng kiến trúc xác thực không trạng thái (Stateless Session) sử dụng JWT. Mọi yêu cầu gọi đến API Backend đều được giải mã token để kiểm tra tính hợp lệ và lấy vai trò (Role).</p>
+        </div>
+        <div class="card orange-border">
+          <h3 class="orange">🛡️ Các tính năng bảo mật nâng cao</h3>
+          <ul style="font-size:0.8rem; margin-top:8px;">
+            <li><strong>Khóa tài khoản:</strong> Tự động khóa 15 phút nếu nhập sai mật khẩu liên tiếp 5 lần để chống Brute Force.</li>
+            <li><strong>Khôi phục mật khẩu:</strong> Gửi mã OTP 6 số (hết hạn trong 5 phút) để xác nhận đặt lại mật khẩu an toàn.</li>
+            <li><strong>Xét duyệt đăng ký:</strong> Cư dân đăng ký xong sẽ ở trạng thái <code>PENDING</code> chờ Admin phê duyệt mới được hoạt động.</li>
+          </ul>
+        </div>
+      </div>
+      <div>
+        <div class="card green-border" style="height:100%;">
+          <h3 class="green" style="margin-bottom:12px;">🎭 Phân quyền chi tiết (Roles)</h3>
+          <ul>
+            <li><strong>ROLE_ADMIN (Ban quản lý):</strong> Toàn quyền quản trị tài khoản, xét duyệt cư dân, cấu hình các khoản phí dịch vụ và đợt thu.</li>
+            <li><strong>ROLE_ACCOUNTANT (Kế toán):</strong> Có quyền xem công nợ căn hộ, ghi nhận nộp tiền, xem thống kê báo cáo và xuất file Excel. Không có quyền CRUD danh mục.</li>
+            <li><strong>ROLE_USER (Cư dân):</strong> Chỉ có quyền xem thông tin căn hộ của mình, danh sách thành viên gia đình, xem hóa đơn nợ và lịch sử biên lai đóng tiền cá nhân.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 8 — MODULE QUẢN LÝ HỘ KHẨU -->
+<div class="slide bg-dark2" id="slide-8">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">07 · Module 1</div>
+      <h2>Quản lý Hộ khẩu & Nhân khẩu</h2>
+    </div>
+    <div class="grid-2" style="max-width:1000px; width:100%; gap:28px; align-items:start;">
+      <div>
+        <div class="card blue-border" style="margin-bottom:16px;">
+          <span class="icon">🏠</span>
+          <h3 class="blue">Quản lý Hộ gia đình</h3>
+          <ul style="margin-top:8px;">
+            <li>CRUD thông tin căn hộ (Số nhà, tầng, đường, phường, quận, ngày lập hộ).</li>
+            <li>Theo dõi các chỉ số phụ: diện tích m², số lượng xe máy/ô tô đăng ký.</li>
+            <li>Quản lý trạng thái: <code>OCCUPIED</code> (đang ở), <code>VACANT</code> (trống).</li>
+            <li>Ràng buộc duy nhất số phòng (apartmentNo unique).</li>
+          </ul>
+        </div>
+        <div class="card green-border">
+          <span class="icon">👥</span>
+          <h3 class="green">Quản lý Cư dân</h3>
+          <ul style="margin-top:8px;">
+            <li>Lưu trữ hồ sơ chi tiết (bí danh, nơi sinh, dân tộc, tôn giáo, nghề nghiệp).</li>
+            <li>Kiểm soát tính duy nhất của Căn cước công dân (CCCD - 12 chữ số).</li>
+            <li>Theo dõi tình trạng cư trú: Thường trú, tạm trú, tạm vắng.</li>
+            <li>Gán/gỡ thành viên khỏi hộ khẩu tự động cập nhật số lượng nhân khẩu.</li>
+          </ul>
+        </div>
+      </div>
+      <div>
+        <div class="card purple-border" style="margin-bottom:16px;">
+          <span class="icon">📝</span>
+          <h3 class="purple">Nhật ký thay đổi nhân khẩu</h3>
+          <p style="font-size:0.82rem; margin-top:8px;">Bảng <code>resident_activity_log</code> ghi nhận lịch sử thay đổi thông tin cư dân: ai thực hiện thay đổi, thay đổi nội dung gì, thời điểm nào. Đảm bảo khả năng kiểm toán dữ liệu cho Ban quản lý.</p>
+        </div>
+        <div class="card orange-border">
+          <span class="icon">🔄</span>
+          <h3 class="orange">Đồng bộ hồ sơ cá nhân</h3>
+          <p style="font-size:0.82rem; margin-top:8px;">Khi cư dân cập nhật thông tin trên giao diện "My Profile", hệ thống tự động đồng bộ các trường (SĐT, CCCD, Họ tên) sang bảng cư dân tương ứng, tránh mâu thuẫn dữ liệu.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 9 — MODULE KHOẢN THU -->
+<div class="slide bg-dark" id="slide-9">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">08 · Module 2</div>
+      <h2>Quản lý Khoản Thu & Đợt Thu Phí</h2>
+    </div>
+    <div class="grid-2" style="max-width:1000px; width:100%; gap:28px;">
+      <div>
+        <div class="card blue-border" style="margin-bottom:16px;">
+          <span class="icon">💰</span>
+          <h3 class="blue">Danh mục Khoản Thu (Fee)</h3>
+          <p style="font-size:0.82rem; margin-top:6px;">Cho phép tạo không giới hạn danh mục khoản thu với các cấu hình:</p>
+          <ul style="font-size:0.8rem; margin-top:6px;">
+            <li><strong>MANDATORY (Bắt buộc):</strong> Phí dịch vụ quản lý căn hộ, phí dọn vệ sinh, phí gửi xe định kỳ.</li>
+            <li><strong>VOLUNTARY (Tự nguyện):</strong> Các quỹ đóng góp ủng hộ, đền ơn đáp nghĩa, quỹ khuyến học.</li>
+          </ul>
+        </div>
+        <div class="card orange-border">
+          <span class="icon">📅</span>
+          <h3 class="orange">Đợt Thu Phí (Collection Period)</h3>
+          <ul style="font-size:0.82rem; margin-top:6px;">
+            <li>Khi tạo đợt thu mới ở trạng thái <code>OPEN</code>, hệ thống tự động tạo hóa đơn nợ (`assigned_fee`) cho toàn bộ hộ dân với các phí bắt buộc.</li>
+            <li>Hệ thống tự động rà soát đợt thu trước để gộp các khoản nợ cũ chưa đóng sang đợt mới dưới dạng mã <strong>`FEE_DEBT`</strong>.</li>
+          </ul>
+        </div>
+      </div>
+      <div>
+        <div class="card purple-border" style="height:100%;">
+          <span class="icon">⚙️</span>
+          <h3 class="purple">Strategy Pattern trong tính phí</h3>
+          <p style="font-size:0.8rem; margin-top:6px;">Thiết kế hướng đối tượng linh hoạt cho phép áp dụng các công thức tính phí khác nhau mà không sửa đổi mã nguồn chính:</p>
+          <div style="display:flex; flex-direction:column; gap:6px; margin-top:10px; font-size:0.75rem; color:rgba(255,255,255,0.7);">
+            <div style="background:rgba(255,255,255,0.04); padding:6px 12px; border-radius:6px;"><strong>PER_M2:</strong> Đơn giá × Diện tích căn hộ (ví dụ: phí quản lý)</div>
+            <div style="background:rgba(255,255,255,0.04); padding:6px 12px; border-radius:6px;"><strong>PER_PERSON:</strong> Đơn giá × Số lượng nhân khẩu (phí vệ sinh)</div>
+            <div style="background:rgba(255,255,255,0.04); padding:6px 12px; border-radius:6px;"><strong>PER_MOTORCYCLE / PER_CAR:</strong> Tính tiền theo số xe đăng ký</div>
+            <div style="background:rgba(255,255,255,0.04); padding:6px 12px; border-radius:6px;"><strong>CONSUMPTION:</strong> Đơn giá × Số khối tiêu dùng (tiền nước sinh hoạt)</div>
+            <div style="background:rgba(255,255,255,0.04); padding:6px 12px; border-radius:6px;"><strong>FIXED:</strong> Số tiền cố định (đóng góp tự nguyện)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 10 — THU PHÍ & BIÊN LAI -->
+<div class="slide bg-dark3" id="slide-10">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">09 · Module 3</div>
+      <h2>Ghi nhận Thu Phí & Quản lý Biên Lai</h2>
+    </div>
+    <div class="grid-2" style="max-width:1000px; width:100%; gap:28px;">
+      <div>
+        <div class="card blue-border" style="margin-bottom:16px;">
+          <span class="icon">💵</span>
+          <h3 class="blue">Nghiệp vụ Thu Phí</h3>
+          <ul style="margin-top:8px;">
+            <li>Kế toán tìm kiếm công nợ theo đợt thu và số phòng.</li>
+            <li>Hỗ trợ ghi nhận nộp tiền mặt trực tiếp hoặc quét mã VietQR.</li>
+            <li>Hệ thống hỗ trợ thanh toán một phần (PARTIAL). Số nợ còn lại được lưu lũy kế để thu tiếp.</li>
+            <li>Khi nộp đủ, trạng thái tự động chuyển thành <code>PAID</code>.</li>
+          </ul>
+        </div>
+        <div class="card green-border">
+          <span class="icon">🔒</span>
+          <h3 class="green">An toàn giao dịch</h3>
+          <p style="font-size:0.8rem; margin-top:6px;">Sử dụng cơ chế khóa bi quan <strong>Pessimistic Write Lock</strong> trên database để ngăn chặn hiện tượng Race Condition (hai kế toán cùng ghi nhận nộp tiền cho một hóa đơn tại cùng một thời điểm).</p>
+        </div>
+      </div>
+      <div>
+        <div class="card orange-border" style="margin-bottom:16px;">
+          <span class="icon">🧾</span>
+          <h3 class="orange">Biên Lai & Hoàn tác</h3>
+          <ul style="margin-top:8px;">
+            <li>Mỗi lần nộp tiền, hệ thống sinh ra một bản ghi Biên lai (`receipt`) độc lập, không cho phép sửa đổi để đảm bảo tính minh bạch kế toán.</li>
+            <li>Hỗ trợ tính năng <strong>Hoàn tác (Undo)</strong>: Hủy biên lai sẽ khôi phục lại công nợ của assigned_fee về trạng thái cũ.</li>
+          </ul>
+        </div>
+        <div class="card purple-border">
+          <h3 class="purple" style="font-size:0.9rem; margin-bottom:6px;">💰 Khấu trừ số dư thừa (Overpayment)</h3>
+          <p style="font-size:0.8rem;">Nếu cư dân nộp thừa tiền so với hóa đơn yêu cầu, số dư thừa tự động được cộng dồn vào cột `balance` của Hộ gia đình và tự động trừ vào kỳ thanh toán tiếp theo.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 11 — THỐNG KÊ & BÁO CÁO -->
+<div class="slide bg-dark" id="slide-11">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">10 · Thống Kê</div>
+      <h2>Thống kê, Báo cáo & Xuất dữ liệu</h2>
+    </div>
+    <div class="grid-2" style="max-width:1000px; width:100%; gap:28px;">
+      <div>
+        <div class="card blue-border" style="margin-bottom:16px;">
+          <span class="icon">📊</span>
+          <h3 class="blue">Trực quan hóa số liệu</h3>
+          <ul style="margin-top:8px;">
+            <li>Thống kê tổng quan: Tổng thu, tổng nợ, tỷ lệ hoàn thành.</li>
+            <li>Biểu đồ cột: Doanh thu 12 tháng cập nhật thời gian thực.</li>
+            <li>Biểu đồ tròn: Cơ cấu nguồn thu (Bắt buộc vs Tự nguyện).</li>
+            <li>Công nghệ: Sử dụng <strong>HTML5 Canvas API</strong> thuần, tải nhanh và mượt mà trên mọi thiết bị.</li>
+          </ul>
+        </div>
+        <div class="card orange-border">
+          <span class="icon">🏆</span>
+          <h3 class="orange">Danh sách nợ phí (Top Debtors)</h3>
+          <p style="font-size:0.8rem; margin-top:6px;">Hệ thống tự động xếp hạng các hộ gia đình nợ phí nhiều nhất giảm dần để kế toán tiện theo dõi, nhắc nhở đóng tiền.</p>
+        </div>
+      </div>
+      <div>
+        <div class="card green-border" style="height:100%;">
+          <span class="icon">📥</span>
+          <h3 class="green">Xuất báo cáo Excel Server-Side</h3>
+          <p style="font-size:0.82rem; margin-top:8px;">Tích hợp thư viện <strong>Apache POI</strong> trên backend để tạo trực tiếp tệp Excel (.xlsx) chuyên nghiệp trên máy chủ và trả về dạng download stream:</p>
+          <ul style="font-size:0.8rem; margin-top:8px;">
+            <li>Xuất báo cáo danh sách nộp tiền theo đợt thu.</li>
+            <li>Xuất lịch sử biên lai theo khoảng thời gian tùy chọn.</li>
+            <li>Xuất danh sách công nợ chi tiết của toàn bộ căn hộ trong chung cư.</li>
+            <li>Định dạng bảng có đầy đủ viền, tiêu đề cột và dòng tổng cộng tự động.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 12 — QUY TRÌNH THÊM CƯ DÂN -->
+<div class="slide bg-dark2" id="slide-12">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">11 · Luồng Nghiệp Vụ</div>
+      <h2>Quy trình Thêm Cư dân & Xác thực CCCD</h2>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:16px; width:100%; max-width:960px; justify-content:center;">
+      <div class="timeline">
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-body">
+            <h4>Bước 1: Điền thông tin cư dân trên Giao diện</h4>
+            <p>Admin truy cập Tab Cư dân, nhập Họ tên, số CCCD (12 chữ số), ngày sinh, quê quán, số điện thoại...</p>
+          </div>
+        </div>
+        <div class="tl-line"></div>
+        <div class="tl-item">
+          <div class="tl-dot" style="background:#00d4ff;"></div>
+          <div class="tl-body">
+            <h4>Bước 2: Backend validate dữ liệu đầu vào</h4>
+            <p>Kiểm tra tính hợp lệ của CCCD và số điện thoại. Truy vấn database kiểm tra trùng lặp số CCCD (Unique Constraint).</p>
+          </div>
+        </div>
+        <div class="tl-line"></div>
+        <div class="tl-item">
+          <div class="tl-dot" style="background:#36d399;"></div>
+          <div class="tl-body">
+            <h4>Bước 3: Lưu trữ & Cập nhật số lượng nhân khẩu</h4>
+            <p>Nếu hợp lệ, lưu thông tin cư dân vào DB MySQL, đồng thời cộng dồn số lượng nhân khẩu (`members_count`) của hộ gia đình tương ứng trong cùng một Transaction.</p>
+          </div>
+        </div>
+        <div class="tl-line"></div>
+        <div class="tl-item">
+          <div class="tl-dot" style="background:#a78bfa;"></div>
+          <div class="tl-body">
+            <h4>Bước 4: Ghi nhận lịch sử (Audit Trail)</h4>
+            <p>Sinh bản ghi log ghi nhận hoạt động: "Admin @username đã thêm cư dân @fullName vào hộ @apartmentNo" để giám sát.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 13 — QUY TRÌNH GHI NHẬN NỘP TIỀN -->
+<div class="slide bg-dark3" id="slide-13">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">12 · Luồng Nghiệp Vụ</div>
+      <h2>Quy trình Ghi nhận nộp tiền</h2>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:16px; width:100%; max-width:960px; justify-content:center;">
+      <div class="timeline">
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-body">
+            <h4>Bước 1: Tra cứu công nợ & Nhập số tiền nộp</h4>
+            <p>Kế toán chọn hóa đơn chưa thanh toán (`assigned_fee`), nhập số tiền cư dân nộp thực tế (mặc định bằng số tiền còn nợ).</p>
+          </div>
+        </div>
+        <div class="tl-line"></div>
+        <div class="tl-item">
+          <div class="tl-dot" style="background:#00d4ff;"></div>
+          <div class="tl-body">
+            <h4>Bước 2: Backend thực hiện Transaction với Lock bi quan</h4>
+            <p>Gọi API `POST /api/payments`. Khóa bản ghi hóa đơn bằng `Pessimistic Write Lock` để tránh các request song song ghi đè số tiền.</p>
+          </div>
+        </div>
+        <div class="tl-line"></div>
+        <div class="tl-item">
+          <div class="tl-dot" style="background:#36d399;"></div>
+          <div class="tl-body">
+            <h4>Bước 3: Cập nhật công nợ & Phát hành Biên lai</h4>
+            <p>Tính toán cộng dồn số tiền đã nộp (`amount_paid_accumulated`). Đổi trạng thái hóa đơn sang `PARTIAL` hoặc `PAID`. Thêm bản ghi Biên lai (`receipt`) mới vào database.</p>
+          </div>
+        </div>
+        <div class="tl-line"></div>
+        <div class="tl-item">
+          <div class="tl-dot" style="background:#a78bfa;"></div>
+          <div class="tl-body">
+            <h4>Bước 4: Đồng bộ số dư thừa (Nếu có)</h4>
+            <p>Nếu số tiền nộp lớn hơn số nợ, trích xuất phần thừa lưu vào số dư của hộ (`household.balance`) để khấu trừ tự động cho kỳ sau.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 14 — PHƯƠNG THỨC KIỂM THỬ -->
+<div class="slide bg-dark4" id="slide-14">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">13 · Kiểm Thử</div>
+      <h2>Chiến lược Kiểm thử Chương trình</h2>
+    </div>
+    <div class="grid-3" style="max-width:1000px; width:100%;">
+      <div class="card blue-border">
+        <h3 class="blue" style="margin-bottom:12px;">🧪 Unit Test</h3>
+        <p style="font-size:0.8rem;">Viết mã kiểm thử cô lập cho các logic xử lý phức tạp trên backend:</p>
+        <ul style="font-size:0.78rem; margin-top:8px;">
+          <li>Kiểm thử công thức tính phí của Strategy Pattern.</li>
+          <li>Kiểm thử việc chuyển trạng thái hóa đơn nộp tiền.</li>
+          <li>Kiểm thử xử lý nộp thừa tiền (Overpayment).</li>
+        </ul>
+      </div>
+      <div class="card green-border">
+        <h3 class="green" style="margin-bottom:12px;">📡 Integration Test</h3>
+        <p style="font-size:0.8rem;">Kiểm thử tích hợp các thành phần hệ thống kết nối với database thật:</p>
+        <ul style="font-size:0.78rem; margin-top:8px;">
+          <li>Kiểm thử ràng buộc khóa ngoại (Foreign key) trong MySQL.</li>
+          <li>Kiểm thử khóa ghi trùng lặp (Idempotency Key) chống nộp tiền 2 lần.</li>
+          <li>Kiểm thử cơ chế bảo mật URL Spring Security.</li>
+        </ul>
+      </div>
+      <div class="card orange-border">
+        <h3 class="orange" style="margin-bottom:12px;">🌐 Black-box / UI Test</h3>
+        <p style="font-size:0.8rem;">Kiểm thử luồng đi qua giao diện người dùng SPA:</p>
+        <ul style="font-size:0.78rem; margin-top:8px;">
+          <li>Kiểm thử đăng nhập sai 5 lần để khóa tài khoản.</li>
+          <li>Kiểm thử biên độ dài tên phí (tối đa 50 ký tự) tại form.</li>
+          <li>Kiểm thử tính đúng đắn khi xuất file Excel.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 15 — BỘ KỊCH BẢN KIỂM THỬ CHI TIẾT -->
+<div class="slide bg-dark2" id="slide-15">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">14 · Kiểm Thử</div>
+      <h2>Tổng kết 72 Ca Kiểm Thử Chi Tiết</h2>
+    </div>
+    <div class="grid-2" style="max-width:1000px; width:100%; gap:32px; align-items:center;">
+      <div>
+        <p style="font-size:0.95rem; margin-bottom:14px;">Hệ thống đã được bao phủ bởi **72 ca kiểm thử** chi tiết thuộc 9 phân hệ chức năng khác nhau để đảm bảo không phát sinh lỗi khi vận hành thực tế:</p>
+        <div style="background:rgba(255,255,255,0.03); padding:16px; border-radius:14px; border:1px solid rgba(255,255,255,0.08);">
+          <p style="font-size:0.85rem;"><strong class="green">Critical (12 TC):</strong> Đăng nhập, phân quyền, kiểm tra trùng lặp khóa chính, lưu trữ giao dịch nộp tiền.</p>
+          <p style="font-size:0.85rem; margin-top:6px;"><strong class="blue">High (37 TC):</strong> Các chức năng thêm, sửa, xóa, khóa tài khoản, hoàn tác hóa đơn, đồng bộ dữ liệu.</p>
+          <p style="font-size:0.85rem; margin-top:6px;"><strong class="orange">Medium / Low (23 TC):</strong> Tìm kiếm, lọc dữ liệu, đổi mật khẩu, giới hạn lưu trữ log.</p>
+        </div>
+      </div>
+      <div>
+        <table style="font-size:0.78rem;">
+          <thead>
+            <tr><th>Phân hệ (Module)</th><th>Số TC</th><th>Crit</th><th>High</th><th>Med/Low</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Xác thực (Authentication)</td><td>10</td><td>3</td><td>5</td><td>2</td></tr>
+            <tr><td>Quản lý tài khoản (User)</td><td>10</td><td>2</td><td>6</td><td>2</td></tr>
+            <tr><td>Quản lý cư dân & hộ khẩu</td><td>11</td><td>0</td><td>7</td><td>4</td></tr>
+            <tr><td>Quản lý khoản thu (Fee)</td><td>14</td><td>3</td><td>7</td><td>4</td></tr>
+            <tr><td>Thanh toán & Biên lai</td><td>7</td><td>1</td><td>4</td><td>2</td></tr>
+            <tr><td>Thống kê số liệu</td><td>5</td><td>1</td><td>2</td><td>2</td></tr>
+            <tr><td>Hồ sơ cá nhân & Dashboard</td><td>10</td><td>0</td><td>4</td><td>6</td></tr>
+            <tr><td>Cơ sở dữ liệu (Database)</td><td>5</td><td>2</td><td>2</td><td>1</td></tr>
+            <tr style="font-weight:700; background:rgba(79,142,247,0.15);"><td>TỔNG CỘNG</td><td>72</td><td>12</td><td>37</td><td>23</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 16 — KHẮC PHỤC LỖ HỔNG & CẢI TIẾN -->
+<div class="slide bg-dark3" id="slide-16">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">15 · Cải Tiến</div>
+      <h2>Khắc phục lỗ hổng & Cải tiến hệ thống</h2>
+    </div>
+    <div class="grid-2" style="max-width:1000px; width:100%; gap:28px;">
+      <div class="card orange-border">
+        <h3 class="orange" style="margin-bottom:12px;">⚠️ Lỗ hổng phiên bản cũ (v1.0)</h3>
+        <ul style="font-size:0.8rem;">
+          <li>Sử dụng LocalStorage làm database giả lập, dễ bị sửa đổi dữ liệu ở client.</li>
+          <li>Xác thực cứng ở frontend, backend chưa có bộ lọc chặn request gọi API trực tiếp.</li>
+          <li>Mật khẩu lưu dạng text thường hoặc băm SHA-256 không salt.</li>
+          <li>Chưa có cơ chế khóa tài khoản, OTP và phê duyệt xét duyệt cư dân mới đăng ký.</li>
+        </ul>
+      </div>
+      <div class="card green-border">
+        <h3 class="green" style="margin-bottom:12px;">✅ Giải pháp nâng cấp hoàn thiện</h3>
+        <ul style="font-size:0.8rem;">
+          <li>Chuyển toàn bộ dữ liệu sang cơ sở dữ liệu MySQL tập trung, quản lý bằng JPA/Hibernate.</li>
+          <li>Tích hợp bộ lọc <code>JwtAuthFilter</code> trên Spring Security để bảo vệ chặt chẽ các API backend.</li>
+          <li>Mã hóa mật khẩu bằng thuật toán mạnh <code>BCrypt</code> một chiều tự sinh salt.</li>
+          <li>Hiện thực hóa tính năng khóa tài khoản sau 5 lần sai, OTP đặt lại mật khẩu và phê duyệt đăng ký cư dân.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 17 — KẾT LUẬN -->
+<div class="slide bg-dark4" id="slide-17">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">16 · Kết Luận</div>
+      <h2>Tổng kết & Hướng phát triển đề tài</h2>
+    </div>
+    <div class="grid-2" style="max-width:1000px; width:100%; gap:32px;">
+      <div>
+        <div class="card blue-border" style="margin-bottom:16px;">
+          <h3 class="blue">⭐ Ưu điểm hệ thống</h3>
+          <p style="font-size:0.8rem; margin-top:6px;">Hệ thống hoạt động ổn định, giao diện mượt mà theo kiến trúc Single Page Application, các phép tính toán công nợ và đồng bộ dữ liệu nhân khẩu chính xác, bảo mật tốt nhờ tích hợp JWT và Spring Security.</p>
+        </div>
+        <div class="card" style="background:rgba(255,255,255,0.03);">
+          <h3 style="font-size:0.9rem;">🚀 Hướng phát triển tương lai</h3>
+          <ul style="font-size:0.78rem; margin-top:6px;">
+            <li>Tích hợp cổng thanh toán trực tuyến thực tế (VNPAY/Momo).</li>
+            <li>Gửi thông báo nhắc nợ tự động qua SMS / Zalo / Email.</li>
+            <li>Xây dựng ứng dụng di động (Mobile App) cho cư dân.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="card green-border" style="display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center;">
+        <span style="font-size:4rem; margin-bottom:16px;">🙏</span>
+        <h2 class="green" style="margin-bottom:12px; font-size:1.8rem;">Xin Cảm Ơn!</h2>
+        <p style="font-size:0.95rem; color:rgba(255,255,255,0.8);">Nhóm 14 xin chân thành cảm ơn Thầy giáo hướng dẫn cùng các bạn đã chú ý lắng nghe!</p>
+        <div style="margin-top:20px; background:rgba(255,255,255,0.05); padding:10px 24px; border-radius:30px; font-size:0.85rem; border:1px solid rgba(255,255,255,0.1);">
+          Q&A — Giải đáp câu hỏi
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<!-- SLIDE CONTROL UI -->
+<div class="nav">
+  <button id="prev-btn">◀ Trước</button>
+  <div class="counter" id="slide-counter">1 / 17</div>
+  <div class="dot-nav" id="dot-nav"></div>
+  <button id="next-btn">Sau ▶</button>
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const counter = document.getElementById('slide-counter');
+  const dotNav = document.getElementById('dot-nav');
+  const prevBtn = document.getElementById('prev-btn');
+  const nextBtn = document.getElementById('next-btn');
+  let currentIdx = 0;
+
+  // Render dots
+  slides.forEach((_, idx) => {
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (idx === 0 ? ' active' : '');
+    dot.addEventListener('click', () => goToSlide(idx));
+    dotNav.appendChild(dot);
+  });
+  const dots = document.querySelectorAll('.dot');
+
+  function updateNav() {
+    counter.textContent = `${currentIdx + 1} / ${slides.length}`;
+    dots.forEach((dot, idx) => {
+      dot.className = 'dot' + (idx === currentIdx ? ' active' : '');
+    });
+  }
+
+  function goToSlide(idx) {
+    if (idx < 0 || idx >= slides.length) return;
+    slides[currentIdx].classList.remove('active');
+    currentIdx = idx;
+    slides[currentIdx].classList.add('active');
+    updateNav();
+  }
+
+  prevBtn.addEventListener('click', () => goToSlide(currentIdx - 1));
+  nextBtn.addEventListener('click', () => goToSlide(currentIdx + 1));
+
+  // Keyboard navigation
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Enter') {
+      goToSlide(currentIdx + 1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'Backspace') {
+      goToSlide(currentIdx - 1);
+    }
+  });
+</script>
+</body>
+</html>
