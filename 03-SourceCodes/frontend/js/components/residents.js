@@ -1641,13 +1641,8 @@ export class ResidentsManager {
               </div>
               <div class="rm-field"><label>Registration date</label><input id="rm-hh-registration" type="date"></div>
               <div class="rm-2">
-<<<<<<< HEAD
-                <div class="rm-field"><label>Motorcycles</label><input id="rm-hh-motos" type="number" min="0" value="0"></div>
-                <div class="rm-field"><label>Cars</label><input id="rm-hh-cars" type="number" min="0" value="0"></div>
-=======
                 <div class="rm-field"><label>Motorcycles</label><input id="rm-hh-motos" type="number" min="0" value="0" disabled style="opacity: 0.7; cursor: not-allowed;"></div>
                 <div class="rm-field"><label>Cars</label><input id="rm-hh-cars" type="number" min="0" value="0" disabled style="opacity: 0.7; cursor: not-allowed;"></div>
->>>>>>> origin/final
               </div>
               <div class="rm-field"><label>Note</label><textarea id="rm-hh-note" rows="3"></textarea></div>
               <div class="rm-actions">
@@ -1705,11 +1700,7 @@ export class ResidentsManager {
             </div>
           </div>
           ${selected.headChangeRequired ? '<div class="rm-alert">Household head is missing or inactive. Choose a new head by Citizen ID.</div>' : ''}
-<<<<<<< HEAD
-          <div class="rm-detail-grid">
-=======
           <div class="rm-detail-grid" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));">
->>>>>>> origin/final
             <div>
               <h3>Apartment Details</h3>
               <p class="rm-muted">Floor ${selected.floor ?? '-'} | ${selected.area ?? 0} m2 | ${selected.motorcycleCount ?? 0} motorcycles | ${selected.carCount ?? 0} cars</p>

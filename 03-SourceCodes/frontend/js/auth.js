@@ -128,7 +128,7 @@ async function syncProfileToResident(previousUser, updatedUser, actor) {
 export class AuthService {
   /**
    * Xử lý đăng nhập của người dùng.
-   * Xác thực tài khoản dựa trên tên đăng nhập và mật khẩu đã băm.
+   * Xác thực tài khoản dựa trên tên đăng nhập và mật khẩu qua backend thật.
    */
   static async login(username, password) {
     if (!username || !password) {
@@ -137,48 +137,21 @@ export class AuthService {
 
     const trimmedUsername = username.trim().toLowerCase();
 
-    try {
-      const res = await fetch('http://localhost:8080/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: trimmedUsername, password })
-      });
+    const res = await fetch('http://localhost:8080/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: trimmedUsername, password })
+    });
 
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(errorText || 'Incorrect username or password!');
-      }
-
-      const sessionUser = await res.json(); // AuthResponse
-
-      // Lưu thông tin phiên đăng nhập hiện tại vào sessionStorage
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionUser));
-
-      return sessionUser;
-    } catch (error) {
-      if (!(error instanceof TypeError)) {
-        throw error;
-      }
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(errorText || 'Incorrect username or password!');
     }
 
-    const user = await ApartmentDB.getUserByUsername(trimmedUsername);
-    if (!user) {
-      throw new Error('Incorrect username or password!');
-    }
-
-    const enteredHash = await hashPassword(password);
-    if (enteredHash !== user.passwordHash) {
-      throw new Error('Incorrect username or password!');
-    }
-
-    // Tạo thông tin Session an toàn để lưu vào bộ nhớ trình duyệt
-    const sessionUser = toSessionUser(user);
+    const sessionUser = await res.json(); // AuthResponse
 
     // Lưu thông tin phiên đăng nhập hiện tại vào sessionStorage
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionUser));
-
-    // Ghi nhận nhật ký hệ thống
-    await ApartmentDB.addLog(user.username, 'Logged in successfully', 'success');
 
     return sessionUser;
   }
@@ -213,7 +186,6 @@ export class AuthService {
 
   /**
    * Đăng ký tài khoản cư dân mới từ màn hình public.
-   * Tự động kiểm tra trùng lặp tên đăng nhập thông qua API.
    */
   static async register(username, email, fullname, room, phone, identityNo, password, adminSecret = '', role = 'user') {
     if (!username || !email || !fullname || !identityNo || !password) {
@@ -228,48 +200,32 @@ export class AuthService {
       throw new Error('Password must be at least 6 characters long!');
     }
 
-    try {
-      const res = await fetch('http://localhost:8080/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, fullname, room, phone, identityNo, password, adminSecret, role })
-      });
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(errorText || 'Registration failed!');
-      }
-
-      return true;
-    } catch (error) {
-      if (!(error instanceof TypeError)) {
-        throw error;
-      }
-    }
-
-    const newUser = await ApartmentDB.createUser({
-      username,
-      email,
-      fullname,
-      room,
-      phone,
-      identityNo,
-      password,
-      role,
-      creator: username // Người tạo chính là bản thân cư dân đăng ký
+    const res = await fetch('http://localhost:8080/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, email, fullname, room, phone, identityNo, password, adminSecret, role })
     });
 
-    // Sau khi đăng ký thành công, tự động thiết lập phiên đăng nhập cho cư dân này
-    const sessionUser = toSessionUser(newUser);
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionUser));
-    await ApartmentDB.addLog(newUser.username, 'Registered successfully', 'success');
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(errorText || 'Registration failed!');
+    }
 
-    return sessionUser;
+    try {
+      const sessionUser = await res.json(); // If automatically approved
+      if (sessionUser && sessionUser.token) {
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionUser));
+        return sessionUser;
+      }
+    } catch (e) {
+      // Not JSON or no token, means pending approval
+    }
+
+    return null;
   }
 
   /**
    * Đổi mật khẩu cho tài khoản cư dân hiện tại đang đăng nhập.
-   * Thực hiện đối chiếu mật khẩu cũ và xác thực độ mạnh mật khẩu mới.
    */
   static async changePassword(oldPassword, newPassword) {
     const currentUser = this.getCurrentUser();
@@ -289,7 +245,7 @@ export class AuthService {
       throw new Error('New password cannot be the same as the old password!');
     }
 
-    const tokenStr = sessionStorage.getItem('apartment_mgmt_session');
+    const tokenStr = sessionStorage.getItem(SESSION_KEY);
     let token = null;
     if (tokenStr) {
       try {
@@ -299,41 +255,24 @@ export class AuthService {
       } catch (e) { }
     }
 
-    if (token) {
-      try {
-        const res = await fetch('http://localhost:8080/api/auth/change-password', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ currentPassword: oldPassword, newPassword })
-        });
-
-        if (!res.ok) {
-          const err = await res.text();
-          throw new Error(err || 'Failed to change password');
-        }
-
-        return true;
-      } catch (error) {
-        if (!(error instanceof TypeError)) {
-          throw error;
-        }
-      }
+    if (!token) {
+      throw new Error('Authentication token is missing. Please log in again.');
     }
 
-    const dbUser = await ApartmentDB.getUserByUsername(currentUser.username);
-    if (!dbUser) {
-      throw new Error('User not found!');
+    const res = await fetch('http://localhost:8080/api/auth/change-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ currentPassword: oldPassword, newPassword })
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(err || 'Failed to change password');
     }
 
-    const oldHash = await hashPassword(oldPassword);
-    if (oldHash !== dbUser.passwordHash) {
-      throw new Error('Current password is incorrect!');
-    }
-
-    await ApartmentDB.changePassword(currentUser.username, newPassword, currentUser.username);
     return true;
   }
 
@@ -360,42 +299,36 @@ export class AuthService {
       } catch (e) { }
     }
 
-    if (token) {
-      try {
-        const res = await fetch('http://localhost:8080/api/auth/profile', {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(details)
-        });
-
-        if (!res.ok) {
-          const err = await res.text();
-          throw new Error(err || 'Failed to update profile details');
-        }
-
-        const updatedUser = await res.json();
-        const updatedSession = {
-          ...currentUser,
-          ...toSessionUser({ ...currentUser, ...updatedUser })
-        };
-        sessionStorage.setItem(SESSION_KEY, JSON.stringify(updatedSession));
-
-        return updatedSession;
-      } catch (error) {
-        if (!(error instanceof TypeError)) {
-          throw error;
-        }
-      }
+    if (!token) {
+      throw new Error('Authentication token is missing. Please log in again.');
     }
 
-    const previousUser = await ApartmentDB.getUserByUsername(currentUser.username);
-    const updatedUser = await ApartmentDB.updateProfile(currentUser.username, details, currentUser.username);
-    await syncProfileToResident(previousUser, updatedUser, currentUser.username);
-    const updatedSession = toSessionUser(updatedUser);
+    const res = await fetch('http://localhost:8080/api/auth/profile', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(details)
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(err || 'Failed to update profile details');
+    }
+
+    const updatedUser = await res.json();
+    const updatedSession = {
+      ...currentUser,
+      ...updatedUser,
+      token: token // Keep the token
+    };
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(updatedSession));
+
+    // Sync profile to Resident on backend if possible
+    try {
+      await syncProfileToResident(currentUser, updatedSession, currentUser.username);
+    } catch (e) {}
 
     return updatedSession;
   }
@@ -416,29 +349,23 @@ export class AuthService {
       } catch (e) { }
     }
 
-    if (token) {
-      try {
-        const res = await fetch('http://localhost:8080/api/auth/profile', {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (!res.ok) {
-          const err = await res.text();
-          throw new Error(err || 'Failed to fetch profile details');
-        }
-
-        return await res.json();
-      } catch (error) {
-        if (!(error instanceof TypeError)) {
-          throw error;
-        }
-      }
+    if (!token) {
+      return currentUser;
     }
 
-    return currentUser;
+    const res = await fetch('http://localhost:8080/api/auth/profile', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(err || 'Failed to fetch profile details');
+    }
+
+    return await res.json();
   }
 
   static async requestPasswordReset(email) {

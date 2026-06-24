@@ -223,8 +223,33 @@ CREATE TABLE IF NOT EXISTS payment_proof (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
+-- 6C. USER (Tài khoản người dùng)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS user (
+    username        VARCHAR(50)    PRIMARY KEY,
+    password_hash   VARCHAR(255)   NOT NULL,
+    email           VARCHAR(100)   NOT NULL UNIQUE,
+    fullname        VARCHAR(255)   NOT NULL,
+    room            VARCHAR(50)    NULL,
+    phone           VARCHAR(30)    NULL,
+    identity_no     VARCHAR(30)    NOT NULL UNIQUE,
+    role            ENUM('ROLE_USER', 'ROLE_ADMIN', 'ROLE_ACCOUNTANT') NOT NULL DEFAULT 'ROLE_USER',
+    status          ENUM('PENDING', 'APPROVED', 'LOCKED') NOT NULL DEFAULT 'PENDING',
+    failed_attempts INT            DEFAULT 0,
+    lock_time       DATETIME       NULL,
+    otp_code        VARCHAR(10)    NULL,
+    otp_expiry      DATETIME       NULL,
+    created_at      DATETIME       DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
 -- DỮ LIỆU MẪU (để test)
 -- ============================================================
+
+INSERT IGNORE INTO user (username, password_hash, email, fullname, room, phone, identity_no, role, status) VALUES
+('admin', '$2a$10$wYp7Bf3a5q17wYp7Bf3a5uxUf9KbeG4j7tN9z/4b82d9vKBeG4j7t', 'admin@cyberspace.vn', 'System Admin', NULL, '0987654321', '001085000111', 'ROLE_ADMIN', 'APPROVED'),
+('accountant', '$2a$10$wYp7Bf3a5q17wYp7Bf3a5uxUf9KbeG4j7tN9z/4b82d9vKBeG4j7t', 'accountant@cyberspace.vn', 'Accountant Rep', NULL, '0911222333', '031079000333', 'ROLE_ACCOUNTANT', 'APPROVED'),
+('resident1', '$2a$10$wYp7Bf3a5q17wYp7Bf3a5uxUf9KbeG4j7tN9z/4b82d9vKBeG4j7t', 'resident1@cyberspace.vn', 'Nguyen Van An', 'HH001', '0987654321', '001085000222', 'ROLE_USER', 'APPROVED');
 
 -- Hộ gia đình mẫu
 INSERT IGNORE INTO household

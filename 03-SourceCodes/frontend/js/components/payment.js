@@ -462,26 +462,6 @@ export class PaymentView {
             <button class="pv-xbtn" data-pvclose="pv-ov-pay">&times;</button>
           </div>
           <div class="pv-mb">
-<<<<<<< HEAD
-            <div id="pv-pay-qr-container" style="text-align:center; margin-bottom:16px; display:none;">
-              <h4 style="font-size:12px; margin-bottom:8px; color:var(--text-secondary);">Scan QR to pay automatically</h4>
-              <img id="pv-pay-qr-img" src="" alt="VietQR" style="max-width:200px; border:2px solid var(--border-glass); border-radius:12px;" />
-            </div>
-            <div class="pv-receipt-box" id="pv-pay-m-info" style="margin-bottom:16px;"></div>
-            <div class="pv-form">
-              <input type="hidden" id="pv-pay-m-afid">
-              <div class="pv-field">
-                <label>Amount Paid (VND)</label>
-                <input type="number" id="pv-pay-m-amount" min="0" placeholder="Automatically calculated if left blank">
-              </div>
-              <div class="pv-field">
-                <label>Payer Representative (Người nộp tiền)</label>
-                <input type="text" id="pv-pay-m-payer" placeholder="e.g. John Doe">
-              </div>
-              <div class="pv-field">
-                <label>Note (Optional)</label>
-                <textarea id="pv-pay-m-note" rows="2" placeholder="e.g. Bank Transfer, Cash..."></textarea>
-=======
             <div id="pv-pay-m-admin-form" style="display:block;">
               <div class="pv-receipt-box" id="pv-pay-m-info" style="margin-bottom:16px;"></div>
               <div class="pv-form">
@@ -508,7 +488,6 @@ export class PaymentView {
               <div style="display:flex; gap:8px; background:var(--bg-tertiary); border-radius:12px; padding:4px; margin-bottom:16px; border:1px solid var(--border-glass);">
                 <button type="button" id="pv-tab-qr" class="pv-btn active" style="flex:1; border:none; padding:8px; border-radius:8px; font-weight:600; cursor:pointer; background:var(--color-primary); color:#fff; transition:var(--transition-fast);">Chuyển khoản QR</button>
                 <button type="button" id="pv-tab-card" class="pv-btn" style="flex:1; border:none; padding:8px; border-radius:8px; font-weight:600; cursor:pointer; background:transparent; color:var(--text-secondary); transition:var(--transition-fast);">Thẻ quốc tế (Mock)</button>
->>>>>>> origin/final
               </div>
 
               <!-- Content QR -->
