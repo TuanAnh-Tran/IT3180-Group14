@@ -1,8 +1,4 @@
-/**
- * Residents Management module.
- * Uses the Spring Boot API when available and falls back to localStorage for
- * static-demo mode.
- */
+import { API } from '../api.js';
 
 const API_ROOT = window.RESIDENTS_API_ROOT || 'http://localhost:8080/api/residents';
 const STORE_KEY = 'residents_manager_v2_en';
@@ -13,17 +9,23 @@ const RESIDENT_STATUSES = ['PERMANENT', 'TEMPORARY', 'TEMPORARILY_AWAY', 'MOVED_
 const GENDERS = ['Male', 'Female', 'Other'];
 
 const state = {
-  apiMode: false,
+  apiMode: true,
   activeTab: 'households',
   selectedHouseholdId: null,
   editingHouseholdId: null,
   editingResidentId: null,
+  editingVehicleId: null, // ID xe đang sửa đổi
   householdsPage: 0,
   residentsPage: 0,
+  vehiclesPage: 0, // Trang xe hiện tại
   householdsSize: 8,
   residentsSize: 8,
+  vehiclesSize: 8, // Số lượng xe mỗi trang
   householdsSearch: '',
   residentsSearch: '',
+  vehiclesSearchPlate: '', // Tìm kiếm theo biển số xe
+  vehiclesSearchType: 'ALL', // Bộ lọc loại xe
+  vehiclesSearchHouseholdId: '', // Bộ lọc hộ gia đình
   householdStatus: 'ALL',
   residentStatus: 'ALL',
   residentGender: '',
@@ -33,10 +35,14 @@ const state = {
   stats: null,
   households: [],
   residents: [],
+  vehicles: [], // Danh sách xe cộ
   householdPageData: emptyPage(),
   residentPageData: emptyPage(),
+  vehiclePageData: emptyPage(), // Phân trang dữ liệu xe cộ
   searchResults: [],
-  activityLogs: []
+  activityLogs: [],
+  allHouseholdsForSelect: [],
+  allResidentsForSelect: []
 };
 
 function emptyPage() {
@@ -200,13 +206,34 @@ function seedStore() {
     }
   ];
 
-  return { households, residents, activityLogs: [] };
+  return {
+    households,
+    residents,
+    vehicles: [
+      { id: 'VEH-001', plateNumber: '29A-12345', type: 'MOTORCYCLE', ownerName: 'Nguyen Van An', registrationDate: '2024-01-10', householdId: 'HH-A1201' },
+      { id: 'VEH-002', plateNumber: '29A-67890', type: 'MOTORCYCLE', ownerName: 'Le Thu Ha', registrationDate: '2024-02-15', householdId: 'HH-A1201' },
+      { id: 'VEH-003', plateNumber: '30B-99999', type: 'MOTORCYCLE', ownerName: 'Tran Thi Binh', registrationDate: '2024-03-01', householdId: 'HH-B0805' },
+      { id: 'VEH-004', plateNumber: '30A-88888', type: 'CAR', ownerName: 'Tran Thi Binh', registrationDate: '2024-03-20', householdId: 'HH-B0805' }
+    ],
+    activityLogs: []
+  };
 }
 
 function loadStore() {
   try {
     const parsed = JSON.parse(localStorage.getItem(STORE_KEY));
-    if (parsed?.households && parsed?.residents) return parsed;
+    if (parsed?.households && parsed?.residents) {
+      if (!parsed.vehicles) {
+        parsed.vehicles = [
+          { id: 'VEH-001', plateNumber: '29A-12345', type: 'MOTORCYCLE', ownerName: 'Nguyen Van An', registrationDate: '2024-01-10', householdId: 'HH-A1201' },
+          { id: 'VEH-002', plateNumber: '29A-67890', type: 'MOTORCYCLE', ownerName: 'Le Thu Ha', registrationDate: '2024-02-15', householdId: 'HH-A1201' },
+          { id: 'VEH-003', plateNumber: '30B-99999', type: 'MOTORCYCLE', ownerName: 'Tran Thi Binh', registrationDate: '2024-03-01', householdId: 'HH-B0805' },
+          { id: 'VEH-004', plateNumber: '30A-88888', type: 'CAR', ownerName: 'Tran Thi Binh', registrationDate: '2024-03-20', householdId: 'HH-B0805' }
+        ];
+        localStorage.setItem(STORE_KEY, JSON.stringify(parsed));
+      }
+      return parsed;
+    }
   } catch {
     // Fall through to seed.
   }
@@ -216,17 +243,44 @@ function loadStore() {
 }
 
 function saveStore(store) {
+  store.vehicles = store.vehicles || [];
+  syncHouseholdVehicleCounts(store);
   syncMemberCounts(store);
   localStorage.setItem(STORE_KEY, JSON.stringify(store));
   syncSmartFeeHouseholds(store.households);
 }
 
+function syncHouseholdVehicleCounts(store) {
+  store.vehicles = store.vehicles || [];
+  store.households = store.households.map(h => {
+    const householdVehicles = store.vehicles.filter(v => v.householdId === h.id);
+    return {
+      ...h,
+      motorcycleCount: householdVehicles.filter(v => v.type === 'MOTORCYCLE').length,
+      carCount: householdVehicles.filter(v => v.type === 'CAR').length
+    };
+  });
+}
 function syncMemberCounts(store) {
   store.households = store.households.map(h => ({
     ...h,
     memberCount: store.residents.filter(r => r.householdId === h.id && isActiveResident(r)).length,
     activeMemberCount: store.residents.filter(r => r.householdId === h.id && isActiveResident(r)).length
   }));
+}
+
+function bmSeedData() {
+  households = [
+    { id: 'hh_1', code: 'HH-A1201', apartmentNo: 'A1201', floor: 12, area: 72.5, headName: 'Michael Scott', phone: '0912345678', status: 'Occupied', note: 'Completed permanent residence registration.', members: ['rs_1', 'rs_2'] },
+    { id: 'hh_2', code: 'HH-B0805', apartmentNo: 'B0805', floor: 8, area: 65, headName: 'Jim Halpert', phone: '0987654321', status: 'Occupied', note: 'One temporary resident.', members: ['rs_3', 'rs_4'] },
+  ];
+  residents = [
+    { id: 'rs_1', fullName: 'Michael Scott', gender: 'Male', dob: '1985-04-12', identityNo: '001085000111', phone: '0912345678', hometown: 'Scranton', occupation: 'Manager', status: 'Permanent resident', householdId: 'hh_1' },
+    { id: 'rs_2', fullName: 'Pam Beesly', gender: 'Female', dob: '1988-08-20', identityNo: '001188000222', phone: '0977000111', hometown: 'Scranton', occupation: 'Receptionist', status: 'Permanent resident', householdId: 'hh_1' },
+    { id: 'rs_3', fullName: 'Jim Halpert', gender: 'Male', dob: '1979-01-15', identityNo: '031079000333', phone: '0987654321', hometown: 'Philadelphia', occupation: 'Sales', status: 'Permanent resident', householdId: 'hh_2' },
+    { id: 'rs_4', fullName: 'Dwight Schrute', gender: 'Male', dob: '1998-11-02', identityNo: '022098000444', phone: '0909090909', hometown: 'Scranton', occupation: 'Assistant Manager', status: 'Temporary resident', householdId: 'hh_2' },
+  ];
+  selectedHouseholdId = null;
 }
 
 function syncSmartFeeHouseholds(households) {
@@ -335,8 +389,23 @@ function appendQuery(url, params) {
 }
 
 async function apiJson(path, options = {}) {
+  // Include JWT token if available
+  const tokenStr = sessionStorage.getItem('apartment_mgmt_session');
+  let token = null;
+  if (tokenStr) {
+    try {
+      const sessionObj = JSON.parse(tokenStr);
+      token = sessionObj.token || sessionObj;
+      if (typeof token === 'object') token = token.token;
+    } catch (e) { }
+  }
+
   const response = await fetch(`${API_ROOT}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    headers: { 
+      'Content-Type': 'application/json', 
+      ...(options.headers || {}),
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    },
     ...options
   });
   if (!response.ok) {
@@ -362,10 +431,8 @@ async function tryApi(path, options) {
     state.apiMode = true;
     return result;
   } catch (error) {
-    if (error instanceof TypeError) {
-      state.apiMode = false;
-      return null;
-    }
+    console.error("API error:", error);
+    state.apiMode = true;
     throw error;
   }
 }
@@ -902,6 +969,134 @@ const DataService = {
     link.download = `${kind}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
+  },
+
+  async loadVehicles() {
+    try {
+      const apiVehiclesPage = await API.searchVehicles(
+        state.vehiclesSearchPlate,
+        state.vehiclesSearchType,
+        state.vehiclesSearchHouseholdId,
+        state.vehiclesPage,
+        state.vehiclesSize
+      );
+      if (apiVehiclesPage) {
+        return apiVehiclesPage;
+      }
+    } catch (e) {
+      console.warn("Backend vehicles API is offline, using LocalStorage:", e.message);
+    }
+
+    const store = loadStore();
+    store.vehicles = store.vehicles || [];
+    const filtered = store.vehicles.filter(v => {
+      const plateOk = !state.vehiclesSearchPlate || norm(v.plateNumber).includes(norm(state.vehiclesSearchPlate));
+      const typeOk = state.vehiclesSearchType === 'ALL' || v.type === state.vehiclesSearchType;
+      const hhOk = !state.vehiclesSearchHouseholdId || v.householdId === state.vehiclesSearchHouseholdId;
+      return plateOk && typeOk && hhOk;
+    });
+
+    filtered.sort((a, b) => a.plateNumber.localeCompare(b.plateNumber));
+
+    const page = makePage(filtered, state.vehiclesPage, state.vehiclesSize);
+    page.content = page.content.map(v => {
+      const hh = store.households.find(h => h.id === v.householdId);
+      return {
+        ...v,
+        apartmentNo: hh?.apartmentNo || v.householdId,
+        ownerName: v.ownerName || hh?.headName || ''
+      };
+    });
+    return page;
+  },
+
+  async getVehiclesByHousehold(householdId) {
+    if (!householdId) return [];
+    try {
+      const list = await API.getVehiclesByHousehold(householdId);
+      if (list) return list;
+    } catch (e) {
+      console.warn("Backend vehicles API by household is offline:", e.message);
+    }
+    const store = loadStore();
+    store.vehicles = store.vehicles || [];
+    return store.vehicles
+      .filter(v => v.householdId === householdId)
+      .map(v => {
+        const hh = store.households.find(h => h.id === v.householdId);
+        return {
+          ...v,
+          apartmentNo: hh?.apartmentNo || v.householdId
+        };
+      });
+  },
+
+  async getVehicle(id) {
+    if (!id) return null;
+    const store = loadStore();
+    return (store.vehicles || []).find(v => v.id === id);
+  },
+
+  async saveVehicle(payload, actor) {
+    let savedApiDto = null;
+    let backendOnline = false;
+    try {
+      savedApiDto = await API.saveVehicle(payload);
+      backendOnline = true;
+    } catch (e) {
+      console.warn("Failed to save vehicle to backend, falling back to LocalStorage:", e.message);
+      if (e.message && (e.message.includes("đã được đăng ký") || e.message.includes("Không tìm thấy hộ gia đình") || e.message.includes("Biển số xe"))) {
+        throw e;
+      }
+    }
+
+    const store = loadStore();
+    store.vehicles = store.vehicles || [];
+    const isEdit = Boolean(payload.id);
+    const id = payload.id || `VEH-${Date.now().toString(36).toUpperCase()}`;
+
+    if (!backendOnline) {
+      const exists = store.vehicles.some(v => norm(v.plateNumber) === norm(payload.plateNumber) && v.id !== id);
+      if (exists) {
+        throw new Error(`Biển số xe "${payload.plateNumber}" đã được đăng ký trong hệ thống.`);
+      }
+    }
+
+    const next = {
+      id,
+      plateNumber: payload.plateNumber.toUpperCase().trim(),
+      type: payload.type.toUpperCase(),
+      ownerName: payload.ownerName,
+      registrationDate: payload.registrationDate || new Date().toISOString().split('T')[0],
+      householdId: payload.householdId
+    };
+
+    const index = store.vehicles.findIndex(v => v.id === id);
+    if (index >= 0) store.vehicles[index] = next;
+    else store.vehicles.push(next);
+
+    localLog(store, isEdit ? 'UPDATE' : 'CREATE', 'VEHICLE', id, `${isEdit ? 'Updated' : 'Registered'} vehicle ${next.plateNumber} for household ${next.householdId}`);
+    saveStore(store);
+
+    return savedApiDto || next;
+  },
+
+  async deleteVehicle(id, actor) {
+    try {
+      await API.deleteVehicle(id);
+    } catch (e) {
+      console.warn("Failed to delete vehicle on backend, falling back to LocalStorage:", e.message);
+    }
+
+    const store = loadStore();
+    store.vehicles = store.vehicles || [];
+    const vehicle = store.vehicles.find(v => v.id === id);
+    if (vehicle) {
+      store.vehicles = store.vehicles.filter(v => v.id !== id);
+      localLog(store, 'DELETE', 'VEHICLE', id, `Deleted vehicle ${vehicle.plateNumber}`);
+      saveStore(store);
+    }
+    return true;
   }
 };
 
@@ -995,7 +1190,13 @@ function fillHouseholdForm(container, household) {
   container.querySelector('#rm-hh-status').value = household?.status || 'OCCUPIED';
   container.querySelector('#rm-hh-note').value = household?.note || '';
   container.querySelector('#rm-hh-motos').value = household?.motorcycleCount ?? 0;
+  container.querySelector('#rm-hh-motos').disabled = true;
+  container.querySelector('#rm-hh-motos').style.opacity = '0.7';
+  container.querySelector('#rm-hh-motos').style.cursor = 'not-allowed';
   container.querySelector('#rm-hh-cars').value = household?.carCount ?? 0;
+  container.querySelector('#rm-hh-cars').disabled = true;
+  container.querySelector('#rm-hh-cars').style.opacity = '0.7';
+  container.querySelector('#rm-hh-cars').style.cursor = 'not-allowed';
 }
 
 function fillResidentForm(container, resident) {
@@ -1022,24 +1223,76 @@ function fillResidentForm(container, resident) {
   container.querySelector('#rm-res-household').value = resident?.householdId || '';
 }
 
+function fillVehicleForm(container, vehicle) {
+  state.editingVehicleId = vehicle?.id || null;
+  const form = container.querySelector('#rm-vh-form');
+  if (!form) return;
+  container.querySelector('#rm-vh-title').textContent = vehicle ? 'Update Vehicle' : 'Register Vehicle';
+  container.querySelector('#rm-vh-plate').value = vehicle?.plateNumber || '';
+  container.querySelector('#rm-vh-type').value = vehicle?.type || 'MOTORCYCLE';
+  container.querySelector('#rm-vh-owner').value = vehicle?.ownerName || '';
+  
+  const regDateInput = container.querySelector('#rm-vh-regdate');
+  if (regDateInput) {
+    regDateInput.value = vehicle?.registrationDate || new Date().toISOString().split('T')[0];
+  }
+  
+  container.querySelector('#rm-vh-household').value = vehicle?.householdId || '';
+}
+
+function readVehicleForm(container) {
+  return {
+    id: state.editingVehicleId || null,
+    plateNumber: container.querySelector('#rm-vh-plate').value.trim(),
+    type: container.querySelector('#rm-vh-type').value,
+    ownerName: container.querySelector('#rm-vh-owner').value.trim(),
+    registrationDate: container.querySelector('#rm-vh-regdate').value,
+    householdId: container.querySelector('#rm-vh-household').value
+  };
+}
+
 export class ResidentsManager {
   static async render(container, currentUser, showToast) {
-    if (currentUser && currentUser.role !== 'admin') {
+    if (currentUser && currentUser.role !== 'admin' && currentUser.role !== 'accountant') {
       container.innerHTML = '<div class="rm-empty">Loading household info...</div>';
       try {
         let household = null;
         let members = [];
-        const roomCode = currentUser.room ? (currentUser.room.startsWith('HH-') ? currentUser.room : 'HH-' + currentUser.room) : '';
-        if (roomCode) {
-          household = await DataService.getHousehold(roomCode);
-        }
-        if (!household && currentUser.identityNo) {
-          const resPage = await DataService.loadResidents();
-          const resident = resPage.content.find(r => r.identityNo === currentUser.identityNo);
-          if (resident && resident.householdId) {
-            household = await DataService.getHousehold(resident.householdId);
+        
+        let roomCode = '';
+        if (currentUser.room) {
+          let r = currentUser.room.trim().toUpperCase().replace('-', '');
+          if (r.startsWith('HH')) {
+            roomCode = r;
+          } else if (/^\d+$/.test(r)) {
+            roomCode = 'HH' + r.padStart(3, '0');
+          } else {
+            roomCode = 'HH' + r;
           }
         }
+
+        if (roomCode) {
+          try {
+            household = await DataService.getHousehold(roomCode);
+          } catch (e) {
+            console.warn("Household lookup by roomCode failed, trying fallback:", e);
+          }
+        }
+
+        if (!household && currentUser.identityNo) {
+          try {
+            const resPage = await DataService.loadResidents();
+            if (resPage && resPage.content) {
+              const resident = resPage.content.find(r => r.identityNo === currentUser.identityNo);
+              if (resident && resident.householdId) {
+                household = await DataService.getHousehold(resident.householdId);
+              }
+            }
+          } catch (e) {
+            console.warn("Household lookup by identityNo failed:", e);
+          }
+        }
+
         if (household) {
           members = household.members || [];
           container.innerHTML = `
@@ -1263,11 +1516,13 @@ export class ResidentsManager {
         <div class="rm-tabs">
           <button class="rm-tab active" data-tab="households">Households</button>
           <button class="rm-tab" data-tab="residents">Residents</button>
+          <button class="rm-tab" data-tab="vehicles">Vehicles</button>
           <button class="rm-tab" data-tab="search">Search</button>
           <button class="rm-tab" data-tab="activity">Activity</button>
         </div>
         <div class="rm-panel active" id="rm-panel-households"></div>
         <div class="rm-panel" id="rm-panel-residents"></div>
+        <div class="rm-panel" id="rm-panel-vehicles"></div>
         <div class="rm-panel" id="rm-panel-search"></div>
         <div class="rm-panel" id="rm-panel-activity"></div>
       </div>
@@ -1287,8 +1542,23 @@ export class ResidentsManager {
         state.householdPageData = await DataService.loadHouseholds();
         state.residentPageData = await DataService.loadResidents();
         state.households = state.householdPageData.content || [];
-        const localStore = loadStore();
-        state.residents = state.apiMode ? (state.residentPageData.content || []) : localStore.residents.map(r => enrichResident(r, localStore.households));
+        state.residents = state.residentPageData.content || [];
+        
+        if (state.apiMode) {
+          try {
+            const allHhData = await apiJson('/households?page=0&size=1000');
+            state.allHouseholdsForSelect = allHhData.content || [];
+            const allResData = await apiJson('/residents?page=0&size=1000');
+            state.allResidentsForSelect = allResData.content || [];
+          } catch (e) {
+            console.warn("Failed to prefetch dropdown data:", e);
+          }
+        }
+        
+        // Tải danh sách xe cộ
+        state.vehiclePageData = await DataService.loadVehicles();
+        state.vehicles = state.vehiclePageData.content || [];
+
         state.searchResults = await DataService.globalSearch();
         state.activityLogs = await DataService.loadActivity();
         renderAll();
@@ -1314,8 +1584,7 @@ export class ResidentsManager {
     };
 
     const householdOptions = (selected = '') => {
-      const store = state.apiMode ? { households: state.households } : loadStore();
-      const allHouseholds = state.apiMode ? [...state.households] : store.households;
+      const allHouseholds = state.apiMode ? state.allHouseholdsForSelect : loadStore().households;
       return `<option value="">No household</option>` + allHouseholds
         .map(h => `<option value="${esc(h.id)}" ${h.id === selected ? 'selected' : ''}>${esc(h.apartmentNo || h.id)} - ${esc(h.headName || h.ownerName || '')}</option>`)
         .join('');
@@ -1325,6 +1594,7 @@ export class ResidentsManager {
       const panel = container.querySelector('#rm-panel-households');
       const page = state.householdPageData || emptyPage();
       const selected = await DataService.getHousehold(state.selectedHouseholdId);
+      const householdVehicles = selected ? await DataService.getVehiclesByHousehold(selected.id) : [];
       const rows = page.content?.map(h => `
         <tr>
           <td><strong>${esc(h.id)}</strong><br><span class="rm-muted">${esc(h.apartmentNo || '-')}</span></td>
@@ -1371,8 +1641,13 @@ export class ResidentsManager {
               </div>
               <div class="rm-field"><label>Registration date</label><input id="rm-hh-registration" type="date"></div>
               <div class="rm-2">
+<<<<<<< HEAD
                 <div class="rm-field"><label>Motorcycles</label><input id="rm-hh-motos" type="number" min="0" value="0"></div>
                 <div class="rm-field"><label>Cars</label><input id="rm-hh-cars" type="number" min="0" value="0"></div>
+=======
+                <div class="rm-field"><label>Motorcycles</label><input id="rm-hh-motos" type="number" min="0" value="0" disabled style="opacity: 0.7; cursor: not-allowed;"></div>
+                <div class="rm-field"><label>Cars</label><input id="rm-hh-cars" type="number" min="0" value="0" disabled style="opacity: 0.7; cursor: not-allowed;"></div>
+>>>>>>> origin/final
               </div>
               <div class="rm-field"><label>Note</label><textarea id="rm-hh-note" rows="3"></textarea></div>
               <div class="rm-actions">
@@ -1401,18 +1676,20 @@ export class ResidentsManager {
             ${renderPager(page, 'households')}
           </div>
         </div>
-        ${renderHouseholdDetail(selected)}
+        ${renderHouseholdDetail(selected, householdVehicles)}
       `;
       fillHouseholdForm(panel, null);
     };
 
-    const renderHouseholdDetail = selected => {
+    const renderHouseholdDetail = (selected, householdVehicles = []) => {
       if (!selected) {
         return `<div class="rm-card rm-empty">Select a household to review members and apartment details.</div>`;
       }
       const members = selected.members || [];
       const store = loadStore();
-      const available = (state.apiMode ? [] : store.residents.filter(r => r.householdId !== selected.id));
+      const available = state.apiMode 
+        ? (state.allResidentsForSelect || []).filter(r => r.householdId !== selected.id)
+        : store.residents.filter(r => r.householdId !== selected.id);
       return `
         <div class="rm-card">
           <div class="rm-toolbar">
@@ -1428,7 +1705,11 @@ export class ResidentsManager {
             </div>
           </div>
           ${selected.headChangeRequired ? '<div class="rm-alert">Household head is missing or inactive. Choose a new head by Citizen ID.</div>' : ''}
+<<<<<<< HEAD
           <div class="rm-detail-grid">
+=======
+          <div class="rm-detail-grid" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));">
+>>>>>>> origin/final
             <div>
               <h3>Apartment Details</h3>
               <p class="rm-muted">Floor ${selected.floor ?? '-'} | ${selected.area ?? 0} m2 | ${selected.motorcycleCount ?? 0} motorcycles | ${selected.carCount ?? 0} cars</p>
@@ -1436,19 +1717,17 @@ export class ResidentsManager {
               <p class="rm-muted">Registration date: ${formatDate(selected.registrationDate)} | Head CCCD: ${esc(selected.headIdentityNo || '-')}</p>
               ${selected.previousOwnerName ? `<p class="rm-muted">Previous owner: ${esc(selected.previousOwnerName)} | ${formatDate(selected.ownershipTransferredAt)}</p>` : ''}
               <p class="rm-muted">${esc(selected.note || '')}</p>
-              ${!state.apiMode ? `
-                <div class="rm-actions" style="margin-top:12px;">
-                  <select class="rm-select" id="rm-add-member-select">
-                    <option value="">Add existing resident</option>
-                    ${available.map(r => `<option value="${esc(r.id)}">${esc(r.fullName)} - ${esc(r.identityNo)}</option>`).join('')}
-                  </select>
-                  <button class="rm-btn pri" data-action="add-member" data-id="${esc(selected.id)}">Add</button>
-                </div>
-              ` : ''}
+              <div class="rm-actions" style="margin-top:12px;">
+                <select class="rm-select" id="rm-add-member-select" style="max-width:200px;">
+                  <option value="">Add existing resident</option>
+                  ${available.map(r => `<option value="${esc(r.id)}">${esc(r.fullName)} - ${esc(r.identityNo)}</option>`).join('')}
+                </select>
+                <button class="rm-btn pri" data-action="add-member" data-id="${esc(selected.id)}">Add</button>
+              </div>
             </div>
             <div>
-              <h3>Members</h3>
-              <div class="rm-member-grid">
+              <h3>Members (${members.length})</h3>
+              <div class="rm-member-grid" style="grid-template-columns: 1fr;">
                 ${members.length ? members.map(member => `
                   <div class="rm-member">
                     <h4>${esc(member.fullName)}</h4>
@@ -1463,6 +1742,26 @@ export class ResidentsManager {
                     </div>
                   </div>
                 `).join('') : '<div class="rm-empty">No members assigned.</div>'}
+              </div>
+            </div>
+            <div>
+              <h3>Registered Vehicles (${householdVehicles.length})</h3>
+              <div class="rm-member-grid" style="grid-template-columns: 1fr;">
+                ${householdVehicles.length ? householdVehicles.map(v => `
+                  <div class="rm-member">
+                    <h4>${esc(v.plateNumber)}</h4>
+                    <p>Type: <strong>${esc(v.type === 'CAR' ? 'Car' : 'Motorcycle')}</strong></p>
+                    <p>Owner: <strong>${esc(v.ownerName || '-')}</strong></p>
+                    <p>Reg Date: <strong>${formatDate(v.registrationDate)}</strong></p>
+                    <div class="rm-actions" style="margin-top:8px;">
+                      <button class="rm-btn sec" data-action="edit-vehicle" data-id="${esc(v.id)}">Edit</button>
+                      <button class="rm-btn dan" data-action="delete-vehicle" data-id="${esc(v.id)}">Delete</button>
+                    </div>
+                  </div>
+                `).join('') : '<div class="rm-empty">No vehicles registered.</div>'}
+                <div style="margin-top:12px;">
+                  <button class="rm-btn pri" style="width:100%;" data-action="add-vehicle-quick" data-household="${esc(selected.id)}">+ Register Vehicle</button>
+                </div>
               </div>
             </div>
           </div>
@@ -1562,6 +1861,82 @@ export class ResidentsManager {
       fillResidentForm(panel, null);
     };
 
+    const renderVehicles = async () => {
+      const panel = container.querySelector('#rm-panel-vehicles');
+      const page = state.vehiclePageData || emptyPage();
+      const rows = page.content?.map(v => `
+        <tr>
+          <td><strong>${esc(v.plateNumber)}</strong></td>
+          <td>${esc(v.type === 'CAR' ? 'Car (Ô tô)' : 'Motorcycle (Xe máy)')}</td>
+          <td>${esc(v.ownerName || '-')}</td>
+          <td>${formatDate(v.registrationDate)}</td>
+          <td>${esc(v.apartmentNo || v.householdId || '-')}</td>
+          <td><div class="rm-actions">
+            <button class="rm-btn sec" data-action="edit-vehicle" data-id="${esc(v.id)}">Edit</button>
+            <button class="rm-btn dan" data-action="delete-vehicle" data-id="${esc(v.id)}">Delete</button>
+          </div></td>
+        </tr>
+      `).join('') || `<tr><td colspan="6" class="rm-empty">No vehicles found.</td></tr>`;
+
+      panel.innerHTML = `
+        <div class="rm-grid">
+          <div class="rm-card">
+            <h2 id="rm-vh-title">Register Vehicle</h2>
+            <form class="rm-form" id="rm-vh-form">
+              <div class="rm-field">
+                <label>License Plate (Biển số xe)</label>
+                <input id="rm-vh-plate" required placeholder="e.g. 29A-123.45">
+              </div>
+              <div class="rm-field">
+                <label>Vehicle Type (Loại xe)</label>
+                <select id="rm-vh-type">
+                  <option value="MOTORCYCLE">Motorcycle (Xe máy)</option>
+                  <option value="CAR">Car (Ô tô)</option>
+                </select>
+              </div>
+              <div class="rm-field">
+                <label>Owner Name (Chủ xe)</label>
+                <input id="rm-vh-owner" required placeholder="Chủ sở hữu xe">
+              </div>
+              <div class="rm-field">
+                <label>Registration Date (Ngày đăng ký)</label>
+                <input id="rm-vh-regdate" type="date" required>
+              </div>
+              <div class="rm-field">
+                <label>Household (Căn hộ)</label>
+                <select id="rm-vh-household" required>${householdOptions()}</select>
+              </div>
+              <div class="rm-actions">
+                <button class="rm-btn pri" type="submit">Save Vehicle</button>
+                <button class="rm-btn sec" type="button" data-action="clear-vehicle-form">Clear</button>
+              </div>
+            </form>
+          </div>
+          <div class="rm-card">
+            <div class="rm-toolbar">
+              <h2 style="margin:0;">Vehicle List</h2>
+              <div class="rm-filter">
+                <input class="rm-search" id="rm-vh-search" placeholder="Search plates..." value="${esc(state.vehiclesSearchPlate)}">
+                <select class="rm-select" id="rm-vh-type-filter">
+                  <option value="ALL">All types</option>
+                  <option value="MOTORCYCLE" ${state.vehiclesSearchType === 'MOTORCYCLE' ? 'selected' : ''}>Motorcycle</option>
+                  <option value="CAR" ${state.vehiclesSearchType === 'CAR' ? 'selected' : ''}>Car</option>
+                </select>
+              </div>
+            </div>
+            <div class="rm-table-wrap">
+              <table class="rm-table">
+                <thead><tr><th>Plate Number</th><th>Type</th><th>Owner</th><th>Reg Date</th><th>Apartment / Household</th><th>Actions</th></tr></thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </div>
+            ${renderPager(page, 'vehicles')}
+          </div>
+        </div>
+      `;
+      fillVehicleForm(panel, null);
+    };
+
     const renderSearch = () => {
       const panel = container.querySelector('#rm-panel-search');
       panel.innerHTML = `
@@ -1607,7 +1982,7 @@ export class ResidentsManager {
               <tbody>
                 ${state.activityLogs.length ? state.activityLogs.map(log => `
                   <tr>
-                    <td>${formatDate(log.createdAt)}<br><span class="rm-muted">${new Date(log.createdAt).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' })}</span></td>
+                    <td>${formatDate(log.createdAt)}<br><span class="rm-muted">${new Date(log.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span></td>
                     <td>${esc(log.actor || 'system')}</td>
                     <td>${esc(log.action)}</td>
                     <td>${esc(log.targetType)} / ${esc(log.targetId)}</td>
@@ -1627,6 +2002,7 @@ export class ResidentsManager {
       container.querySelectorAll('.rm-panel').forEach(panel => panel.classList.toggle('active', panel.id === `rm-panel-${state.activeTab}`));
       if (state.activeTab === 'households') await renderHouseholds();
       if (state.activeTab === 'residents') renderResidents();
+      if (state.activeTab === 'vehicles') await renderVehicles();
       if (state.activeTab === 'search') renderSearch();
       if (state.activeTab === 'activity') renderActivity();
     };
@@ -1641,6 +2017,8 @@ export class ResidentsManager {
         if (action === 'households-next') state.householdsPage += 1;
         if (action === 'residents-prev') state.residentsPage -= 1;
         if (action === 'residents-next') state.residentsPage += 1;
+        if (action === 'vehicles-prev') state.vehiclesPage -= 1;
+        if (action === 'vehicles-next') state.vehiclesPage += 1;
         if (action === 'select-household') { state.selectedHouseholdId = id; state.activeTab = 'households'; }
         if (action === 'edit-household') {
           const household = await DataService.getHousehold(id);
@@ -1654,6 +2032,7 @@ export class ResidentsManager {
           showToast('Household deleted', 'success');
         }
         if (action === 'clear-household-form') { fillHouseholdForm(container, null); return; }
+        
         if (action === 'edit-resident') {
           const resident = await DataService.getResident(id);
           state.activeTab = 'residents';
@@ -1667,6 +2046,38 @@ export class ResidentsManager {
           showToast('Resident deleted', 'success');
         }
         if (action === 'clear-resident-form') { fillResidentForm(container, null); return; }
+        
+        if (action === 'edit-vehicle') {
+          const vehicle = await DataService.getVehicle(id);
+          state.activeTab = 'vehicles';
+          await renderAll();
+          const vhPanel = container.querySelector('#rm-panel-vehicles');
+          fillVehicleForm(vhPanel, vehicle);
+          return;
+        }
+        if (action === 'delete-vehicle') {
+          if (!confirm(`Delete vehicle ${id}?`)) return;
+          await DataService.deleteVehicle(id, actor());
+          showToast('Vehicle deleted successfully', 'success');
+        }
+        if (action === 'clear-vehicle-form') {
+          const vhPanel = container.querySelector('#rm-panel-vehicles');
+          fillVehicleForm(vhPanel, null);
+          return;
+        }
+        if (action === 'add-vehicle-quick') {
+          const hhId = button.dataset.household;
+          state.activeTab = 'vehicles';
+          await renderAll();
+          const vhPanel = container.querySelector('#rm-panel-vehicles');
+          if (vhPanel) {
+            fillVehicleForm(vhPanel, null);
+            const hhSelect = vhPanel.querySelector('#rm-vh-household');
+            if (hhSelect) hhSelect.value = hhId;
+          }
+          return;
+        }
+
         if (action === 'add-member') {
           const select = container.querySelector('#rm-add-member-select');
           if (!select?.value) { showToast('Select a resident first', 'warning'); return; }
@@ -1784,6 +2195,13 @@ export class ResidentsManager {
           showToast('Resident saved', 'success');
           await refresh();
         }
+        if (event.target.id === 'rm-vh-form') {
+          await DataService.saveVehicle(readVehicleForm(container), actor());
+          const vhPanel = container.querySelector('#rm-panel-vehicles');
+          fillVehicleForm(vhPanel, null);
+          showToast('Vehicle registration saved', 'success');
+          await refresh();
+        }
       } catch (error) {
         showToast(error.message || 'Save failed', 'error');
       }
@@ -1798,6 +2216,11 @@ export class ResidentsManager {
       if (event.target.id === 'rm-res-search') {
         state.residentsSearch = event.target.value;
         state.residentsPage = 0;
+        refresh();
+      }
+      if (event.target.id === 'rm-vh-search') {
+        state.vehiclesSearchPlate = event.target.value;
+        state.vehiclesPage = 0;
         refresh();
       }
       if (event.target.id === 'rm-global-search') {
@@ -1820,6 +2243,11 @@ export class ResidentsManager {
       if (event.target.id === 'rm-res-gender-filter') {
         state.residentGender = event.target.value;
         state.residentsPage = 0;
+        refresh();
+      }
+      if (event.target.id === 'rm-vh-type-filter') {
+        state.vehiclesSearchType = event.target.value;
+        state.vehiclesPage = 0;
         refresh();
       }
       if (event.target.id === 'rm-global-type') {

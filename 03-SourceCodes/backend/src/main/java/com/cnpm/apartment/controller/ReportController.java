@@ -31,7 +31,7 @@ public class ReportController {
      * Xuất Excel biên lai theo đợt thu.
      */
     @GetMapping("/receipts/by-period/{periodId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
     public ResponseEntity<byte[]> exportReceiptsByPeriod(
             @PathVariable String periodId) throws IOException {
 
@@ -49,7 +49,7 @@ public class ReportController {
      * Xuất Excel biên lai theo khoảng thời gian.
      */
     @GetMapping("/receipts/by-date")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
     public ResponseEntity<byte[]> exportReceiptsByDate(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to)
@@ -69,7 +69,7 @@ public class ReportController {
      * Xuất Excel danh sách hộ chưa nộp theo đợt thu.
      */
     @GetMapping("/debt/by-period/{periodId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
     public ResponseEntity<byte[]> exportDebtByPeriod(
             @PathVariable String periodId) throws IOException {
 
@@ -82,3 +82,4 @@ public class ReportController {
                 .body(data);
     }
 }
+

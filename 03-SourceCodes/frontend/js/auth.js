@@ -136,14 +136,36 @@ export class AuthService {
     }
 
     const trimmedUsername = username.trim().toLowerCase();
+
+    try {
+      const res = await fetch('http://localhost:8080/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: trimmedUsername, password })
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || 'Incorrect username or password!');
+      }
+
+      const sessionUser = await res.json(); // AuthResponse
+
+      // Lưu thông tin phiên đăng nhập hiện tại vào sessionStorage
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionUser));
+
+      return sessionUser;
+    } catch (error) {
+      if (!(error instanceof TypeError)) {
+        throw error;
+      }
+    }
+
     const user = await ApartmentDB.getUserByUsername(trimmedUsername);
-    
-    // Nếu không tìm thấy user, trả về thông báo lỗi Tiếng Anh chung để tăng bảo mật
     if (!user) {
       throw new Error('Incorrect username or password!');
     }
 
-    // Băm mật khẩu nhập vào và so khớp với passwordHash trong database
     const enteredHash = await hashPassword(password);
     if (enteredHash !== user.passwordHash) {
       throw new Error('Incorrect username or password!');
@@ -154,7 +176,7 @@ export class AuthService {
 
     // Lưu thông tin phiên đăng nhập hiện tại vào sessionStorage
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionUser));
-    
+
     // Ghi nhận nhật ký hệ thống
     await ApartmentDB.addLog(user.username, 'Logged in successfully', 'success');
 
@@ -166,10 +188,6 @@ export class AuthService {
    * Xóa thông tin Session hiện tại khỏi bộ nhớ trình duyệt.
    */
   static async logout() {
-    const currentUser = this.getCurrentUser();
-    if (currentUser) {
-      await ApartmentDB.addLog(currentUser.username, 'Logged out of the system', 'info');
-    }
     sessionStorage.removeItem(SESSION_KEY);
   }
 
@@ -177,8 +195,13 @@ export class AuthService {
    * Lấy thông tin tài khoản đang đăng nhập trong phiên làm việc hiện tại
    */
   static getCurrentUser() {
-    const sessionData = sessionStorage.getItem(SESSION_KEY);
-    return sessionData ? JSON.parse(sessionData) : null;
+    try {
+      const sessionData = sessionStorage.getItem(SESSION_KEY);
+      return sessionData ? JSON.parse(sessionData) : null;
+    } catch (e) {
+      sessionStorage.removeItem(SESSION_KEY);
+      return null;
+    }
   }
 
   /**
@@ -190,11 +213,11 @@ export class AuthService {
 
   /**
    * Đăng ký tài khoản cư dân mới từ màn hình public.
-   * Tự động kiểm tra trùng lặp tên đăng nhập thông qua ApartmentDB.
+   * Tự động kiểm tra trùng lặp tên đăng nhập thông qua API.
    */
-  static async register(username, fullname, room, phone, identityNo, password, role = 'user') {
-    if (!username || !fullname || !identityNo || !password) {
-      throw new Error('Please fill in all required fields (Username, Full Name, Citizen ID (CCCD), Password)!');
+  static async register(username, email, fullname, room, phone, identityNo, password, adminSecret = '', role = 'user') {
+    if (!username || !email || !fullname || !identityNo || !password) {
+      throw new Error('Please fill in all required fields (Username, Email, Full Name, Citizen ID (CCCD), Password)!');
     }
 
     if (username.length < 4) {
@@ -205,9 +228,28 @@ export class AuthService {
       throw new Error('Password must be at least 6 characters long!');
     }
 
-    // Tiến hành tạo tài khoản. Hàm này sẽ ném ra lỗi "Username already exists!" nếu trùng lặp
+    try {
+      const res = await fetch('http://localhost:8080/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, fullname, room, phone, identityNo, password, adminSecret, role })
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || 'Registration failed!');
+      }
+
+      return true;
+    } catch (error) {
+      if (!(error instanceof TypeError)) {
+        throw error;
+      }
+    }
+
     const newUser = await ApartmentDB.createUser({
       username,
+      email,
       fullname,
       room,
       phone,
@@ -219,8 +261,9 @@ export class AuthService {
 
     // Sau khi đăng ký thành công, tự động thiết lập phiên đăng nhập cho cư dân này
     const sessionUser = toSessionUser(newUser);
-
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionUser));
+    await ApartmentDB.addLog(newUser.username, 'Registered successfully', 'success');
+
     return sessionUser;
   }
 
@@ -246,16 +289,50 @@ export class AuthService {
       throw new Error('New password cannot be the same as the old password!');
     }
 
-    // Lấy thông tin đầy đủ của tài khoản từ Database
+    const tokenStr = sessionStorage.getItem('apartment_mgmt_session');
+    let token = null;
+    if (tokenStr) {
+      try {
+        const sessionObj = JSON.parse(tokenStr);
+        token = sessionObj.token || sessionObj;
+        if (typeof token === 'object') token = token.token;
+      } catch (e) { }
+    }
+
+    if (token) {
+      try {
+        const res = await fetch('http://localhost:8080/api/auth/change-password', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ currentPassword: oldPassword, newPassword })
+        });
+
+        if (!res.ok) {
+          const err = await res.text();
+          throw new Error(err || 'Failed to change password');
+        }
+
+        return true;
+      } catch (error) {
+        if (!(error instanceof TypeError)) {
+          throw error;
+        }
+      }
+    }
+
     const dbUser = await ApartmentDB.getUserByUsername(currentUser.username);
-    
-    // Băm và so sánh mật khẩu cũ nhập vào với cơ sở dữ liệu
+    if (!dbUser) {
+      throw new Error('User not found!');
+    }
+
     const oldHash = await hashPassword(oldPassword);
     if (oldHash !== dbUser.passwordHash) {
       throw new Error('Current password is incorrect!');
     }
 
-    // Cập nhật mật khẩu băm mới vào cơ sở dữ liệu LocalStorage
     await ApartmentDB.changePassword(currentUser.username, newPassword, currentUser.username);
     return true;
   }
@@ -273,15 +350,123 @@ export class AuthService {
       throw new Error('Full Name cannot be left blank!');
     }
 
-    // Cập nhật thông tin trong Database LocalStorage
+    const tokenStr = sessionStorage.getItem(SESSION_KEY);
+    let token = null;
+    if (tokenStr) {
+      try {
+        const sessionObj = JSON.parse(tokenStr);
+        token = sessionObj.token || sessionObj;
+        if (typeof token === 'object') token = token.token;
+      } catch (e) { }
+    }
+
+    if (token) {
+      try {
+        const res = await fetch('http://localhost:8080/api/auth/profile', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(details)
+        });
+
+        if (!res.ok) {
+          const err = await res.text();
+          throw new Error(err || 'Failed to update profile details');
+        }
+
+        const updatedUser = await res.json();
+        const updatedSession = {
+          ...currentUser,
+          ...toSessionUser({ ...currentUser, ...updatedUser })
+        };
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(updatedSession));
+
+        return updatedSession;
+      } catch (error) {
+        if (!(error instanceof TypeError)) {
+          throw error;
+        }
+      }
+    }
+
     const previousUser = await ApartmentDB.getUserByUsername(currentUser.username);
     const updatedUser = await ApartmentDB.updateProfile(currentUser.username, details, currentUser.username);
     await syncProfileToResident(previousUser, updatedUser, currentUser.username);
-
-    // Cập nhật lại thông tin Session hiện tại trong sessionStorage
     const updatedSession = toSessionUser(updatedUser);
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(updatedSession));
-    
+
     return updatedSession;
+  }
+
+  static async getProfile() {
+    const currentUser = this.getCurrentUser();
+    if (!currentUser) {
+      throw new Error('Your session has expired!');
+    }
+
+    const tokenStr = sessionStorage.getItem(SESSION_KEY);
+    let token = null;
+    if (tokenStr) {
+      try {
+        const sessionObj = JSON.parse(tokenStr);
+        token = sessionObj.token || sessionObj;
+        if (typeof token === 'object') token = token.token;
+      } catch (e) { }
+    }
+
+    if (token) {
+      try {
+        const res = await fetch('http://localhost:8080/api/auth/profile', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!res.ok) {
+          const err = await res.text();
+          throw new Error(err || 'Failed to fetch profile details');
+        }
+
+        return await res.json();
+      } catch (error) {
+        if (!(error instanceof TypeError)) {
+          throw error;
+        }
+      }
+    }
+
+    return currentUser;
+  }
+
+  static async requestPasswordReset(email) {
+    if (!email) throw new Error('Email is required!');
+    const res = await fetch('http://localhost:8080/api/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(err || 'Failed to request password reset');
+    }
+    return await res.text();
+  }
+
+  static async resetPassword(email, otp, newPassword) {
+    if (!email || !otp || !newPassword) throw new Error('All fields are required!');
+    if (newPassword.length < 6) throw new Error('Password must be at least 6 characters!');
+    const res = await fetch('http://localhost:8080/api/auth/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, otp, newPassword })
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(err || 'Failed to reset password');
+    }
+    return await res.text();
   }
 }

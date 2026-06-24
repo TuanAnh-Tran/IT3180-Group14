@@ -12,7 +12,26 @@ export const API = {
    */
   async checkHealth() {
     try {
-      const res = await fetch(`${API_BASE}/statistics/overview`, { method: 'GET', signal: AbortSignal.timeout(1500) });
+      const tokenStr = sessionStorage.getItem('apartment_mgmt_session');
+      let token = null;
+      if (tokenStr) {
+        try {
+          const sessionObj = JSON.parse(tokenStr);
+          token = sessionObj.token || sessionObj;
+          if (typeof token === 'object') token = token.token;
+        } catch (e) { }
+      }
+      
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(`${API_BASE}/statistics/overview`, { 
+        method: 'GET', 
+        headers,
+        signal: AbortSignal.timeout(1500) 
+      });
       return res.ok;
     } catch (e) {
       return false;
@@ -26,10 +45,24 @@ export const API = {
     const url = `${API_BASE}${endpoint}`;
     const defaultHeaders = { 'Content-Type': 'application/json' };
     
-    // Spring Security Auth: giả lập gửi username là admin khi gọi API (permitAll)
+    // Include JWT token if available
+    const tokenStr = sessionStorage.getItem('apartment_mgmt_session');
+    let token = null;
+    if (tokenStr) {
+      try {
+        const sessionObj = JSON.parse(tokenStr);
+        token = sessionObj.token || sessionObj;
+        if (typeof token === 'object') token = token.token;
+      } catch (e) { }
+    }
+
     const finalOptions = {
       ...options,
-      headers: { ...defaultHeaders, ...options.headers }
+      headers: { 
+        ...defaultHeaders, 
+        ...options.headers,
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
     };
 
     const res = await fetch(url, finalOptions);
@@ -39,6 +72,61 @@ export const API = {
     }
     const result = await res.json();
     return result.data; // Trả về trường 'data' từ ApiResponse wrapper
+  },
+
+  /* ─────────────────────────────────────────────
+     AUTH & USERS (Tài khoản & Phân quyền)
+     ───────────────────────────────────────────── */
+
+  async register(username, email, fullname, room, phone, identityNo, password, adminSecret = '') {
+    return this.fetchJson('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ username, email, fullname, room, phone, identityNo, password, adminSecret })
+    });
+  },
+
+  async requestPasswordReset(email) {
+    return this.fetchJson('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email })
+    });
+  },
+
+  async resetPassword(email, otp, newPassword) {
+    return this.fetchJson('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp, newPassword })
+    });
+  },
+
+  async getUsers() {
+    return this.fetchJson('/users');
+  },
+
+  async createUser(userData) {
+    return this.fetchJson('/users', {
+      method: 'POST',
+      body: JSON.stringify(userData)
+    });
+  },
+
+  async updateUserRole(username, role) {
+    return this.fetchJson(`/users/${username}/role`, {
+      method: 'PUT',
+      body: JSON.stringify({ role })
+    });
+  },
+
+  async approveUser(username) {
+    return this.fetchJson(`/users/${username}/approve`, { method: 'PUT' });
+  },
+
+  async unlockUser(username) {
+    return this.fetchJson(`/users/${username}/unlock`, { method: 'PUT' });
+  },
+
+  async deleteUser(username) {
+    return this.fetchJson(`/users/${username}`, { method: 'DELETE' });
   },
 
   /* ─────────────────────────────────────────────
@@ -52,8 +140,7 @@ export const API = {
     const params = new URLSearchParams();
     if (periodId) params.append('periodId', periodId);
     if (householdId) params.append('householdId', householdId);
-    // Lấy size lớn để hiển thị đầy đủ danh sách phân trang phía client
-    params.append('size', '1000'); 
+    params.append('size', '1000');
     return this.fetchJson(`/payments/unpaid?${params.toString()}`);
   },
 
@@ -61,12 +148,30 @@ export const API = {
    * Ghi nhận nộp tiền (POST /api/payments).
    */
   async recordPayment(assignedFeeId, amountPaid, note = '') {
+    const parsedAmount = Number(amountPaid);
+    const finalAmount = (isNaN(parsedAmount) || parsedAmount <= 0) ? null : parsedAmount;
     return this.fetchJson('/payments', {
       method: 'POST',
       body: JSON.stringify({
         assignedFeeId,
-        amountPaid: Number(amountPaid),
+        amountPaid: finalAmount,
         note
+      })
+    });
+  },
+
+  /**
+   * Cập nhật chỉ số điện/nước và ghi nhận lịch sử thay đổi (POST /api/utility-records/update).
+   */
+  async updateUtilityIndex(householdId, periodId, feeId, oldIndex, newIndex) {
+    return this.fetchJson('/utility-records/update', {
+      method: 'POST',
+      body: JSON.stringify({
+        householdId,
+        periodId,
+        feeId,
+        oldIndex: Number(oldIndex),
+        newIndex: Number(newIndex)
       })
     });
   },
@@ -89,7 +194,6 @@ export const API = {
     const params = new URLSearchParams();
     if (householdId) params.append('householdId', householdId);
     if (from) {
-      // Định dạng ngày thành LocalDateTime chuẩn ISO (yyyy-MM-ddTHH:mm:ss)
       params.append('from', from + 'T00:00:00');
     }
     if (to) {
@@ -187,6 +291,13 @@ export const API = {
   },
 
   /**
+   * Lấy danh sách lịch sử sửa đổi chỉ số điện nước (GET /api/utility-records/history).
+   */
+  async getUtilityHistory() {
+    return this.fetchJson('/utility-records/history');
+  },
+
+  /**
    * Secure Excel export using fetch and Blobs
    */
   async exportExcel(type, param1 = '', param2 = '') {
@@ -213,5 +324,137 @@ export const API = {
     a.click();
     a.remove();
     window.URL.revokeObjectURL(downloadUrl);
+  },
+
+  /* ─────────────────────────────────────────────
+     4. VEHICLES (Quản lý xe chi tiết)
+     ───────────────────────────────────────────── */
+
+  /**
+   * Tìm kiếm xe cộ phân trang (GET /api/vehicles).
+   */
+  async searchVehicles(plateNumber = '', type = '', householdId = '', page = 0, size = 10) {
+    const params = new URLSearchParams();
+    if (plateNumber) params.append('plateNumber', plateNumber.trim());
+    if (type && type !== 'ALL') params.append('type', type.trim());
+    if (householdId) params.append('householdId', householdId.trim());
+    params.append('page', String(page));
+    params.append('size', String(size));
+    return this.fetchJson(`/vehicles?${params.toString()}`);
+  },
+
+  /**
+   * Lấy danh sách xe của hộ gia đình (GET /api/vehicles/household/{householdId}).
+   */
+  async getVehiclesByHousehold(householdId) {
+    return this.fetchJson(`/vehicles/household/${householdId}`);
+  },
+
+  /**
+   * Lưu thông tin xe (POST /api/vehicles).
+   */
+  async saveVehicle(vehicleData) {
+    return this.fetchJson('/vehicles', {
+      method: 'POST',
+      body: JSON.stringify(vehicleData)
+    });
+  },
+
+  /**
+   * Xóa thông tin xe (DELETE /api/vehicles/{id}).
+   */
+  async deleteVehicle(id) {
+    return this.fetchJson(`/vehicles/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  /* ─────────────────────────────────────────────
+     5. FEES (Quản lý khoản phí)
+     ───────────────────────────────────────────── */
+
+  /**
+   * Lấy toàn bộ danh sách khoản phí (GET /api/fees).
+   */
+  async getFees() {
+    return this.fetchJson('/fees');
+  },
+
+  /**
+   * Lưu thông tin khoản phí (POST /api/fees).
+   */
+  async saveFee(feeData) {
+    return this.fetchJson('/fees', {
+      method: 'POST',
+      body: JSON.stringify(feeData)
+    });
+  },
+
+  /**
+   * Xóa khoản phí theo ID (DELETE /api/fees/{id}).
+   */
+  async deleteFee(id) {
+    return this.fetchJson(`/fees/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  /* ─────────────────────────────────────────────
+     6. PERIODS (Quản lý đợt thu phí)
+     ───────────────────────────────────────────── */
+
+  /**
+   * Lấy toàn bộ danh sách đợt thu phí (GET /api/payments/periods).
+   */
+  async getPeriods() {
+    return this.fetchJson('/payments/periods');
+  },
+
+  /**
+   * Tạo mới một đợt thu phí và tự động gán phí (POST /api/payments/periods).
+   */
+  async createPeriod(name, feeIds) {
+    return this.fetchJson('/payments/periods', {
+      method: 'POST',
+      body: JSON.stringify({ name, feeIds })
+    });
+  },
+
+  /**
+   * Đóng một đợt thu phí (POST /api/payments/periods/{id}/close).
+   */
+  async closePeriod(id) {
+    return this.fetchJson(`/payments/periods/${id}/close`, {
+      method: 'POST'
+    });
+  },
+
+  async reopenPeriod(id) {
+    return this.fetchJson(`/payments/periods/${id}/reopen`, {
+      method: 'POST'
+    });
+  },
+
+  /**
+   * Lấy toàn bộ danh sách hộ gia đình từ backend (GET /api/residents/households).
+   */
+  async getHouseholds() {
+    return this.fetchJson('/residents/households?size=1000');
+  },
+
+  /* ─────────────────────────────────────────────
+     7. NOTIFICATIONS (Quản lý thông báo)
+     ───────────────────────────────────────────── */
+
+  async getNotifications() {
+    return this.fetchJson('/notifications');
+  },
+
+  async markAllNotificationsRead() {
+    return this.fetchJson('/notifications/mark-read', { method: 'PUT' });
+  },
+
+  async markNotificationRead(id) {
+    return this.fetchJson(`/notifications/${id}/read`, { method: 'PUT' });
   }
 };

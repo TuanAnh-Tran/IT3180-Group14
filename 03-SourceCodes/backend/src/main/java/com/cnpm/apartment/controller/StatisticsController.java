@@ -23,7 +23,7 @@ public class StatisticsController {
      * Tổng quan: tổng tiền thu, số hộ đã/chưa nộp, tỷ lệ hoàn thành.
      */
     @GetMapping("/overview")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
     public ResponseEntity<ApiResponse<StatisticsDTO>> getOverview() {
         StatisticsDTO dto = statisticsService.getOverview();
         return ResponseEntity.ok(ApiResponse.success(dto));
@@ -34,7 +34,7 @@ public class StatisticsController {
      * Thống kê theo một đợt thu cụ thể.
      */
     @GetMapping("/by-period/{periodId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
     public ResponseEntity<ApiResponse<StatisticsDTO>> getByPeriod(
             @PathVariable String periodId) {
         StatisticsDTO dto = statisticsService.getByPeriod(periodId);
@@ -46,7 +46,7 @@ public class StatisticsController {
      * Thống kê doanh thu theo tháng trong năm (dùng cho biểu đồ Bar/Line).
      */
     @GetMapping("/monthly")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
     public ResponseEntity<ApiResponse<StatisticsDTO>> getMonthly(
             @RequestParam(defaultValue = "#{T(java.time.LocalDate).now().getYear()}") int year) {
         StatisticsDTO dto = statisticsService.getMonthlyRevenue(year);
@@ -58,9 +58,10 @@ public class StatisticsController {
      * Thống kê doanh thu theo loại phí (dùng cho biểu đồ Pie).
      */
     @GetMapping("/by-fee-type")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
     public ResponseEntity<ApiResponse<StatisticsDTO>> getByFeeType() {
         StatisticsDTO dto = statisticsService.getRevenueByFeeType();
         return ResponseEntity.ok(ApiResponse.success(dto));
     }
 }
+

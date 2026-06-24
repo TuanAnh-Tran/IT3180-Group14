@@ -20,10 +20,17 @@ import java.util.Optional;
 @Repository
 public interface AssignedFeeRepository extends JpaRepository<AssignedFee, String> {
 
+    boolean existsByFeeId(String feeId);
+
+    @Query("SELECT DISTINCT af.fee.id FROM AssignedFee af WHERE af.period.id = :periodId")
+    List<String> findFeeIdsByPeriodId(@Param("periodId") String periodId);
+
     // Pessimistic Write Lock for payment updates
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT af FROM AssignedFee af WHERE af.id = :id")
     Optional<AssignedFee> findByIdForUpdate(@Param("id") String id);
+
+    Optional<AssignedFee> findByHouseholdIdAndPeriodIdAndFeeId(String householdId, String periodId, String feeId);
 
     // Lấy danh sách phí theo trạng thái (UNPAID/PAID)
     Page<AssignedFee> findByStatus(FeeStatus status, Pageable pageable);
@@ -45,6 +52,19 @@ public interface AssignedFeeRepository extends JpaRepository<AssignedFee, String
             String periodId, String householdId, FeeStatus status, Pageable pageable);
 
     List<AssignedFee> findByHouseholdIdAndStatusIn(String householdId, Collection<FeeStatus> statuses);
+
+    Page<AssignedFee> findByStatusIn(Collection<FeeStatus> statuses, Pageable pageable);
+
+    Page<AssignedFee> findByPeriodIdAndStatusIn(String periodId, Collection<FeeStatus> statuses, Pageable pageable);
+    List<AssignedFee> findByPeriodIdAndStatusIn(String periodId, Collection<FeeStatus> statuses);
+
+    Page<AssignedFee> findByHouseholdIdAndStatusIn(String householdId, Collection<FeeStatus> statuses, Pageable pageable);
+
+    Page<AssignedFee> findByPeriodIdAndHouseholdIdAndStatusIn(
+            String periodId, String householdId, Collection<FeeStatus> statuses, Pageable pageable);
+
+    List<AssignedFee> findByPeriodIdAndHouseholdIdAndStatusIn(
+            String periodId, String householdId, Collection<FeeStatus> statuses);
 
     // Đếm số phí đã nộp / chưa nộp theo đợt
     long countByPeriodIdAndStatus(String periodId, FeeStatus status);
@@ -74,11 +94,11 @@ public interface AssignedFeeRepository extends JpaRepository<AssignedFee, String
 
     // Optimized overview query returning native projection DTO
     @Query(value = "SELECT " +
-           "    COUNT(af.id) as totalAssignments, " +
-           "    SUM(CASE WHEN af.status = 'PAID' THEN 1 ELSE 0 END) as paidCount, " +
-           "    SUM(CASE WHEN af.status = 'UNPAID' THEN 1 ELSE 0 END) as unpaidCount, " +
-           "    SUM(CASE WHEN af.status = 'PARTIAL' THEN 1 ELSE 0 END) as partialCount, " +
-           "    COALESCE(SUM(af.amount_paid_accumulated), 0) as totalCollected " +
+           "    COUNT(af.id) as total_assignments, " +
+           "    SUM(CASE WHEN af.status = 'PAID' THEN 1 ELSE 0 END) as paid_count, " +
+           "    SUM(CASE WHEN af.status = 'UNPAID' THEN 1 ELSE 0 END) as unpaid_count, " +
+           "    SUM(CASE WHEN af.status = 'PARTIAL' THEN 1 ELSE 0 END) as partial_count, " +
+           "    COALESCE(SUM(af.amount_paid_accumulated), 0) as total_collected " +
            "FROM assigned_fee af", nativeQuery = true)
     OverviewProjection getOverviewStatistics();
 }

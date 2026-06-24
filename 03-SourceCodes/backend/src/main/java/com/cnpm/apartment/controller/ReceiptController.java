@@ -33,7 +33,7 @@ public class ReceiptController {
      *  - page, size
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant', 'ROLE_user')")
     public ResponseEntity<ApiResponse<Page<ReceiptDTO>>> getHistory(
             @RequestParam(required = false) String householdId,
             @RequestParam(required = false)
@@ -53,9 +53,10 @@ public class ReceiptController {
      * Lấy chi tiết một biên lai cụ thể.
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant', 'ROLE_user')")
     public ResponseEntity<ApiResponse<ReceiptDTO>> getById(@PathVariable String id) {
         ReceiptDTO dto = receiptService.getById(id);
         return ResponseEntity.ok(ApiResponse.success(dto));
     }
 }
+

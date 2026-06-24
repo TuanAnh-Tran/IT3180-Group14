@@ -31,6 +31,9 @@ public class CollectionPeriod {
     @Column(name = "status", nullable = false)
     private PeriodStatus status;
 
+    @Column(name = "due_date")
+    private LocalDateTime dueDate;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 }

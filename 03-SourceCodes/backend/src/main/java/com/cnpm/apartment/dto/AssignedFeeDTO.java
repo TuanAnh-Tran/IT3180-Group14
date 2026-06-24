@@ -36,10 +36,12 @@ public class AssignedFeeDTO {
 
     // Tính toán
     private double quantity;
-    private java.math.BigDecimal amountRequired;   // Số tiền phải nộp (tính theo calcMethod)
+    private java.math.BigDecimal amountRequired; // Số tiền phải nộp (tính theo calcMethod)
     private java.math.BigDecimal amountPaidAccumulated;
 
     // Trạng thái
     private FeeStatus status;
     private LocalDateTime paidAt;
+    private LocalDateTime dueDate;
+    private String periodStatus;
 }

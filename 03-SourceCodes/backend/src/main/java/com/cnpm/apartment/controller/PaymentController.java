@@ -28,7 +28,7 @@ public class PaymentController {
      * Trả về biên lai sau khi thu thành công.
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant', 'ROLE_user')")
     public ResponseEntity<ApiResponse<ReceiptDTO>> recordPayment(
             @Valid @RequestBody PaymentRequestDTO request) {
         ReceiptDTO receipt = paymentService.recordPayment(request);
@@ -41,7 +41,7 @@ public class PaymentController {
      * Filter: periodId, householdId, page, size
      */
     @GetMapping("/unpaid")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant', 'ROLE_user')")
     public ResponseEntity<ApiResponse<Page<AssignedFeeDTO>>> getUnpaid(
             @RequestParam(required = false) String periodId,
             @RequestParam(required = false) String householdId,
@@ -57,7 +57,7 @@ public class PaymentController {
      * Lấy toàn bộ danh sách phí (cả PAID + UNPAID) theo đợt thu.
      */
     @GetMapping("/by-period/{periodId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_accountant')")
     public ResponseEntity<ApiResponse<Page<AssignedFeeDTO>>> getByPeriod(
             @PathVariable String periodId,
             @RequestParam(defaultValue = "0") int page,
@@ -67,3 +67,4 @@ public class PaymentController {
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 }
+

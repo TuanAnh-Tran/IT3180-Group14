@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS household (
     previous_owner_name VARCHAR(255) NULL COMMENT 'Previous owner before transfer',
     ownership_transferred_at DATETIME NULL COMMENT 'Ownership transfer timestamp',
     balance         DECIMAL(15,2)  NOT NULL DEFAULT 0.00 COMMENT 'Số dư thừa/credit',
+    ownership_note VARCHAR(1000) NULL COMMENT 'Ownership transfer note',
     archived        BOOLEAN        NOT NULL DEFAULT FALSE COMMENT 'Soft delete flag',
     archived_at     DATETIME       NULL COMMENT 'Soft delete timestamp',
     note            VARCHAR(1000)  NULL,

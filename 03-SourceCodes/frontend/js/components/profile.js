@@ -1,5 +1,4 @@
 import { AuthService } from '../auth.js';
-import { ApartmentDB } from '../db.js';
 
 /**
  * THÀNH PHẦN HỒ SƠ CÁ NHÂN (ProfileView Component)
@@ -14,10 +13,12 @@ export class ProfileView {
       return;
     }
 
-    // Tải thông tin tài khoản đầy đủ, mới nhất từ Database giả lập
-    const user = await ApartmentDB.getUserByUsername(sessionUser.username);
-    if (!user) {
-      container.innerHTML = '<div class="chart-card"><p style="color:var(--text-secondary);">User data not found.</p></div>';
+    // Tải thông tin tài khoản đầy đủ, mới nhất từ backend API
+    let user = null;
+    try {
+      user = await AuthService.getProfile();
+    } catch (e) {
+      container.innerHTML = `<div class="chart-card"><p style="color:var(--text-danger);">Failed to load profile details: ${e.message}</p></div>`;
       return;
     }
 
@@ -25,6 +26,7 @@ export class ProfileView {
     const initial = user.fullname ? user.fullname.trim().split(' ').pop().charAt(0).toUpperCase() : '?';
     const roleText = user.role === 'admin' ? 'System Admin' : (user.role === 'accountant' ? 'Financial Accountant' : 'Resident');
     const roleClass = user.role === 'admin' ? 'role-admin' : (user.role === 'accountant' ? 'role-accountant' : 'role-user');
+    const isRoomEditable = user.role === 'admin' || !user.room || user.room === 'null' || user.room.trim() === '';
 
     // Xuất nội dung HTML giao diện Tiếng Anh vào Container
     container.innerHTML = `
@@ -48,11 +50,11 @@ export class ProfileView {
             </div>
             <div class="profile-meta-row">
               <span class="profile-meta-label">Room Number:</span>
-              <span class="profile-meta-value">${user.room}</span>
+              <span class="profile-meta-value">${user.room && user.room !== 'null' ? user.room : '-'}</span>
             </div>
             <div class="profile-meta-row">
               <span class="profile-meta-label">Phone:</span>
-              <span class="profile-meta-value">${user.phone}</span>
+              <span class="profile-meta-value">${user.phone && user.phone !== 'null' ? user.phone : '-'}</span>
             </div>
           </div>
         </div>
@@ -71,18 +73,18 @@ export class ProfileView {
                   <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
                     <div class="form-group" style="margin-bottom: 0;">
                       <label class="form-label">Full Name *</label>
-                      <input type="text" class="form-control" name="fullname" value="${user.fullname}" required placeholder="Full Name" style="padding-left:14px;">
+                      <input type="text" class="form-control" name="fullname" value="${user.fullname && user.fullname !== 'null' ? user.fullname : ''}" required placeholder="Full Name" style="padding-left:14px;">
                     </div>
 
                     <div class="form-group" style="margin-bottom: 0;">
                       <label class="form-label">Phone Number *</label>
-                      <input type="tel" class="form-control" name="phone" value="${user.phone}" pattern="\\d+" title="Only digits allowed" required placeholder="Phone Number" style="padding-left:14px;">
+                      <input type="tel" class="form-control" name="phone" value="${user.phone && user.phone !== 'null' ? user.phone : ''}" pattern="\\d+" title="Only digits allowed" required placeholder="Phone Number" style="padding-left:14px;">
                     </div>
 
                     <!-- Admin được sửa mã căn hộ thoải mái, Resident thường bị khóa (Chỉ đọc) -->
                     <div class="form-group" style="margin-bottom: 0;">
-                      <label class="form-label">Room Number * ${user.role === 'admin' ? '' : '<span style="color: var(--text-muted); font-size: 10px;">(Read-only)</span>'}</label>
-                      <input type="text" class="form-control" name="room" value="${user.room}" ${user.role !== 'admin' ? 'readonly style="opacity: 0.6; cursor: not-allowed;"' : ''} required placeholder="Room Number" style="padding-left:14px;">
+                      <label class="form-label">Room Number * ${isRoomEditable ? '' : '<span style="color: var(--text-muted); font-size: 10px;">(Read-only)</span>'}</label>
+                      <input type="text" class="form-control" name="room" value="${user.room && user.room !== 'null' ? user.room : ''}" ${!isRoomEditable ? 'readonly style="opacity: 0.6; cursor: not-allowed;"' : ''} required placeholder="Room Number" style="padding-left:14px;">
                     </div>
                   </div>
                 </div>
