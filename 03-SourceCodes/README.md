@@ -2,13 +2,52 @@
 
 Dự án đã được chuyển đổi sang kiến trúc Fullstack và tổ chức lại cấu trúc mã nguồn một cách rõ ràng trong thư mục `03-SourceCodes`.
 
-## Cấu trúc thư mục mã nguồn
-```
-03-SourceCodes/
-├── frontend/           # Giao diện tĩnh HTML, CSS, JS
-├── backend/            # REST API Spring Boot (Java Maven)
-├── docker-compose.yml  # File cấu hình khởi chạy Docker Compose
-└── README.md           # Hướng dẫn này
+## Cấu trúc thư mục mã nguồn (5 bậc chi tiết)
+```text
+c:\cnpm (Bậc 1: tree)
+├── 03-SourceCodes (Mã nguồn chính)
+│   ├── frontend/ (Bậc 2: fe)
+│   │   ├── index.html (Bậc 3: File entry point)
+│   │   ├── css/
+│   │   └── js/
+│   │       ├── app.js (Bậc 3: Cấu hình chung, định tuyến)
+│   │       └── components/ (Bậc 4: Bộ chức năng FE)
+│   │           ├── residents.js (Bậc 4: Quản lý cư dân & hộ khẩu)
+│   │           │   ├── [CRUD cư dân & hộ khẩu] (Bậc 5: Chi tiết chức năng)
+│   │           │   ├── [Đăng ký tạm trú / tạm vắng] (Bậc 5)
+│   │           │   └── [Lịch sử thay đổi nhân khẩu] (Bậc 5)
+│   │           ├── fees.js (Bậc 4: Quản lý đợt thu & khoản phí)
+│   │           │   ├── [Tự động tính phí theo diện tích/nhân khẩu/chỉ số tiêu thụ] (Bậc 5)
+│   │           │   └── [Tạo đợt thu & cấu hình khoản phí] (Bậc 5)
+│   │           ├── payment.js (Bậc 4: Thanh toán & Quản lý biên lai)
+│   │           │   ├── [Quét mã QR / Nộp tiền mặt] (Bậc 5)
+│   │           │   └── [Thanh toán từng phần & nộp thừa vào ví] (Bậc 5)
+│   │           ├── dashboard.js (Bậc 4: Thống kê báo cáo trực quan)
+│   │           │   ├── [Biểu đồ cột doanh thu & Cơ cấu khoản thu] (Bậc 5)
+│   │           │   └── [Xuất báo cáo tài chính Excel] (Bậc 5)
+│   │           ├── profile.js (Bậc 4: Hồ sơ cá nhân cư dân)
+│   │           │   └── [Xem thông tin hộ gia đình & lịch sử đóng phí] (Bậc 5)
+│   │           └── users.js (Bậc 4: Quản trị tài khoản)
+│   │               ├── [Đăng nhập JWT Stateless & Phân quyền] (Bậc 5)
+│   │               └── [Reset mật khẩu & xác thực OTP] (Bậc 5)
+│   │
+│   └── backend/ (Bậc 2: be)
+│       └── src/main/java/com/cnpm/apartment/ (Bậc 3: File Java Backend)
+│           ├── controller/ (Bậc 4: REST Controller endpoints)
+│           │   ├── ResidentController.java (Bậc 5: API CRUD cư dân, tạm vắng)
+│           │   ├── HouseholdController.java (Bậc 5: API quản lý hộ khẩu, ví tiền)
+│           │   ├── FeeController.java (Bậc 5: API tạo đợt thu, khoản phí)
+│           │   ├── ReceiptController.java (Bậc 5: API nộp phí, xuất Excel)
+│           │   └── AuthController.java (Bậc 5: API xác thực, OTP)
+│           ├── model/ (Bậc 4: ORM Entity & Database Schema)
+│           │   ├── Resident.java & Household.java (Bậc 5: Ràng buộc DB nhân khẩu)
+│           │   ├── Fee.java & AssignedFee.java (Bậc 5: Ràng buộc DB khoản thu)
+│           │   └── Receipt.java (Bậc 5: Ràng buộc DB biên lai)
+│           ├── repository/ (Bậc 4: JPA Data layer với Pessimistic Lock)
+│           │   └── AssignedFeeRepository.java (Bậc 5: Lock hóa đơn tránh double-pay)
+│           └── security/ (Bậc 4: Spring Security & JWT Filters)
+│               └── JwtAuthFilter.java (Bậc 5: Kiểm tra token & Khóa brute force)
+└── docker-compose.yml (File chạy nhanh toàn bộ dự án)
 ```
 
 ## Yêu cầu hệ thống
