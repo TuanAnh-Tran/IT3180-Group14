@@ -329,6 +329,7 @@ public class PaymentService {
     // 2. XEM NỢ / CHƯA NỘP
     // =========================================================
 
+    @Transactional(readOnly = true)
     public Page<AssignedFeeDTO> getUnpaidFees(String periodId, String householdId, Pageable pageable) {
         Page<AssignedFee> page;
 
@@ -354,6 +355,7 @@ public class PaymentService {
     // 3. DANH SÁCH TẤT CẢ PHÍ THEO ĐỢT (bao gồm PAID + UNPAID)
     // =========================================================
 
+    @Transactional(readOnly = true)
     public Page<AssignedFeeDTO> getByPeriod(String periodId, Pageable pageable) {
         return assignedFeeRepository.findByPeriodId(periodId, pageable)
                 .map(this::mapToAssignedFeeDTO);

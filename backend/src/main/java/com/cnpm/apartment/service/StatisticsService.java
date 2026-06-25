@@ -7,6 +7,7 @@ import com.cnpm.apartment.repository.AssignedFeeRepository;
 import com.cnpm.apartment.repository.HouseholdRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
@@ -25,18 +26,21 @@ public class StatisticsService {
     // THỐNG KÊ TỔNG QUAN
     // =========================================================
 
+    @Transactional(readOnly = true)
     public StatisticsDTO getOverview() {
         long totalHouseholds = householdRepository.count();
 
         // Single DB call using optimized query projection
         OverviewProjection stats = assignedFeeRepository.getOverviewStatistics();
 
-        long paidCount = stats.getPaidCount();
-        long unpaidCount = stats.getUnpaidCount();
-        long partialCount = stats.getPartialCount();
-        BigDecimal totalCollected = stats.getTotalCollected();
+        long paidCount = valueOrZero(stats.getPaidCount());
+        long unpaidCount = valueOrZero(stats.getUnpaidCount());
+        long partialCount = valueOrZero(stats.getPartialCount());
+        BigDecimal totalCollected = stats.getTotalCollected() != null
+                ? stats.getTotalCollected()
+                : BigDecimal.ZERO;
 
-        long totalAssignments = stats.getTotalAssignments();
+        long totalAssignments = valueOrZero(stats.getTotalAssignments());
         double completionRate = (totalAssignments == 0) ? 0.0
                 : (double) paidCount / totalAssignments * 100;
 
@@ -62,10 +66,15 @@ public class StatisticsService {
                 .build();
     }
 
+    private long valueOrZero(Long value) {
+        return value != null ? value : 0L;
+    }
+
     private BigDecimal calculateAmount(com.cnpm.apartment.model.AssignedFee af) {
         return calculatorFactory.getCalculator(af.getFee().getCalcMethod()).calculate(af);
     }
 
+    @Transactional(readOnly = true)
     public List<com.cnpm.apartment.dto.ContributionDTO> getVoluntaryContributions() {
         return assignedFeeRepository.findVoluntaryContributions().stream()
                 .map(af -> com.cnpm.apartment.dto.ContributionDTO.builder()

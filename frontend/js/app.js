@@ -39,8 +39,12 @@ function showToast(message, type = 'info') {
 // ========== AUTH SCREENS ==========
 function renderAuthScreen(tab = 'login') {
   app.innerHTML = `
-    <div style="min-height:100vh; display:flex; align-items:center; justify-content:center; background:var(--bg-primary); padding:24px;">
-      <div style="width:100%; max-width:420px;">
+    <div class="auth-shell">
+      <video class="auth-bg-video" autoplay muted loop playsinline preload="auto">
+        <source src="assets/videos/4029958-hd_1280_720_30fps.mp4" type="video/mp4">
+      </video>
+      <div class="auth-bg-overlay"></div>
+      <div class="auth-card-wrap">
         <!-- Logo -->
         <div style="text-align:center; margin-bottom:32px;">
           <div style="width:64px;height:64px;border-radius:20px;background:linear-gradient(135deg,var(--color-primary),var(--color-accent));display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;">
@@ -87,11 +91,6 @@ function renderAuthScreen(tab = 'login') {
               <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 8px;" id="loginBtn">Sign In</button>
             </form>
             <p style="text-align:center;margin-top:16px;font-size:13px;color:var(--text-muted);">Demo: <strong style="color:var(--color-primary);">admin</strong> / admin123 &nbsp;|&nbsp; <strong style="color:var(--color-primary);">accountant</strong> / accountant123 &nbsp;|&nbsp; <strong style="color:var(--color-accent);">resident1</strong> / user123</p>
-            <div style="text-align:center;margin-top:12px;">
-              <button id="btnResetMockDB" style="background:transparent;border:1px dashed var(--border-glass);color:var(--text-secondary);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;transition:all 0.2s;">
-                Reset Mock Database
-              </button>
-            </div>
           </div>
         </div>
 
@@ -253,18 +252,6 @@ function renderAuthScreen(tab = 'login') {
     }
   };
 
-  const resetBtn = document.getElementById('btnResetMockDB');
-  if (resetBtn) {
-    resetBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      if (confirm('Are you sure you want to reset the mock database? All local changes will be lost.')) {
-        localStorage.clear();
-        sessionStorage.clear();
-        window.location.reload();
-      }
-    });
-  }
-
   document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('loginBtn');
@@ -402,22 +389,11 @@ function renderMainApp(user) {
 
   // Load danh sách thông báo
   async function loadNotifications() {
-    const isBackend = await API.checkHealth();
     let list = [];
-    if (isBackend) {
-      try {
-        list = await API.getNotifications();
-      } catch (e) {
-        console.error("Lỗi lấy thông báo backend:", e);
-      }
-    } else {
-      // Fallback LocalStorage
-      try {
-        const allLocal = JSON.parse(localStorage.getItem('smartfee_notifications')) || [];
-        list = allLocal.filter(n => n.username === user.username);
-      } catch (e) {
-        console.error("Lỗi lấy thông báo local:", e);
-      }
+    try {
+      list = await API.getNotifications();
+    } catch (e) {
+      console.warn("Notification API is unavailable:", e.message);
     }
 
     // Cập nhật Badge
@@ -431,7 +407,7 @@ function renderMainApp(user) {
 
     // Render danh sách
     if (list.length === 0) {
-      notifListContainer.innerHTML = `<div style="padding:20px; text-align:center; color:var(--text-muted);">Không có thông báo nào</div>`;
+      notifListContainer.innerHTML = `<div style="padding:20px; text-align:center; color:var(--text-muted);">No notifications available.</div>`;
       return;
     }
 
@@ -451,34 +427,18 @@ function renderMainApp(user) {
       `;
     }).join('');
 
-    // Thêm sự kiện click cho từng thông báo để đánh dấu đã đọc
     notifListContainer.querySelectorAll('.notif-item').forEach(el => {
       el.addEventListener('click', async () => {
         const id = el.dataset.id;
-        const isBackend = await API.checkHealth();
-        if (isBackend) {
-          try {
-            await API.markNotificationRead(id);
-          } catch (e) {
-            console.error("Lỗi đánh dấu đã đọc backend:", e);
-          }
-        } else {
-          // Fallback LocalStorage
-          try {
-            const allLocal = JSON.parse(localStorage.getItem('smartfee_notifications')) || [];
-            const found = allLocal.find(x => x.id === id);
-            if (found) {
-              found.isRead = true;
-              found.read = true;
-            }
-            localStorage.setItem('smartfee_notifications', JSON.stringify(allLocal));
-          } catch (e) { }
+        try {
+          await API.markNotificationRead(id);
+        } catch (e) {
+          console.warn("Unable to mark notification as read:", e.message);
         }
         loadNotifications();
       });
     });
   }
-
   // Toggle Dropdown
   if (bellBtn) {
     bellBtn.addEventListener('click', (e) => {
@@ -504,31 +464,14 @@ function renderMainApp(user) {
   // Đánh dấu tất cả đã đọc
   if (markAllReadBtn) {
     markAllReadBtn.addEventListener('click', async () => {
-      const isBackend = await API.checkHealth();
-      if (isBackend) {
-        try {
-          await API.markAllNotificationsRead();
-        } catch (e) {
-          console.error("Lỗi đánh dấu tất cả đã đọc backend:", e);
-        }
-      } else {
-        // Fallback LocalStorage
-        try {
-          const allLocal = JSON.parse(localStorage.getItem('smartfee_notifications')) || [];
-          allLocal.forEach(x => {
-            if (x.username === user.username) {
-              x.isRead = true;
-              x.read = true;
-            }
-          });
-          localStorage.setItem('smartfee_notifications', JSON.stringify(allLocal));
-        } catch (e) { }
+      try {
+        await API.markAllNotificationsRead();
+      } catch (e) {
+        console.warn("Unable to mark notifications as read:", e.message);
       }
       loadNotifications();
     });
   }
-
-  // Tải thông báo ban đầu và lập lịch định kỳ 15 giây
   if (bellBtn) {
     loadNotifications();
     const notifInterval = setInterval(() => {

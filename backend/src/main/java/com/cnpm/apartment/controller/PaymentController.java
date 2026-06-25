@@ -4,6 +4,7 @@ import com.cnpm.apartment.dto.ApiResponse;
 import com.cnpm.apartment.dto.AssignedFeeDTO;
 import com.cnpm.apartment.dto.PaymentRequestDTO;
 import com.cnpm.apartment.dto.ReceiptDTO;
+import com.cnpm.apartment.model.CollectionPeriod;
 import com.cnpm.apartment.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +16,12 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import com.cnpm.apartment.model.PaymentProof;
+import com.cnpm.apartment.model.enums.PeriodStatus;
+import com.cnpm.apartment.repository.AssignedFeeRepository;
+import com.cnpm.apartment.repository.CollectionPeriodRepository;
 
 @RestController
 @RequestMapping("/api/payments")
@@ -24,6 +30,10 @@ import com.cnpm.apartment.model.PaymentProof;
 public class PaymentController {
 
     private final PaymentService paymentService;
+    private final CollectionPeriodRepository collectionPeriodRepository;
+    private final AssignedFeeRepository assignedFeeRepository;
+
+    public record PeriodDTO(String id, String name, List<String> feeIds, String status, java.time.LocalDateTime createdAt) {}
 
     /**
      * POST /api/payments
@@ -70,6 +80,62 @@ public class PaymentController {
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
+    @GetMapping("/periods")
+    public ResponseEntity<ApiResponse<List<PeriodDTO>>> getPeriods() {
+        List<PeriodDTO> result = collectionPeriodRepository.findAll().stream()
+                .sorted((a, b) -> {
+                    if (a.getCreatedAt() == null && b.getCreatedAt() == null) return a.getId().compareTo(b.getId());
+                    if (a.getCreatedAt() == null) return 1;
+                    if (b.getCreatedAt() == null) return -1;
+                    return b.getCreatedAt().compareTo(a.getCreatedAt());
+                })
+                .map(this::mapPeriod)
+                .toList();
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    @PostMapping("/periods")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<PeriodDTO>> createPeriod(@RequestBody Map<String, Object> request) {
+        String name = String.valueOf(request.getOrDefault("name", "")).trim();
+        if (name.isBlank()) {
+            throw new RuntimeException("Collection period name is required.");
+        }
+
+        List<String> feeIds = List.of();
+        Object feeIdsValue = request.get("feeIds");
+        if (feeIdsValue instanceof List<?> list) {
+            feeIds = list.stream()
+                    .map(String::valueOf)
+                    .filter(value -> !value.isBlank())
+                    .toList();
+        }
+
+        String id = "PER-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        CollectionPeriod period = paymentService.createPeriod(id, name, feeIds);
+        return ResponseEntity.ok(ApiResponse.success("Collection period created successfully", mapPeriod(period)));
+    }
+
+    @PostMapping("/periods/{id}/close")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<PeriodDTO>> closePeriod(@PathVariable String id) {
+        CollectionPeriod period = collectionPeriodRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Collection period not found: " + id));
+        period.setStatus(PeriodStatus.CLOSED);
+        return ResponseEntity.ok(ApiResponse.success("Collection period closed successfully",
+                mapPeriod(collectionPeriodRepository.save(period))));
+    }
+
+    @PostMapping("/periods/{id}/reopen")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<PeriodDTO>> reopenPeriod(@PathVariable String id) {
+        CollectionPeriod period = collectionPeriodRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Collection period not found: " + id));
+        period.setStatus(PeriodStatus.OPEN);
+        return ResponseEntity.ok(ApiResponse.success("Collection period reopened successfully",
+                mapPeriod(collectionPeriodRepository.save(period))));
+    }
+
     /**
      * POST /api/payments/{receiptId}/cancel
      * Hủy biên lai thanh toán (Hoàn tác nộp tiền).
@@ -79,6 +145,15 @@ public class PaymentController {
     public ResponseEntity<ApiResponse<Void>> cancelReceipt(@PathVariable String receiptId) {
         paymentService.cancelReceipt(receiptId);
         return ResponseEntity.ok(ApiResponse.success("Hủy biên lai thành công", null));
+    }
+
+    private PeriodDTO mapPeriod(CollectionPeriod period) {
+        return new PeriodDTO(
+                period.getId(),
+                period.getName(),
+                assignedFeeRepository.findDistinctFeeIdsByPeriodId(period.getId()),
+                period.getStatus().name(),
+                period.getCreatedAt());
     }
 
     /**

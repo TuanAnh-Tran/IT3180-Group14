@@ -15,6 +15,7 @@ public class HouseholdDTO {
     private String apartmentNo;
     private Integer floor;
     private double area;
+    private String ownerName;
     private String headName;
     private String headResidentId;
     private String headIdentityNo;
@@ -27,6 +28,7 @@ public class HouseholdDTO {
     private String status;
     private String note;
     private int memberCount;
+    private int membersCount;
     private int activeMemberCount;
     private int motorcycleCount;
     private int carCount;

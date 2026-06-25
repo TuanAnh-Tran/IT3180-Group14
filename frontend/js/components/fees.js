@@ -1,7 +1,7 @@
 /**
  * FEEMANAGER COMPONENT (fees.js)
  * Quản lý thu phí hộ gia đình — toàn bộ logic từ Java backend
- * được port sang JavaScript thuần, lưu trữ qua localStorage.
+ * được port sang JavaScript thuần, ưu tiên dữ liệu từ backend.
  *
  * Logic nghiệp vụ port nguyên từ FeeManager.java:
  *  - CRUD khoản thu (Fee), đợt thu (CollectionPeriod), hộ dân (Household)
@@ -12,24 +12,25 @@
 
 import { API } from '../api.js';
 
-const FM_KEY = 'smartfee_v2_en';
 let isBackendActive = false;
+let feeMemoryDB = null;
+let notificationMemory = [];
 
-/* ===== localStorage helpers ===== */
 function fmLoad() {
-  try { return JSON.parse(localStorage.getItem(FM_KEY)) || null; } catch { return null; }
+  return feeMemoryDB;
 }
-function fmSave(db) { localStorage.setItem(FM_KEY, JSON.stringify(db)); }
+function fmSave(db) {
+  feeMemoryDB = db;
+}
 
-const LOCAL_NOTIF_KEY = 'smartfee_notifications';
 function localNotifLoad() {
-  try { return JSON.parse(localStorage.getItem(LOCAL_NOTIF_KEY)) || []; } catch { return []; }
+  return notificationMemory;
 }
 function localNotifSave(arr) {
-  localStorage.setItem(LOCAL_NOTIF_KEY, JSON.stringify(arr));
+  notificationMemory = arr;
 }
 function getLocalUsers() {
-  try { return JSON.parse(localStorage.getItem('apartment_mgmt_users')) || []; } catch { return []; }
+  return [];
 }
 function addLocalNotification(username, title, content) {
   const arr = localNotifLoad();
@@ -223,13 +224,13 @@ const FM = {
     if (isBackendActive) {
       try {
         const backendFees = await API.getFees();
-        // Đồng bộ ngược về LocalStorage của Frontend để tránh lệch số liệu ở các tab khác chưa di chuyển sang Backend
+        // Đồng bộ ngược về memory cache của Frontend để tránh lệch số liệu ở các tab khác chưa di chuyển sang Backend
         const db = fmGetDB();
         db.fees = backendFees;
         fmSave(db);
         return backendFees;
       } catch (err) {
-        console.warn("Backend getFees failed, falling back to LocalStorage:", err.message);
+        console.warn("Backend getFees failed, falling back to memory cache:", err.message);
       }
     }
     return fmGetDB().fees;
@@ -329,7 +330,7 @@ const FM = {
         fmSave(db);
         return mappedPeriods;
       } catch (err) {
-        console.warn("Backend getPeriods failed, falling back to LocalStorage:", err.message);
+        console.warn("Backend getPeriods failed, falling back to memory cache:", err.message);
       }
     }
     return fmGetDB().periods;
@@ -349,7 +350,7 @@ const FM = {
         const db = fmGetDB();
         db.periods.push(mapped);
         fmSave(db);
-        // Tải danh sách phí đã gán của đợt này về LocalStorage
+        // Tải danh sách phí đã gán của đợt này về memory cache
         await this.syncAssignedFees(saved.id);
         return mapped;
       } catch (err) {
@@ -674,7 +675,7 @@ const FM = {
     return db.households.map(hh => ({ ...hh, calculatedBill: this.calcBill(hh.id, periodId) }));
   },
 
-  resetSeed() { localStorage.removeItem(FM_KEY); fmGetDB(); },
+  resetSeed() { feeMemoryDB = null; fmGetDB(); },
 
   // ----- INTERNAL AUTO-ASSIGN -----
   _autoAssignAll(db, periodId, feeIds) {
@@ -858,7 +859,7 @@ export class FeeManagerView {
         <div class="chart-card" style="margin-bottom:20px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
           <div>
             <h2 class="card-title" style="margin-bottom:4px;">SmartFee — Fee Management</h2>
-            <p class="card-title-muted">Data saved directly on the browser (localStorage) • Ported from Java Backend</p>
+            <p class="card-title-muted">Data is loaded from the backend API when available</p>
           </div>
           ${!isResident ? `<button class="btn btn-secondary" id="sf-reset-btn" style="font-size:12px;padding:8px 14px;">Reset Sample Data</button>` : ''}
         </div>
@@ -1428,7 +1429,7 @@ export class FeeManagerView {
         if (isBackendActive) {
           try {
             const receipt = await API.recordPayment(b.dataset.id, 0, 'Paid fee from bill details');
-            FM.payFee(b.dataset.id); // local synchronization
+            FM.payFee(b.dataset.id); // view synchronization
             showToast('Payment successful (Backend)!', 'success');
           } catch (err) {
             showToast(err.message, 'error');
@@ -1550,6 +1551,6 @@ export class FeeManagerView {
 }
 
 /* Expose FM globally so PaymentView can access shared data */
-FM._getDB = () => { try { return JSON.parse(localStorage.getItem(FM_KEY)) || fmGetDB(); } catch { return fmGetDB(); } };
+FM._getDB = () => fmGetDB();
 FM._saveDB = (db) => fmSave(db);
 export { FM };

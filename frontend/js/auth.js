@@ -1,5 +1,3 @@
-import { ApartmentDB, hashPassword } from './db.js';
-
 // Khóa dùng để lưu trữ thông tin phiên làm việc trong sessionStorage
 const SESSION_KEY = 'apartment_mgmt_session';
 const RESIDENTS_API_ROOT = window.RESIDENTS_API_ROOT || 'http://localhost:8080/api/residents';
@@ -121,7 +119,7 @@ async function syncProfileToResident(previousUser, updatedUser, actor) {
       });
     }
   } catch (error) {
-    console.warn('Profile saved locally, but resident sync was skipped:', error.message);
+    console.warn('Profile was updated, but resident sync was skipped:', error.message);
   }
 }
 

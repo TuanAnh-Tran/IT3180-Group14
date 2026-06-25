@@ -246,6 +246,20 @@ CREATE TABLE IF NOT EXISTS user (
 -- DỮ LIỆU MẪU (để test)
 -- ============================================================
 
+CREATE TABLE IF NOT EXISTS notification (
+    id              VARCHAR(50)    PRIMARY KEY,
+    target_username VARCHAR(50)    NOT NULL,
+    title           VARCHAR(255)   NOT NULL,
+    content         VARCHAR(1000)  NOT NULL,
+    is_read         BOOLEAN        NOT NULL DEFAULT FALSE,
+    created_at      DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (target_username) REFERENCES user(username),
+    INDEX idx_notification_target (target_username),
+    INDEX idx_notification_read (is_read),
+    INDEX idx_notification_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 INSERT IGNORE INTO user (username, password_hash, email, fullname, room, phone, identity_no, role, status) VALUES
 ('admin', '$2a$10$tMhI4K.mZfepR5F07X6aNupg/bU86Y78h8B.d5Z2h42n3B0vKBeG4', 'admin@cyberspace.vn', 'System Admin', NULL, '0987654321', '001085000111', 'ROLE_ADMIN', 'APPROVED'),
 ('accountant', '$2a$10$tMhI4K.mZfepR5F07X6aNupg/bU86Y78h8B.d5Z2h42n3B0vKBeG4', 'accountant@cyberspace.vn', 'Accountant Rep', NULL, '0911222333', '031079000333', 'ROLE_ACCOUNTANT', 'APPROVED'),

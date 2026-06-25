@@ -1,19 +1,21 @@
 /**
  * PAYMENT MODULE (payment.js)
- * Tích hợp kết nối API Spring Boot với cơ chế tự động Fallback về LocalStorage.
+ * Tích hợp kết nối API Spring Boot với cơ chế tự động Fallback về memory cache.
  */
 
 import { API } from '../api.js';
 
 /* ─────────────────────────────────────────────
-   1. RECEIPT STORE — lưu biên lai vào localStorage (Chế độ Fallback)
+   1. RECEIPT STORE — lưu biên lai vào memory cache (Chế độ Fallback)
    ───────────────────────────────────────────── */
-const RECEIPT_KEY = 'smartfee_receipts_v2_en';
+let receiptMemory = [];
 
 function receiptLoad() {
-  try { return JSON.parse(localStorage.getItem(RECEIPT_KEY)) || []; } catch { return []; }
+  return receiptMemory;
 }
-function receiptSave(arr) { localStorage.setItem(RECEIPT_KEY, JSON.stringify(arr)); }
+function receiptSave(arr) {
+  receiptMemory = arr;
+}
 
 function uid() {
   return 'REC_' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substr(2,4).toUpperCase();
@@ -260,8 +262,9 @@ export const PaymentEngine = {
    ───────────────────────────────────────────── */
 export function bridgeFM(FM) {
   if (!FM._getDB) {
-    FM._getDB  = () => { try { return JSON.parse(localStorage.getItem('smartfee_v2_en')) || {}; } catch { return {}; } };
-    FM._saveDB = (db) => localStorage.setItem('smartfee_v2_en', JSON.stringify(db));
+    let memoryDB = {};
+    FM._getDB  = () => memoryDB;
+    FM._saveDB = (db) => { memoryDB = db; };
   }
 }
 
@@ -569,7 +572,7 @@ export class PaymentView {
           q('#pv-pay-export-debt-btn').style.display = 'inline-flex';
         }
       } else {
-        statusEl.innerHTML = `<span style="color:var(--text-muted);font-weight:500;">⚪ Fallback Mode (Running mock LocalStorage)</span>`;
+        statusEl.innerHTML = `<span style="color:var(--text-muted);font-weight:500;">⚪ Fallback Mode (Running mock memory cache)</span>`;
       }
     }
 
@@ -1083,7 +1086,7 @@ export class PaymentView {
           close('pv-ov-pay');
           showToast(`Thanh toán thành công! Mã biên lai: ${receipt.receiptId || receipt.id}`, 'success');
 
-          // Đồng bộ lại vào LocalStorage của Frontend để tránh lệch số liệu ở các tab Resident/Dashboard khác chưa di chuyển sang Backend
+          // Đồng bộ lại vào memory cache của Frontend để tránh lệch số liệu ở các tab Resident/Dashboard khác chưa di chuyển sang Backend
           try {
             const db = FM._getDB();
             const localAf = db.assignedFees.find(a => a.id === afId);

@@ -1,8 +1,7 @@
 import { API } from '../api.js';
 
 const API_ROOT = window.RESIDENTS_API_ROOT || 'http://localhost:8080/api/residents';
-const STORE_KEY = 'residents_manager_v2_en';
-const FEE_STORE_KEY = 'smartfee_v1';
+let residentMemoryStore = null;
 
 const HOUSEHOLD_STATUSES = ['OCCUPIED', 'TEMPORARILY_AWAY', 'MOVED_OUT', 'VACANT'];
 const RESIDENT_STATUSES = ['PERMANENT', 'TEMPORARY', 'TEMPORARILY_AWAY', 'MOVED_OUT', 'DECEASED'];
@@ -220,36 +219,18 @@ function seedStore() {
 }
 
 function loadStore() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(STORE_KEY));
-    if (parsed?.households && parsed?.residents) {
-      if (!parsed.vehicles) {
-        parsed.vehicles = [
-          { id: 'VEH-001', plateNumber: '29A-12345', type: 'MOTORCYCLE', ownerName: 'Nguyen Van An', registrationDate: '2024-01-10', householdId: 'HH-A1201' },
-          { id: 'VEH-002', plateNumber: '29A-67890', type: 'MOTORCYCLE', ownerName: 'Le Thu Ha', registrationDate: '2024-02-15', householdId: 'HH-A1201' },
-          { id: 'VEH-003', plateNumber: '30B-99999', type: 'MOTORCYCLE', ownerName: 'Tran Thi Binh', registrationDate: '2024-03-01', householdId: 'HH-B0805' },
-          { id: 'VEH-004', plateNumber: '30A-88888', type: 'CAR', ownerName: 'Tran Thi Binh', registrationDate: '2024-03-20', householdId: 'HH-B0805' }
-        ];
-        localStorage.setItem(STORE_KEY, JSON.stringify(parsed));
-      }
-      return parsed;
-    }
-  } catch {
-    // Fall through to seed.
+  if (!residentMemoryStore) {
+    residentMemoryStore = seedStore();
   }
-  const seeded = seedStore();
-  saveStore(seeded);
-  return seeded;
+  return residentMemoryStore;
 }
 
 function saveStore(store) {
   store.vehicles = store.vehicles || [];
   syncHouseholdVehicleCounts(store);
   syncMemberCounts(store);
-  localStorage.setItem(STORE_KEY, JSON.stringify(store));
-  syncSmartFeeHouseholds(store.households);
+  residentMemoryStore = store;
 }
-
 function syncHouseholdVehicleCounts(store) {
   store.vehicles = store.vehicles || [];
   store.households = store.households.map(h => {
@@ -283,29 +264,9 @@ function bmSeedData() {
   selectedHouseholdId = null;
 }
 
-function syncSmartFeeHouseholds(households) {
-  try {
-    const db = JSON.parse(localStorage.getItem(FEE_STORE_KEY));
-    if (!db || !Array.isArray(db.households)) return;
-    households.forEach(h => {
-      const payload = {
-        id: h.id,
-        ownerName: h.headName,
-        membersCount: h.memberCount || 0,
-        area: Number(h.area) || 0,
-        motorcycleCount: Number(h.motorcycleCount) || 0,
-        carCount: Number(h.carCount) || 0
-      };
-      const index = db.households.findIndex(item => item.id === h.id);
-      if (index >= 0) db.households[index] = { ...db.households[index], ...payload };
-      else db.households.push(payload);
-    });
-    localStorage.setItem(FEE_STORE_KEY, JSON.stringify(db));
-  } catch {
-    // Fee data may not be initialized yet.
-  }
+function syncSmartFeeHouseholds(_households) {
+  // Fee/resident synchronization is handled by backend APIs.
 }
-
 function esc(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -984,7 +945,7 @@ const DataService = {
         return apiVehiclesPage;
       }
     } catch (e) {
-      console.warn("Backend vehicles API is offline, using LocalStorage:", e.message);
+      console.warn("Backend vehicles API is offline, using memory fallback:", e.message);
     }
 
     const store = loadStore();
@@ -1044,7 +1005,7 @@ const DataService = {
       savedApiDto = await API.saveVehicle(payload);
       backendOnline = true;
     } catch (e) {
-      console.warn("Failed to save vehicle to backend, falling back to LocalStorage:", e.message);
+      console.warn("Failed to save vehicle to backend, falling back to memory fallback:", e.message);
       if (e.message && (e.message.includes("đã được đăng ký") || e.message.includes("Không tìm thấy hộ gia đình") || e.message.includes("Biển số xe"))) {
         throw e;
       }
@@ -1085,7 +1046,7 @@ const DataService = {
     try {
       await API.deleteVehicle(id);
     } catch (e) {
-      console.warn("Failed to delete vehicle on backend, falling back to LocalStorage:", e.message);
+      console.warn("Failed to delete vehicle on backend, falling back to memory fallback:", e.message);
     }
 
     const store = loadStore();

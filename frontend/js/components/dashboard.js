@@ -1,4 +1,3 @@
-import { ApartmentDB } from '../db.js';
 import { API } from '../api.js';
 
 /**
@@ -10,12 +9,11 @@ export class Dashboard {
     const isBackend = await API.checkHealth();
     
     let logs = [];
-    let totalUsers = 0;
     let residentCount = 0;
     let stats = {
-      apartments: 120,
-      collectedRate: '88.5%',
-      unpaidCount: 14
+      apartments: 0,
+      collectedRate: '0%',
+      unpaidCount: 0
     };
     let populationTrend = [];
 
@@ -42,11 +40,6 @@ export class Dashboard {
       } catch (e) {
         console.error("Error loading backend dashboard metrics:", e);
       }
-    } else {
-      logs = await ApartmentDB.getLogs();
-      const users = await ApartmentDB.getUsers();
-      totalUsers = users.length;
-      residentCount = users.filter(u => u.role === 'user').length;
     }
 
     const isAdmin = user.role === 'admin';
@@ -153,9 +146,10 @@ export class Dashboard {
 
     // Xuất nội dung HTML giao diện Tiếng Anh vào Container chính
     container.innerHTML = `
+      <div class="dashboard-appear">
       <div class="metrics-grid">
         <!-- Thẻ Thống kê 1: Tổng số căn hộ -->
-        <div class="metric-card">
+        <div class="metric-card dashboard-block" style="--dash-delay: 0ms;">
           <div class="metric-info">
             <h3>Total Apartments</h3>
             <div class="metric-value">${stats.apartments}</div>
@@ -174,7 +168,7 @@ export class Dashboard {
         </div>
 
         <!-- Thẻ Thống kê 2: Tổng nhân khẩu -->
-        <div class="metric-card accent">
+        <div class="metric-card accent dashboard-block" style="--dash-delay: 80ms;">
           <div class="metric-info">
             <h3>Total Residents</h3>
             <div class="metric-value">${residentCount}</div>
@@ -191,7 +185,7 @@ export class Dashboard {
         </div>
 
         <!-- Thẻ Thống kê 3: Tỷ lệ thu phí -->
-        <div class="metric-card success">
+        <div class="metric-card success dashboard-block" style="--dash-delay: 160ms;">
           <div class="metric-info">
             <h3>Fee Collection Rate</h3>
             <div class="metric-value">${stats.collectedRate}</div>
@@ -208,10 +202,10 @@ export class Dashboard {
         </div>
 
         <!-- Thẻ Thống kê 4: Tổng số tài khoản đăng nhập -->
-        <div class="metric-card warning">
+        <div class="metric-card warning dashboard-block" style="--dash-delay: 240ms;">
           <div class="metric-info">
             <h3>System Status</h3>
-            <div class="metric-value">${isBackend ? 'ONLINE' : 'FALLBACK'}</div>
+            <div class="metric-value">${isBackend ? 'ONLINE' : 'OFFLINE'}</div>
             <div class="metric-desc">
               <span>Role-based access authorized</span>
             </div>
@@ -226,7 +220,7 @@ export class Dashboard {
 
       <div class="dashboard-grid">
         <!-- Khu vực vẽ Biểu đồ thu phí -->
-        <div class="chart-card">
+        <div class="chart-card dashboard-block" style="--dash-delay: 320ms;">
           <div class="card-header">
             <div>
               <h2 class="card-title">Annual Collection Progress</h2>
@@ -242,7 +236,7 @@ export class Dashboard {
         </div>
 
         <!-- Khu vực hiển thị Nhật ký hoạt động hệ thống (System Activity Log) -->
-        <div class="chart-card">
+        <div class="chart-card dashboard-block" style="--dash-delay: 400ms;">
           <div class="card-header">
             <div>
               <h2 class="card-title">System Activity Log</h2>
@@ -276,7 +270,7 @@ export class Dashboard {
 
         <!-- Biểu đồ Biến động dân cư (Population Fluctuations Trend) -->
         ${popChartSvg ? `
-        <div class="chart-card" style="grid-column: span 2;">
+        <div class="chart-card dashboard-block" style="grid-column: span 2; --dash-delay: 480ms;">
           <div class="card-header">
             <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
               <div>
@@ -298,12 +292,13 @@ export class Dashboard {
       </div>
 
       <!-- Khung chào mừng (Welcome Panel) mang lại cảm giác cao cấp -->
-      <div class="chart-card" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%);">
+      <div class="chart-card dashboard-block" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%); --dash-delay: 560ms;">
         <h2 class="card-title" style="margin-bottom: 8px; color: var(--text-primary);">Welcome back, ${user.fullname}!</h2>
         <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.6;">
           Welcome to the <strong>Cyberspace</strong> Resident Service and Administration Portal.
           ${isAdmin ? 'As a member of the <strong>Management Office (Admin)</strong>, you can manage resident accounts, assign system access permissions, and audit the complete activity logs of the system.' : (user.role === 'accountant' ? 'As a member of the <strong>Financial Office (Accountant)</strong>, you can view the statistics dashboard, create fees, manage billing periods, and record resident payments.' : 'As a registered <strong>Resident</strong> of unit <strong>' + user.room + '</strong>, you can view billing overviews, receive announcements, update your contact details, and change your password security.')}
         </p>
+      </div>
       </div>
     `;
   }

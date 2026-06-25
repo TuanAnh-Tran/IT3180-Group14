@@ -46,6 +46,16 @@ public interface AssignedFeeRepository extends JpaRepository<AssignedFee, String
 
     List<AssignedFee> findByHouseholdIdAndStatusIn(String householdId, Collection<FeeStatus> statuses);
 
+    @Query("SELECT af FROM AssignedFee af JOIN FETCH af.household JOIN FETCH af.period JOIN FETCH af.fee " +
+           "WHERE af.household.id = :householdId AND af.period.id = :periodId AND af.fee.id = :feeId")
+    Optional<AssignedFee> findByHouseholdIdAndPeriodIdAndFeeId(
+            @Param("householdId") String householdId,
+            @Param("periodId") String periodId,
+            @Param("feeId") String feeId);
+
+    @Query("SELECT DISTINCT af.fee.id FROM AssignedFee af WHERE af.period.id = :periodId")
+    List<String> findDistinctFeeIdsByPeriodId(@Param("periodId") String periodId);
+
     // Đếm số phí đã nộp / chưa nộp theo đợt
     long countByPeriodIdAndStatus(String periodId, FeeStatus status);
 
@@ -75,9 +85,9 @@ public interface AssignedFeeRepository extends JpaRepository<AssignedFee, String
     // Optimized overview query returning native projection DTO
     @Query(value = "SELECT " +
            "    COUNT(af.id) as totalAssignments, " +
-           "    SUM(CASE WHEN af.status = 'PAID' THEN 1 ELSE 0 END) as paidCount, " +
-           "    SUM(CASE WHEN af.status = 'UNPAID' THEN 1 ELSE 0 END) as unpaidCount, " +
-           "    SUM(CASE WHEN af.status = 'PARTIAL' THEN 1 ELSE 0 END) as partialCount, " +
+           "    COALESCE(SUM(CASE WHEN af.status = 'PAID' THEN 1 ELSE 0 END), 0) as paidCount, " +
+           "    COALESCE(SUM(CASE WHEN af.status = 'UNPAID' THEN 1 ELSE 0 END), 0) as unpaidCount, " +
+           "    COALESCE(SUM(CASE WHEN af.status = 'PARTIAL' THEN 1 ELSE 0 END), 0) as partialCount, " +
            "    COALESCE(SUM(af.amount_paid_accumulated), 0) as totalCollected " +
            "FROM assigned_fee af", nativeQuery = true)
     OverviewProjection getOverviewStatistics();

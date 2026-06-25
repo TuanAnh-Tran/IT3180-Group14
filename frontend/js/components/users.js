@@ -556,8 +556,8 @@ export class UsersManager {
       try {
         await API.createUser({
           username,
-          passwordHash: password, // The backend will hash it if we send plain password
-          fullName: fullname, // Note: match the backend User entity field names or DTO. The controller accepts User object.
+          password,
+          fullname,
           room,
           phone,
           role,
