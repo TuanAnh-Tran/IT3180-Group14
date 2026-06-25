@@ -43,6 +43,20 @@ services:
       APP_EXPORT_DIRECTORY: /app/exports
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
 
+  # ==========================================
+  # Frontend Service (Static HTML/CSS/JS)
+  # ==========================================
+  frontend:
+    image: nginx:alpine
+    container_name: apartment-frontend
+    restart: always
+    ports:
+      - "5500:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    depends_on:
+      - backend
+
 volumes:
   mysql_data:
     driver: local

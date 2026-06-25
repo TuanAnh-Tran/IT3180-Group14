@@ -5,3 +5,7 @@ backend/.mvn/
 
 # Maven build output
 **/target/
+
+# Local editor/IDE settings
+.idea/
+.vscode/
