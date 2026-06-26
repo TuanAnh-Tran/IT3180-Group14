@@ -1,4 +1,4 @@
-import { API } from '../api.js';
+import { API } from '../api.js?v=4';
 
 /**
  * THÀNH PHẦN BẢNG TỔNG QUAN (Dashboard Component)
@@ -7,12 +7,14 @@ import { API } from '../api.js';
 export class Dashboard {
   static async render(container, user) {
     const isBackend = await API.checkHealth();
+    const isAdmin = user.role === 'admin';
+    const canViewFinancialStats = user.role === 'admin' || user.role === 'accountant';
     
     let logs = [];
     let residentCount = 0;
     let stats = {
       apartments: 0,
-      collectedRate: '0%',
+      collectedRate: canViewFinancialStats ? '0%' : 'N/A',
       unpaidCount: 0
     };
     let populationTrend = [];
@@ -20,13 +22,23 @@ export class Dashboard {
     if (isBackend) {
       try {
         const resStats = await API.getResidentStats();
-        const overview = await API.getOverview();
-        
         stats.apartments = resStats.totalHouseholds;
-        stats.collectedRate = overview.completionRate + '%';
-        stats.unpaidCount = overview.unpaidHouseholds;
         residentCount = resStats.totalResidents;
+      } catch (e) {
+        console.error("Error loading resident dashboard metrics:", e);
+      }
 
+      if (canViewFinancialStats) {
+        try {
+          const overview = await API.getOverview();
+          stats.collectedRate = overview.completionRate + '%';
+          stats.unpaidCount = overview.unpaidHouseholds;
+        } catch (e) {
+          console.error("Error loading financial dashboard metrics:", e);
+        }
+      }
+
+      try {
         const apiLogs = await API.fetchJson('/residents/activity?limit=5');
         logs = apiLogs.map(l => ({
           username: l.actor,
@@ -34,15 +46,27 @@ export class Dashboard {
           timestamp: l.createdAt,
           type: 'info'
         }));
+      } catch (e) {
+        console.error("Error loading dashboard activity logs:", e);
+      }
 
+      try {
         const currentYear = new Date().getFullYear();
         populationTrend = await API.getDemographicsTrend(currentYear);
       } catch (e) {
-        console.error("Error loading backend dashboard metrics:", e);
+        console.error("Error loading population trend metrics:", e);
       }
     }
 
-    const isAdmin = user.role === 'admin';
+    const feeMetricDesc = canViewFinancialStats
+      ? `
+              <span style="color: var(--color-success); font-weight: bold;">${stats.unpaidCount} households</span>
+              <span>remaining unpaid</span>
+            `
+      : `
+              <span style="color: var(--color-accent); font-weight: bold;">Resident view</span>
+              <span>finance summary restricted</span>
+            `;
 
     // Vẽ biểu đồ cột trực tiếp bằng mã SVG (Glassmorphic Bar Chart)
     const svgChart = `
@@ -190,8 +214,7 @@ export class Dashboard {
             <h3>Fee Collection Rate</h3>
             <div class="metric-value">${stats.collectedRate}</div>
             <div class="metric-desc">
-              <span style="color: var(--color-success); font-weight: bold;">${stats.unpaidCount} households</span>
-              <span>remaining unpaid</span>
+              ${feeMetricDesc}
             </div>
           </div>
           <div class="metric-icon-box">

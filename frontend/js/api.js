@@ -27,7 +27,7 @@ export const API = {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const res = await fetch(`${API_BASE}/statistics/overview`, { 
+      const res = await fetch(`${API_BASE}/auth/profile`, {
         method: 'GET', 
         headers,
         signal: AbortSignal.timeout(1500) 

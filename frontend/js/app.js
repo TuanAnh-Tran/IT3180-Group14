@@ -5,13 +5,13 @@
 
 import { AuthService }      from './auth.js?v=5';
 import { Sidebar }          from './components/sidebar.js?v=3';
-import { Dashboard }        from './components/dashboard.js?v=3';
+import { Dashboard }        from './components/dashboard.js?v=4';
 import { UsersManager }     from './components/users.js?v=5';
 import { ProfileView }      from './components/profile.js?v=5';
 import { ResidentsManager } from './components/residents.js?v=7';
 import { FeeManagerView, FM }  from './components/fees.js?v=3';
 import { PaymentView, bridgeFM } from './components/payment.js?v=5';
-import { API } from './api.js';
+import { API } from './api.js?v=4';
 
 const app = document.getElementById('app');
 
