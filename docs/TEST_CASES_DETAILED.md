@@ -173,6 +173,14 @@
   * Người dùng đăng nhập thành công vào hệ thống, nhận JWT Token và truy cập được Dashboard.
   * Số lần đăng nhập sai (failed attempts count) được reset về 0.
 
+#### **TC-AUTH-13: Đăng ký với số điện thoại sai định dạng (Kiểm thử biên)**
+* **Mức độ:** Medium
+* **Dữ liệu đầu vào:** Phone = `"abc123"` (chứa chữ, không đủ 10 số).
+* **Các bước thực hiện:**
+  1. Điền các trường hợp lệ khác, nhập Phone = `abc123`.
+  2. Nhấn "Create Account".
+* **Kết quả mong đợi:**
+  * Hệ thống chặn và hiển thị: *"Phone number must contain exactly 10 digits!"*. Không gửi request lên server.
 ---
 
 ### 2.2 TC-USER — Quản lý tài khoản (Chức năng của Admin)
@@ -262,6 +270,35 @@
   1. Chọn dropdown Filter Role = "System Admin".
 * **Kết quả mong đợi:**
   * Bảng danh sách cập nhật chỉ hiển thị những tài khoản có vai trò Admin.
+
+#### **TC-USER-11: Admin cập nhật trạng thái tài khoản từ PENDING sang ACTIVE (Phê duyệt đăng ký)**
+* **Mức độ:** Critical
+* **Điều kiện tiên quyết:** Có tài khoản `status = PENDING` từ việc tự đăng ký.
+* **Các bước thực hiện:**
+  1. Tại bảng User Management, tìm tài khoản có badge "Pending".
+  2. Nhấn nút "Approve".
+* **Kết quả mong đợi:**
+  * Backend xử lý `PUT /api/users/{username}/approve`, cập nhật `status = ACTIVE`.
+  * Toast hiển thị: *"Approved @username successfully!"*. Cư dân có thể đăng nhập ngay sau đó.
+
+#### **TC-USER-12: Admin từ chối (Reject) một đăng ký Pending**
+* **Mức độ:** High
+* **Các bước thực hiện:**
+  1. Tại tài khoản có badge "Pending", nhấn nút "Reject".
+  2. Xác nhận trong hộp thoại.
+* **Kết quả mong đợi:**
+  * Bản ghi tài khoản bị xóa khỏi bảng `users` (hoặc chuyển `status = REJECTED` tùy thiết kế).
+  * Toast hiển thị: *"Registration rejected!"*. Tài khoản không thể đăng nhập.
+
+#### **TC-USER-13: Admin mở khóa thủ công tài khoản đang bị LOCKED**
+* **Mức độ:** High
+* **Điều kiện tiên quyết:** Tài khoản `resident2` đang `status = LOCKED`.
+* **Các bước thực hiện:**
+  1. Tại danh sách User Management, tìm tài khoản có badge "Locked".
+  2. Nhấn nút "Unlock".
+* **Kết quả mong đợi:**
+  * Backend cập nhật `status = ACTIVE`, reset bộ đếm đăng nhập sai về 0.
+  * Toast hiển thị: *"Unlocked @resident2 successfully!"*.
 
 ---
 
@@ -370,6 +407,22 @@
 * **Kết quả mong đợi:**
   * Gửi request reset đến backend.
   * Database MySQL xóa các bản ghi tự tạo và ghi lại dữ liệu seed mặc định. Toast hiển thị thành công.
+
+#### **TC-RES-12: Xuất danh sách hộ khẩu ra file Excel/CSV**
+* **Mức độ:** Medium
+* **Các bước thực hiện:**
+  1. Tại tab "Households", nhấn nút "Export".
+* **Kết quả mong đợi:**
+  * Hệ thống tạo và tải xuống file (.xlsx hoặc .csv) chứa đầy đủ danh sách hộ khẩu hiện tại đang hiển thị trên bảng (kể cả khi đã filter).
+
+#### **TC-RES-12: Xóa hộ khẩu đang còn nợ phí (Ràng buộc nghiệp vụ)**
+* **Mức độ:** High
+* **Điều kiện tiên quyết:** Hộ `HH-A1201` còn ít nhất 1 hóa đơn ở trạng thái `UNPAID`.
+* **Các bước thực hiện:**
+  1. Nhấn "Delete" tại hộ `HH-A1201` đang còn nợ.
+  2. Xác nhận xóa.
+* **Kết quả mong đợi:**
+  * Backend chặn xóa và trả về `409 Conflict` kèm thông báo: *"Cannot delete household with outstanding unpaid fees!"*. Hộ khẩu vẫn còn nguyên trên hệ thống.
 
 ---
 
@@ -525,6 +578,30 @@
   * Hộ HH001 tự động nhận một khoản phí đặc biệt có mã `FEE_DEBT` (Nợ cũ) với trường `quantity = 200000` và `amountRequired = 200000`.
   * Trạng thái của khoản phí `FEE_DEBT` được đặt là `UNPAID`.
 
+#### **TC-FEE-18: Tạo đợt thu mới khi đang có 1 đợt thu ACTIVE (Ràng buộc nghiệp vụ)**
+* **Mức độ:** High
+* **Điều kiện tiên quyết:** Đợt thu "Tháng 05/2026" đang ở trạng thái `ACTIVE`.
+* **Các bước thực hiện:**
+  1. Thử tạo thêm một đợt thu mới "Tháng 06/2026" trong khi đợt cũ chưa `CLOSED`.
+* **Kết quả mong đợi:**
+  * Tùy thiết kế nghiệp vụ: hệ thống cảnh báo *"Đã có đợt thu đang hoạt động, vui lòng đóng đợt thu hiện tại trước khi tạo đợt mới!"* hoặc cho phép tồn tại song song nếu được thiết kế hỗ trợ đa kỳ thu — cần xác nhận đúng với rule nghiệp vụ thực tế và phản hồi đúng theo rule đó.
+
+#### **TC-FEE-19: Sửa đơn giá khoản thu sau khi hóa đơn liên quan đã được thanh toán (PAID)**
+* **Mức độ:** High
+* **Điều kiện tiên quyết:** Khoản thu "Phí dịch vụ" đã có hóa đơn ở trạng thái `PAID`.
+* **Các bước thực hiện:**
+  1. Sửa đơn giá khoản thu "Phí dịch vụ" từ `15000` thành `20000`.
+  2. Lưu thay đổi.
+* **Kết quả mong đợi:**
+  * Các hóa đơn đã `PAID` **giữ nguyên** số tiền cũ đã ghi nhận (không hồi tố), chỉ các hóa đơn còn `UNPAID` mới áp dụng đơn giá mới — đảm bảo tính toàn vẹn lịch sử tài chính.
+
+#### **TC-FEE-20: Lọc và xem danh sách khoản thu theo loại (Bắt buộc/Tự nguyện)**
+* **Mức độ:** Medium
+* **Các bước thực hiện:**
+  1. Tại Fee Manager, chọn filter "Loại khoản thu" = "Tự nguyện".
+* **Kết quả mong đợi:**
+  * Bảng danh sách khoản thu chỉ hiển thị các khoản phí có cờ `mandatory = false`.
+
 ---
 
 ### 2.5 TC-PAY — Ghi nhận thanh toán & Quản lý biên lai
@@ -619,6 +696,16 @@
   * Backend tạo file Excel chứa thông tin nợ phí thông qua thư viện Apache POI.
   * Tải xuống tệp Excel thành công.
   * Cấu trúc file Excel hiển thị chính xác danh sách các căn hộ còn nợ phí trong đợt thu đó, chi tiết số tiền nợ của từng loại phí, tổng nợ của từng hộ và tổng nợ của toàn đợt thu.
+
+#### **TC-PAY-11: Thanh toán một phần (Partial Payment) hóa đơn**
+* **Mức độ:** High
+* **Điều kiện tiên quyết:** Hóa đơn của hộ `P103` cần đóng `500.000đ`.
+* **Các bước thực hiện:**
+  1. Tại modal thanh toán, sửa số tiền nộp thành `300.000đ` (thấp hơn số tiền cần đóng).
+  2. Nhấn "Xác nhận thanh toán".
+* **Kết quả mong đợi:**
+  * Hệ thống ghi nhận thanh toán `300.000đ`, hóa đơn chuyển trạng thái `PARTIALLY_PAID`, số nợ còn lại hiển thị là `200.000đ`.
+  * Biên lai được tạo ghi đúng số tiền đã nộp là `300.000đ`.
 
 ---
 
