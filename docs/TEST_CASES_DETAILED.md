@@ -21,7 +21,7 @@
 
 ---
 
-## 2. KỊCH BẢN KIỂM THỬ CHI TIẾT (82 TEST CASES)
+## 2. KỊCH BẢN KIỂM THỬ CHI TIẾT (92 TEST CASES)
 
 ### 2.1 TC-AUTH — Xác thực người dùng & Bảo mật hệ thống
 
@@ -415,7 +415,7 @@
 * **Kết quả mong đợi:**
   * Hệ thống tạo và tải xuống file (.xlsx hoặc .csv) chứa đầy đủ danh sách hộ khẩu hiện tại đang hiển thị trên bảng (kể cả khi đã filter).
 
-#### **TC-RES-12: Xóa hộ khẩu đang còn nợ phí (Ràng buộc nghiệp vụ)**
+#### **TC-RES-13: Xóa hộ khẩu đang còn nợ phí (Ràng buộc nghiệp vụ)**
 * **Mức độ:** High
 * **Điều kiện tiên quyết:** Hộ `HH-A1201` còn ít nhất 1 hóa đơn ở trạng thái `UNPAID`.
 * **Các bước thực hiện:**
@@ -923,11 +923,11 @@
 
 | Module | Số TC | Critical | High | Medium | Low |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Authentication** | 12 | 3 | 7 | 2 | 0 |
-| **User Management** | 10 | 2 | 6 | 2 | 0 |
-| **Resident Manager** | 11 | 0 | 7 | 3 | 1 |
-| **Fee Manager** | 17 | 5 | 8 | 3 | 1 |
-| **Payment & Receipt** | 10 | 2 | 6 | 2 | 0 |
+| **Authentication** | 13 | 3 | 7 | 3 | 0 |
+| **User Management** | 13 | 3 | 8 | 2 | 0 |
+| **Resident Manager** | 13 | 0 | 8 | 4 | 1 |
+| **Fee Manager** | 20 | 5 | 10 | 4 | 1 |
+| **Payment & Receipt** | 11 | 2 | 7 | 2 | 0 |
 | **Statistics** | 5 | 1 | 2 | 2 | 0 |
 | **Profile** | 7 | 0 | 3 | 4 | 0 |
 | **Dashboard** | 3 | 0 | 1 | 2 | 0 |
