@@ -7,8 +7,10 @@ import com.cnpm.apartment.model.AssignedFee;
 import com.cnpm.apartment.model.CollectionPeriod;
 import com.cnpm.apartment.model.Fee;
 import com.cnpm.apartment.model.Household;
-import com.cnpm.apartment.model.Receipt;
+import com.cnpm.apartment.model.Notification;
 import com.cnpm.apartment.model.PaymentProof;
+import com.cnpm.apartment.model.Receipt;
+import com.cnpm.apartment.model.User;
 import com.cnpm.apartment.model.enums.CalcMethod;
 import com.cnpm.apartment.model.enums.FeeStatus;
 import com.cnpm.apartment.model.enums.FeeType;
@@ -17,8 +19,11 @@ import com.cnpm.apartment.repository.AssignedFeeRepository;
 import com.cnpm.apartment.repository.CollectionPeriodRepository;
 import com.cnpm.apartment.repository.FeeRepository;
 import com.cnpm.apartment.repository.HouseholdRepository;
+import com.cnpm.apartment.repository.NotificationRepository;
+import com.cnpm.apartment.repository.PaymentProofRepository;
 import com.cnpm.apartment.repository.ReceiptRepository;
 import com.cnpm.apartment.repository.ResidentRepository;
+import com.cnpm.apartment.repository.UserRepository;
 import com.cnpm.apartment.service.calculator.CalculatorFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,7 +50,9 @@ public class PaymentService {
     private final HouseholdRepository householdRepository;
     private final ResidentRepository residentRepository;
     private final CalculatorFactory calculatorFactory;
-    private final com.cnpm.apartment.repository.PaymentProofRepository paymentProofRepository;
+    private final PaymentProofRepository paymentProofRepository;
+    private final NotificationRepository notificationRepository;
+    private final UserRepository userRepository;
 
     // =========================================================
     // 1. GHI NHẬN NỘP TIỀN
@@ -309,7 +316,7 @@ public class PaymentService {
 
     @Transactional
     public ReceiptDTO approveProof(String proofId, String note) {
-        PaymentProof proof = paymentProofRepository.findById(proofId)
+        PaymentProof proof = paymentProofRepository.findByIdForUpdate(proofId)
                 .orElseThrow(() -> new RuntimeException("Proof not found."));
 
         if (proof.getStatus() != PaymentProof.ProofStatus.PENDING) {
@@ -325,13 +332,20 @@ public class PaymentService {
         req.setNote(note != null && !note.isBlank() ? note : proof.getNote());
         req.setPayerName(proof.getPayerName());
         req.setPaidAt(proof.getSubmittedAt());
+        req.setIdempotencyKey("PROOF_" + proof.getId());
 
-        return recordPayment(req);
+        ReceiptDTO receipt = recordPayment(req);
+        notifyHouseholdUsers(
+                proof.getAssignedFee().getHousehold().getId(),
+                "Payment proof approved",
+                "Your payment proof for " + proof.getAssignedFee().getFee().getName()
+                        + " was approved. Recorded amount: " + proof.getAmount() + " VND.");
+        return receipt;
     }
 
     @Transactional
     public void rejectProof(String proofId, String note) {
-        PaymentProof proof = paymentProofRepository.findById(proofId)
+        PaymentProof proof = paymentProofRepository.findByIdForUpdate(proofId)
                 .orElseThrow(() -> new RuntimeException("Proof not found."));
 
         if (proof.getStatus() != PaymentProof.ProofStatus.PENDING) {
@@ -341,6 +355,13 @@ public class PaymentService {
         proof.setStatus(PaymentProof.ProofStatus.REJECTED);
         proof.setNote(note);
         paymentProofRepository.save(proof);
+
+        String reason = note != null && !note.isBlank() ? " Reason: " + note : "";
+        notifyHouseholdUsers(
+                proof.getAssignedFee().getHousehold().getId(),
+                "Payment proof rejected",
+                "Your payment proof for " + proof.getAssignedFee().getFee().getName()
+                        + " was rejected." + reason);
     }
 
     @Transactional(readOnly = true)
@@ -576,5 +597,17 @@ public class PaymentService {
                 .receiptStatus(r.getStatus() != null ? r.getStatus().name() : "ACTIVE")
                 .createdAt(r.getCreatedAt())
                 .build();
+    }
+
+    private void notifyHouseholdUsers(String householdId, String title, String content) {
+        List<User> users = userRepository.findByRoom(householdId);
+        users.forEach(user -> notificationRepository.save(Notification.builder()
+                .id("NOTIF-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                .targetUsername(user.getUsername())
+                .title(title)
+                .content(content)
+                .read(false)
+                .createdAt(LocalDateTime.now())
+                .build()));
     }
 }

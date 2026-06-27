@@ -7,9 +7,12 @@ import com.cnpm.apartment.dto.ReceiptDTO;
 import com.cnpm.apartment.model.AssignedFee;
 import com.cnpm.apartment.model.CollectionPeriod;
 import com.cnpm.apartment.model.PaymentProof;
+import com.cnpm.apartment.model.User;
+import com.cnpm.apartment.model.enums.UserRole;
 import com.cnpm.apartment.model.enums.PeriodStatus;
 import com.cnpm.apartment.repository.AssignedFeeRepository;
 import com.cnpm.apartment.repository.CollectionPeriodRepository;
+import com.cnpm.apartment.repository.UserRepository;
 import com.cnpm.apartment.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +21,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -41,6 +45,7 @@ public class PaymentController {
     private final PaymentService paymentService;
     private final CollectionPeriodRepository collectionPeriodRepository;
     private final AssignedFeeRepository assignedFeeRepository;
+    private final UserRepository userRepository;
 
     public record PeriodDTO(String id, String name, List<String> feeIds, String status,
                             java.time.LocalDateTime createdAt) {}
@@ -68,14 +73,14 @@ public class PaymentController {
     }
 
     @GetMapping("/unpaid")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT', 'USER')")
     public ResponseEntity<ApiResponse<Page<AssignedFeeDTO>>> getUnpaid(
             @RequestParam(required = false) String periodId,
             @RequestParam(required = false) String householdId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         PageRequest pageable = PageRequest.of(Math.max(page, 0), Math.max(size, 1), Sort.by("household.ownerName"));
-        Page<AssignedFeeDTO> result = paymentService.getUnpaidFees(periodId, householdId, pageable);
+        Page<AssignedFeeDTO> result = paymentService.getUnpaidFees(periodId, allowedHouseholdId(householdId), pageable);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
@@ -168,6 +173,7 @@ public class PaymentController {
 
     @GetMapping("/qr/{assignedFeeId}")
     public ResponseEntity<ApiResponse<String>> getQrCode(@PathVariable String assignedFeeId) {
+        assertCanAccessAssignedFee(assignedFeeId);
         String qrUrl = paymentService.getQrCodeUrl(assignedFeeId);
         return ResponseEntity.ok(ApiResponse.success(qrUrl));
     }
@@ -180,6 +186,7 @@ public class PaymentController {
             @RequestParam(required = false) String note,
             @RequestParam(required = false) String transactionId,
             @RequestParam(required = false) String payerName) {
+        assertCanAccessAssignedFee(assignedFeeId);
         PaymentProofDTO proof = mapProof(paymentService.submitProof(
                 assignedFeeId, amount, proofImage, note, transactionId, payerName));
         return ResponseEntity.ok(ApiResponse.success(
@@ -220,6 +227,47 @@ public class PaymentController {
                 assignedFeeRepository.findDistinctFeeIdsByPeriodId(period.getId()),
                 period.getStatus().name(),
                 period.getCreatedAt());
+    }
+
+    private String allowedHouseholdId(String requestedHouseholdId) {
+        User currentUser = currentUser();
+        if (currentUser.getRole() != UserRole.ROLE_USER) {
+            return requestedHouseholdId;
+        }
+
+        String ownHouseholdId = currentUser.getRoom();
+        if (ownHouseholdId == null || ownHouseholdId.isBlank()) {
+            throw new RuntimeException("Your account is not linked to a household.");
+        }
+        if (requestedHouseholdId != null && !requestedHouseholdId.isBlank()
+                && !ownHouseholdId.equalsIgnoreCase(requestedHouseholdId.trim())) {
+            throw new RuntimeException("Residents can only view payments for their own household.");
+        }
+        return ownHouseholdId;
+    }
+
+    private void assertCanAccessAssignedFee(String assignedFeeId) {
+        User currentUser = currentUser();
+        if (currentUser.getRole() != UserRole.ROLE_USER) {
+            return;
+        }
+
+        String ownHouseholdId = currentUser.getRoom();
+        if (ownHouseholdId == null || ownHouseholdId.isBlank()) {
+            throw new RuntimeException("Your account is not linked to a household.");
+        }
+        AssignedFee assignedFee = assignedFeeRepository.findById(assignedFeeId)
+                .orElseThrow(() -> new RuntimeException("Assigned fee not found with id: " + assignedFeeId));
+        if (assignedFee.getHousehold() == null
+                || !ownHouseholdId.equalsIgnoreCase(assignedFee.getHousehold().getId())) {
+            throw new RuntimeException("Residents can only access payments for their own household.");
+        }
+    }
+
+    private User currentUser() {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("Current user not found: " + username));
     }
 
     private PaymentProofDTO mapProof(PaymentProof proof) {

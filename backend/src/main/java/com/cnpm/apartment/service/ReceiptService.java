@@ -88,6 +88,8 @@ public class ReceiptService {
                 .status(af.getStatus())
                 .note(r.getNote())
                 .createdBy(r.getCreatedBy())
+                .payerName(r.getPayerName())
+                .receiptStatus(r.getStatus() != null ? r.getStatus().name() : "ACTIVE")
                 .createdAt(r.getCreatedAt())
                 .build();
     }

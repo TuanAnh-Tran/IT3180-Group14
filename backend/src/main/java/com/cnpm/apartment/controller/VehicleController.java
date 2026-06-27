@@ -3,10 +3,13 @@ package com.cnpm.apartment.controller;
 import com.cnpm.apartment.dto.ApiResponse;
 import com.cnpm.apartment.model.Household;
 import com.cnpm.apartment.model.Resident;
+import com.cnpm.apartment.model.User;
 import com.cnpm.apartment.model.Vehicle;
 import com.cnpm.apartment.model.enums.ResidentStatus;
+import com.cnpm.apartment.model.enums.UserRole;
 import com.cnpm.apartment.repository.HouseholdRepository;
 import com.cnpm.apartment.repository.ResidentRepository;
+import com.cnpm.apartment.repository.UserRepository;
 import com.cnpm.apartment.repository.VehicleRepository;
 import com.cnpm.apartment.validation.VietnamDataRules;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +19,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -33,6 +37,7 @@ public class VehicleController {
     private final VehicleRepository vehicleRepository;
     private final HouseholdRepository householdRepository;
     private final ResidentRepository residentRepository;
+    private final UserRepository userRepository;
 
     public record VehicleDTO(
             String id,
@@ -53,14 +58,16 @@ public class VehicleController {
 
     @GetMapping
     @Transactional(readOnly = true)
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT', 'USER')")
     public ResponseEntity<ApiResponse<Page<VehicleDTO>>> searchVehicles(
             @RequestParam(required = false) String plateNumber,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String householdId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
+        String allowedHouseholdId = allowedHouseholdId(householdId);
         List<VehicleDTO> filtered = vehicleRepository.findAll(Sort.by("plateNumber")).stream()
-                .filter(vehicle -> matches(vehicle, plateNumber, type, householdId))
+                .filter(vehicle -> matches(vehicle, plateNumber, type, allowedHouseholdId))
                 .map(this::mapVehicle)
                 .toList();
 
@@ -78,7 +85,9 @@ public class VehicleController {
 
     @GetMapping("/household/{householdId}")
     @Transactional(readOnly = true)
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT', 'USER')")
     public ResponseEntity<ApiResponse<List<VehicleDTO>>> getByHousehold(@PathVariable String householdId) {
+        assertHouseholdAccess(householdId);
         List<VehicleDTO> result = vehicleRepository.findByHouseholdId(householdId).stream()
                 .map(this::mapVehicle)
                 .toList();
@@ -178,5 +187,43 @@ public class VehicleController {
 
     private String normalize(String value) {
         return value == null ? "" : value.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String allowedHouseholdId(String requestedHouseholdId) {
+        User user = currentUser();
+        if (user.getRole() != UserRole.ROLE_USER) {
+            return requestedHouseholdId;
+        }
+        String ownHouseholdId = ownHouseholdId(user);
+        if (requestedHouseholdId != null && !requestedHouseholdId.isBlank()
+                && !ownHouseholdId.equalsIgnoreCase(requestedHouseholdId.trim())) {
+            throw new RuntimeException("Residents can only view vehicles for their own household.");
+        }
+        return ownHouseholdId;
+    }
+
+    private void assertHouseholdAccess(String householdId) {
+        User user = currentUser();
+        if (user.getRole() != UserRole.ROLE_USER) {
+            return;
+        }
+        String ownHouseholdId = ownHouseholdId(user);
+        if (householdId == null || !ownHouseholdId.equalsIgnoreCase(householdId.trim())) {
+            throw new RuntimeException("Residents can only view vehicles for their own household.");
+        }
+    }
+
+    private User currentUser() {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("Authenticated user was not found."));
+    }
+
+    private String ownHouseholdId(User user) {
+        String householdId = user.getRoom();
+        if (householdId == null || householdId.isBlank()) {
+            throw new RuntimeException("Your account is not linked to a household.");
+        }
+        return householdId.trim();
     }
 }
