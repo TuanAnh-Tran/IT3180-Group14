@@ -78,7 +78,7 @@ export class ProfileView {
 
                     <div class="form-group" style="margin-bottom: 0;">
                       <label class="form-label">Phone Number *</label>
-                      <input type="tel" class="form-control" name="phone" value="${user.phone && user.phone !== 'null' ? user.phone : ''}" pattern="\\d+" title="Only digits allowed" required placeholder="Phone Number" style="padding-left:14px;">
+                      <input type="tel" class="form-control" name="phone" value="${user.phone && user.phone !== 'null' ? user.phone : ''}" pattern="0[35789]\\d{8}" maxlength="10" title="Vietnamese mobile number, for example 0987654321" required placeholder="Phone Number" style="padding-left:14px;">
                     </div>
 
                     <!-- Admin được sửa mã căn hộ thoải mái, Resident thường bị khóa (Chỉ đọc) -->
@@ -130,7 +130,7 @@ export class ProfileView {
                     </div>
                     <div class="form-group" style="margin-bottom: 0;">
                       <label class="form-label">Citizen ID (CCCD/CMND) *</label>
-                      <input type="text" class="form-control" name="identityNo" value="${user.identityNo || ''}" required pattern="\\d+" title="Only digits allowed" placeholder="CCCD" style="padding-left:14px;">
+                      <input type="text" class="form-control" name="identityNo" value="${user.identityNo || ''}" required pattern="(001|002|004|006|008|010|011|012|014|015|017|019|020|022|024|025|026|027|030|031|033|034|035|036|037|038|040|042|044|045|046|048|049|051|052|054|056|058|060|062|064|066|067|068|070|072|074|075|077|079|080|082|083|084|086|087|089|091|092|093|094|095|096)\\d{9}" maxlength="12" title="Citizen ID must contain exactly 12 digits and start with a valid Vietnamese province/city code" placeholder="CCCD" style="padding-left:14px;">
                     </div>
                     <div class="form-group" style="margin-bottom: 0;">
                       <label class="form-label">Date of Birth *</label>
@@ -260,12 +260,12 @@ export class ProfileView {
       const previousResidence = formData.get('previousResidence').trim();
 
       // Kiểm tra hợp lệ dữ liệu
-      if (!/^\d+$/.test(phone)) {
-        showToast('Phone number must contain only digits!', 'warning');
+      if (!/^0[35789]\d{8}$/.test(phone)) {
+        showToast('Phone must be a Vietnamese mobile number with 10 digits starting with 03, 05, 07, 08 or 09!', 'warning');
         return;
       }
-      if (!/^\d+$/.test(identityNo)) {
-        showToast('Citizen ID (CCCD/CMND) must contain only digits!', 'warning');
+      if (!/^(001|002|004|006|008|010|011|012|014|015|017|019|020|022|024|025|026|027|030|031|033|034|035|036|037|038|040|042|044|045|046|048|049|051|052|054|056|058|060|062|064|066|067|068|070|072|074|075|077|079|080|082|083|084|086|087|089|091|092|093|094|095|096)\d{9}$/.test(identityNo)) {
+        showToast('Citizen ID (CCCD) must contain exactly 12 digits and start with a valid Vietnamese province/city code!', 'warning');
         return;
       }
 

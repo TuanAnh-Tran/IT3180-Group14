@@ -7,6 +7,7 @@ import com.cnpm.apartment.model.enums.UserRole;
 import com.cnpm.apartment.model.enums.UserStatus;
 import com.cnpm.apartment.repository.NotificationRepository;
 import com.cnpm.apartment.repository.UserRepository;
+import com.cnpm.apartment.validation.VietnamDataRules;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -41,19 +42,21 @@ public class UserController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<UserAccountDTO>> createUser(@RequestBody Map<String, String> request) {
-        String username = required(request, "username").toLowerCase().trim();
-        String password = firstPresent(request, "password", "passwordHash");
-        String fullname = firstPresent(request, "fullname", "fullName");
-        String identityNo = required(request, "identityNo").trim();
+        String username = VietnamDataRules.requireUsername(required(request, "username"));
+        String password = VietnamDataRules.requirePassword(firstPresent(request, "password", "passwordHash"));
+        String fullname = VietnamDataRules.requireText(firstPresent(request, "fullname", "fullName"), "Full Name");
+        String identityNo = VietnamDataRules.requireCitizenId(required(request, "identityNo"), "Citizen ID");
+        String phone = VietnamDataRules.requireVietnamMobile(required(request, "phone"), "Phone");
         String email = value(request, "email");
         if (email == null || email.isBlank()) {
             email = username + "@cyberspace.local";
         }
+        email = VietnamDataRules.requireEmail(email, "Email");
 
         if (userRepository.findByUsername(username).isPresent()) {
             throw new RuntimeException("Username already exists.");
         }
-        if (userRepository.findByEmail(email.trim()).isPresent()) {
+        if (userRepository.findByEmail(email).isPresent()) {
             throw new RuntimeException("Email already registered.");
         }
         if (userRepository.findByIdentityNo(identityNo).isPresent()) {
@@ -63,10 +66,10 @@ public class UserController {
         User user = User.builder()
                 .username(username)
                 .passwordHash(passwordEncoder.encode(password))
-                .email(email.trim())
-                .fullname(fullname.trim())
-                .room(value(request, "room"))
-                .phone(value(request, "phone"))
+                .email(email)
+                .fullname(fullname)
+                .room(VietnamDataRules.optionalText(value(request, "room")))
+                .phone(phone)
                 .identityNo(identityNo)
                 .role(toRole(value(request, "role")))
                 .status(UserStatus.APPROVED)

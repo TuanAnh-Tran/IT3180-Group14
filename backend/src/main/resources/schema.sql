@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS household (
     floor           INT            NULL COMMENT 'Floor number',
     owner_name      VARCHAR(255)   NOT NULL COMMENT 'Tên chủ hộ',
     head_resident_id VARCHAR(50)   NULL COMMENT 'Current household head resident id',
-    phone           VARCHAR(30)    NULL COMMENT 'Phone number',
+    phone           VARCHAR(10)    NULL COMMENT 'Vietnamese mobile phone number',
     house_no        VARCHAR(100)   NULL COMMENT 'House number',
     street          VARCHAR(255)   NULL COMMENT 'Street',
     ward            VARCHAR(255)   NULL COMMENT 'Ward',
@@ -39,6 +39,8 @@ CREATE TABLE IF NOT EXISTS household (
     archived_at     DATETIME       NULL COMMENT 'Soft delete timestamp',
     note            VARCHAR(1000)  NULL,
     UNIQUE KEY uk_household_apartment_no (apartment_no),
+    CONSTRAINT chk_household_phone_vn CHECK (phone IS NULL OR phone REGEXP '^0[35789][0-9]{8}$'),
+    CONSTRAINT chk_household_non_negative_numbers CHECK (COALESCE(floor, 0) >= 0 AND members_count >= 0 AND area > 0 AND motorcycle_count >= 0 AND car_count >= 0),
     INDEX idx_household_archived (archived),
     INDEX idx_household_head (head_resident_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -52,8 +54,8 @@ CREATE TABLE IF NOT EXISTS resident (
     full_name            VARCHAR(255)   NOT NULL,
     gender               VARCHAR(20)    NULL,
     date_of_birth        DATE           NULL,
-    identity_no          VARCHAR(30)    NOT NULL UNIQUE,
-    phone                VARCHAR(30)    NULL,
+    identity_no          VARCHAR(12)    NOT NULL UNIQUE,
+    phone                VARCHAR(10)    NULL,
     alias                VARCHAR(100)   NULL,
     birth_place          VARCHAR(255)   NULL,
     hometown             VARCHAR(255)   NULL,
@@ -77,6 +79,9 @@ CREATE TABLE IF NOT EXISTS resident (
 
     FOREIGN KEY (household_id) REFERENCES household(id),
 
+    CONSTRAINT chk_resident_identity_vn CHECK (identity_no REGEXP '^(001|002|004|006|008|010|011|012|014|015|017|019|020|022|024|025|026|027|030|031|033|034|035|036|037|038|040|042|044|045|046|048|049|051|052|054|056|058|060|062|064|066|067|068|070|072|074|075|077|079|080|082|083|084|086|087|089|091|092|093|094|095|096)[0-9]{9}$'),
+    CONSTRAINT chk_resident_phone_vn CHECK (phone IS NULL OR phone REGEXP '^0[35789][0-9]{8}$'),
+    CONSTRAINT chk_resident_life_state CHECK ((alive = TRUE AND date_of_death IS NULL) OR (alive = FALSE AND date_of_death IS NOT NULL)),
     INDEX idx_resident_identity (identity_no),
     INDEX idx_resident_household (household_id),
     INDEX idx_resident_status (status),
@@ -231,15 +236,17 @@ CREATE TABLE IF NOT EXISTS user (
     email           VARCHAR(100)   NOT NULL UNIQUE,
     fullname        VARCHAR(255)   NOT NULL,
     room            VARCHAR(50)    NULL,
-    phone           VARCHAR(30)    NULL,
-    identity_no     VARCHAR(30)    NOT NULL UNIQUE,
+    phone           VARCHAR(10)    NULL,
+    identity_no     VARCHAR(12)    NOT NULL UNIQUE,
     role            ENUM('ROLE_USER', 'ROLE_ADMIN', 'ROLE_ACCOUNTANT') NOT NULL DEFAULT 'ROLE_USER',
     status          ENUM('PENDING', 'APPROVED', 'LOCKED') NOT NULL DEFAULT 'PENDING',
     failed_attempts INT            DEFAULT 0,
     lock_time       DATETIME       NULL,
     otp_code        VARCHAR(10)    NULL,
     otp_expiry      DATETIME       NULL,
-    created_at      DATETIME       DEFAULT CURRENT_TIMESTAMP
+    created_at      DATETIME       DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_user_phone_vn CHECK (phone IS NULL OR phone REGEXP '^0[35789][0-9]{8}$'),
+    CONSTRAINT chk_user_identity_vn CHECK (identity_no REGEXP '^(001|002|004|006|008|010|011|012|014|015|017|019|020|022|024|025|026|027|030|031|033|034|035|036|037|038|040|042|044|045|046|048|049|051|052|054|056|058|060|062|064|066|067|068|070|072|074|075|077|079|080|082|083|084|086|087|089|091|092|093|094|095|096)[0-9]{9}$')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================

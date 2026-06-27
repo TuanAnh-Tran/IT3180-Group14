@@ -5,6 +5,7 @@ import com.cnpm.apartment.model.Household;
 import com.cnpm.apartment.model.Vehicle;
 import com.cnpm.apartment.repository.HouseholdRepository;
 import com.cnpm.apartment.repository.VehicleRepository;
+import com.cnpm.apartment.validation.VietnamDataRules;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -84,10 +85,7 @@ public class VehicleController {
     @Transactional
     @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<VehicleDTO>> saveVehicle(@RequestBody VehicleRequest request) {
-        String plateNumber = normalizePlate(request.plateNumber());
-        if (plateNumber.isBlank()) {
-            throw new RuntimeException("Vehicle plate number is required.");
-        }
+        String plateNumber = VietnamDataRules.requireVehiclePlate(request.plateNumber());
 
         String id = request.id() == null || request.id().isBlank()
                 ? "VEH-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase()
@@ -109,7 +107,9 @@ public class VehicleController {
         vehicle.setOwnerName(request.ownerName() == null || request.ownerName().isBlank()
                 ? household.getOwnerName()
                 : request.ownerName().trim());
-        vehicle.setRegistrationDate(request.registrationDate() != null ? request.registrationDate() : LocalDate.now());
+        vehicle.setRegistrationDate(request.registrationDate() != null
+                ? VietnamDataRules.notFuture(request.registrationDate(), "Vehicle registration date")
+                : LocalDate.now());
         vehicle.setHousehold(household);
 
         return ResponseEntity.ok(ApiResponse.success("Vehicle saved successfully", mapVehicle(vehicleRepository.save(vehicle))));
@@ -154,7 +154,13 @@ public class VehicleController {
 
     private String normalizeType(String value) {
         String normalized = normalize(value);
-        return normalized.isBlank() ? "MOTORCYCLE" : normalized;
+        if (normalized.isBlank()) {
+            return "MOTORCYCLE";
+        }
+        if (!"MOTORCYCLE".equals(normalized) && !"CAR".equals(normalized)) {
+            throw new RuntimeException("Vehicle type must be MOTORCYCLE or CAR.");
+        }
+        return normalized;
     }
 
     private String normalize(String value) {

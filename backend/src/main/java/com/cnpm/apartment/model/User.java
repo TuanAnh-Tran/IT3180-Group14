@@ -32,10 +32,10 @@ public class User {
     @Column(name = "room", length = 50)
     private String room;
 
-    @Column(name = "phone", length = 30)
+    @Column(name = "phone", length = 10)
     private String phone;
 
-    @Column(name = "identity_no", nullable = false, unique = true, length = 30)
+    @Column(name = "identity_no", nullable = false, unique = true, length = 12)
     private String identityNo;
 
     @Enumerated(EnumType.STRING)

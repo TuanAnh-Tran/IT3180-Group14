@@ -1,6 +1,10 @@
 package com.cnpm.apartment.dto;
 
+import com.cnpm.apartment.validation.VietnamDataRules;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.PastOrPresent;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -20,14 +24,15 @@ public class HouseholdRequest {
     @PositiveOrZero(message = "Floor must be zero or greater")
     private Integer floor;
 
-    @PositiveOrZero(message = "Area must be zero or greater")
+    @Positive(message = "Area must be greater than 0")
     private double area;
 
     @NotBlank(message = "Household head is required")
     @Size(max = 255, message = "Household head must be at most 255 characters")
     private String headName;
 
-    @Size(max = 30, message = "Phone must be at most 30 characters")
+    @Pattern(regexp = VietnamDataRules.OPTIONAL_VIETNAM_MOBILE_REGEX,
+            message = "Phone must be a Vietnamese mobile number with 10 digits")
     private String phone;
 
     @Size(max = 100, message = "House number must be at most 100 characters")
@@ -42,8 +47,11 @@ public class HouseholdRequest {
     @Size(max = 255, message = "District must be at most 255 characters")
     private String district;
 
+    @PastOrPresent(message = "Registration date cannot be in the future")
     private LocalDate registrationDate;
 
+    @Pattern(regexp = VietnamDataRules.OPTIONAL_CITIZEN_ID_REGEX,
+            message = "Head Citizen ID must contain exactly 12 digits and start with a valid Vietnamese province/city code")
     private String headIdentityNo;
 
     private String status;

@@ -19,5 +19,10 @@ public class ResidentSchemaMigrator implements ApplicationRunner {
         jdbcTemplate.execute("ALTER TABLE resident MODIFY COLUMN status VARCHAR(50) NOT NULL DEFAULT 'PERMANENT'");
         jdbcTemplate.execute("ALTER TABLE household MODIFY COLUMN status VARCHAR(50) NOT NULL DEFAULT 'OCCUPIED'");
         jdbcTemplate.execute("ALTER TABLE fee MODIFY COLUMN calc_method ENUM('FIXED','PER_PERSON','PER_M2','PER_VEHICLE','PER_MOTORCYCLE','PER_CAR','CONSUMPTION') NOT NULL");
+        jdbcTemplate.execute("ALTER TABLE resident MODIFY COLUMN identity_no VARCHAR(12) NOT NULL");
+        jdbcTemplate.execute("ALTER TABLE resident MODIFY COLUMN phone VARCHAR(10) NULL");
+        jdbcTemplate.execute("ALTER TABLE `user` MODIFY COLUMN identity_no VARCHAR(12) NOT NULL");
+        jdbcTemplate.execute("ALTER TABLE `user` MODIFY COLUMN phone VARCHAR(10) NULL");
+        jdbcTemplate.execute("ALTER TABLE household MODIFY COLUMN phone VARCHAR(10) NULL");
     }
 }

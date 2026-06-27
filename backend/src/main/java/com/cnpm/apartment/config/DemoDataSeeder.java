@@ -66,7 +66,7 @@ public class DemoDataSeeder implements ApplicationRunner {
         Household hE = household("HH-E1507", "E1507", 15, 45.0, "Vo Thi Hoa", "0967777888",
                 "15", "Ho Tung Mau", "Mai Dich", "Cau Giay", LocalDate.of(2025, 8, 22),
                 0, 0, HouseholdStatus.OCCUPIED, "Single-member household for negative split/delete tests.");
-        Household hF = household("HH-F0001", "F0001", 0, 50.0, "Vacant Unit", "",
+        Household hF = household("HH-F0001", "F0001", 0, 50.0, "Vacant Unit", null,
                 "", "Demo Tower", "Dich Vong", "Cau Giay", LocalDate.of(2026, 1, 1),
                 0, 0, HouseholdStatus.VACANT, "Vacant unit for add-member/archive-household tests.");
         Household hG = household("HH-G2108", "G2108", 21, 105.0, "Doan Gia Khanh", "0979999000",
@@ -141,9 +141,9 @@ public class DemoDataSeeder implements ApplicationRunner {
 
     private void seedUsers() {
         upsertUser("admin", "admin123", "admin@cyberspace.vn", "System Admin", null,
-                "0987654321", "000000000001", UserRole.ROLE_ADMIN, UserStatus.APPROVED, 0, null);
+                "0987654321", "001080000001", UserRole.ROLE_ADMIN, UserStatus.APPROVED, 0, null);
         upsertUser("accountant", "accountant123", "accountant@cyberspace.vn", "Accountant Rep", null,
-                "0911222333", "000000000002", UserRole.ROLE_ACCOUNTANT, UserStatus.APPROVED, 0, null);
+                "0911222333", "001081000002", UserRole.ROLE_ACCOUNTANT, UserStatus.APPROVED, 0, null);
         upsertUser("resident1", "user123", "resident1@cyberspace.vn", "Nguyen Van An", "HH-A1201",
                 "0987654321", "001085000111", UserRole.ROLE_USER, UserStatus.APPROVED, 0, null);
         upsertUser("resident2", "user123", "resident2@cyberspace.vn", "Pham Quang Minh", "HH-C0901",

@@ -1,6 +1,8 @@
 package com.cnpm.apartment.dto;
 
+import com.cnpm.apartment.validation.VietnamDataRules;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -16,13 +18,16 @@ public class ResidentRequest {
     @Size(max = 20, message = "Gender must be at most 20 characters")
     private String gender;
 
+    @PastOrPresent(message = "Date of birth cannot be in the future")
     private LocalDate dateOfBirth;
 
     @NotBlank(message = "Citizen ID is required")
-    @Pattern(regexp = "^[0-9A-Za-z.-]{6,30}$", message = "Citizen ID must contain 6-30 valid characters")
+    @Pattern(regexp = VietnamDataRules.CITIZEN_ID_REGEX,
+            message = "Citizen ID must contain exactly 12 digits and start with a valid Vietnamese province/city code")
     private String identityNo;
 
-    @Size(max = 30, message = "Phone must be at most 30 characters")
+    @Pattern(regexp = VietnamDataRules.OPTIONAL_VIETNAM_MOBILE_REGEX,
+            message = "Phone must be a Vietnamese mobile number with 10 digits")
     private String phone;
 
     @Size(max = 100, message = "Alias must be at most 100 characters")
@@ -46,6 +51,7 @@ public class ResidentRequest {
     @Size(max = 255, message = "Workplace must be at most 255 characters")
     private String workplace;
 
+    @PastOrPresent(message = "Citizen ID issue date cannot be in the future")
     private LocalDate issueDate;
 
     @Size(max = 255, message = "Issue place must be at most 255 characters")
@@ -63,5 +69,6 @@ public class ResidentRequest {
 
     private Boolean alive;
 
+    @PastOrPresent(message = "Date of death cannot be in the future")
     private LocalDate dateOfDeath;
 }

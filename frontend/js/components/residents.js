@@ -6,6 +6,9 @@ let residentMemoryStore = null;
 const HOUSEHOLD_STATUSES = ['OCCUPIED', 'TEMPORARILY_AWAY', 'MOVED_OUT', 'VACANT'];
 const RESIDENT_STATUSES = ['PERMANENT', 'TEMPORARY', 'TEMPORARILY_AWAY', 'MOVED_OUT', 'DECEASED'];
 const GENDERS = ['Male', 'Female', 'Other'];
+const VN_CITIZEN_ID_RE = /^(001|002|004|006|008|010|011|012|014|015|017|019|020|022|024|025|026|027|030|031|033|034|035|036|037|038|040|042|044|045|046|048|049|051|052|054|056|058|060|062|064|066|067|068|070|072|074|075|077|079|080|082|083|084|086|087|089|091|092|093|094|095|096)\d{9}$/;
+const VN_MOBILE_RE = /^0[35789]\d{8}$/;
+const VN_PLATE_RE = /^\d{2}[A-Z][0-9A-Z]?-\d{3}\.\d{2}$/;
 
 const state = {
   apiMode: true,
@@ -46,6 +49,61 @@ const state = {
 
 function emptyPage() {
   return { content: [], number: 0, totalPages: 1, totalElements: 0, first: true, last: true };
+}
+
+function isFutureDate(value) {
+  return Boolean(value) && value > new Date().toISOString().slice(0, 10);
+}
+
+function requireCitizenId(value, label = 'Citizen ID') {
+  const normalized = String(value || '').trim();
+  if (!VN_CITIZEN_ID_RE.test(normalized)) {
+    throw new Error(`${label} must contain exactly 12 digits and start with a valid Vietnamese province/city code.`);
+  }
+  return normalized;
+}
+
+function optionalCitizenId(value, label = 'Citizen ID') {
+  const normalized = String(value || '').trim();
+  return normalized ? requireCitizenId(normalized, label) : '';
+}
+
+function optionalVietnamMobile(value, label = 'Phone') {
+  const normalized = String(value || '').trim();
+  if (normalized && !VN_MOBILE_RE.test(normalized)) {
+    throw new Error(`${label} must be a Vietnamese mobile number with 10 digits starting with 03, 05, 07, 08 or 09.`);
+  }
+  return normalized;
+}
+
+function validateHouseholdPayload(payload) {
+  optionalVietnamMobile(payload.phone, 'Phone');
+  optionalCitizenId(payload.headIdentityNo, 'Head Citizen ID');
+  if (Number(payload.floor || 0) < 0) throw new Error('Floor must be zero or greater.');
+  if (Number(payload.area || 0) <= 0) throw new Error('Area must be greater than 0.');
+  if (Number(payload.motorcycleCount || 0) < 0 || Number(payload.carCount || 0) < 0) {
+    throw new Error('Vehicle counts must be zero or greater.');
+  }
+  if (isFutureDate(payload.registrationDate)) throw new Error('Registration date cannot be in the future.');
+}
+
+function validateResidentPayload(payload) {
+  requireCitizenId(payload.identityNo);
+  optionalVietnamMobile(payload.phone, 'Phone');
+  if (isFutureDate(payload.dateOfBirth)) throw new Error('Date of birth cannot be in the future.');
+  if (isFutureDate(payload.issueDate)) throw new Error('Citizen ID issue date cannot be in the future.');
+  if (isFutureDate(payload.dateOfDeath)) throw new Error('Date of death cannot be in the future.');
+  const alive = payload.alive !== false && payload.status !== 'DECEASED';
+  if (alive && payload.dateOfDeath) throw new Error('Alive residents cannot have a date of death.');
+  if (!alive && !payload.dateOfDeath) throw new Error('Date of death is required when resident is not alive.');
+}
+
+function validateVehiclePayload(payload) {
+  const plate = String(payload.plateNumber || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (!VN_PLATE_RE.test(plate)) throw new Error('Vehicle plate number must use Vietnamese format, for example 29A1-123.45.');
+  if (payload.registrationDate && isFutureDate(payload.registrationDate)) {
+    throw new Error('Vehicle registration date cannot be in the future.');
+  }
 }
 
 function seedStore() {
@@ -502,6 +560,7 @@ const DataService = {
   },
 
   async saveHousehold(payload, actor) {
+    validateHouseholdPayload(payload);
     const isEdit = Boolean(state.editingHouseholdId);
     const path = isEdit
       ? `/households/${encodeURIComponent(state.editingHouseholdId)}?actor=${encodeURIComponent(actor)}`
@@ -580,6 +639,7 @@ const DataService = {
   },
 
   async saveResident(payload, actor) {
+    validateResidentPayload(payload);
     const isEdit = Boolean(state.editingResidentId);
     const path = isEdit
       ? `/residents/${encodeURIComponent(state.editingResidentId)}?actor=${encodeURIComponent(actor)}`
@@ -669,15 +729,16 @@ const DataService = {
   },
 
   async changeHouseholdHead(householdId, identityNo, reason, actor) {
+    const normalizedIdentityNo = requireCitizenId(identityNo);
     const api = await tryApi(`/households/${encodeURIComponent(householdId)}/head?actor=${encodeURIComponent(actor)}`, {
       method: 'POST',
-      body: JSON.stringify({ identityNo, reason })
+      body: JSON.stringify({ identityNo: normalizedIdentityNo, reason })
     });
     if (api) return api;
 
     const store = loadStore();
     const household = store.households.find(h => h.id === householdId && !h.archived);
-    const head = store.residents.find(r => norm(r.identityNo) === norm(identityNo) && !r.archived);
+    const head = store.residents.find(r => norm(r.identityNo) === norm(normalizedIdentityNo) && !r.archived);
     if (!household) throw new Error('Household not found.');
     if (!head) throw new Error('Resident with the given Citizen ID was not found.');
     if (head.householdId !== householdId) throw new Error('New household head must already be a member of this household.');
@@ -695,6 +756,8 @@ const DataService = {
   },
 
   async transferOwnership(householdId, payload, actor) {
+    payload.newOwnerIdentityNo = optionalCitizenId(payload.newOwnerIdentityNo, 'New owner Citizen ID');
+    payload.newOwnerPhone = optionalVietnamMobile(payload.newOwnerPhone, 'New owner phone');
     const api = await tryApi(`/households/${encodeURIComponent(householdId)}/ownership-transfer?actor=${encodeURIComponent(actor)}`, {
       method: 'POST',
       body: JSON.stringify(payload)
@@ -747,6 +810,8 @@ const DataService = {
   },
 
   async splitHousehold(sourceHouseholdId, payload, actor) {
+    validateHouseholdPayload(payload.newHousehold || {});
+    payload.headIdentityNo = optionalCitizenId(payload.headIdentityNo, 'New household head Citizen ID');
     const api = await tryApi(`/households/${encodeURIComponent(sourceHouseholdId)}/split?actor=${encodeURIComponent(actor)}`, {
       method: 'POST',
       body: JSON.stringify(payload)
@@ -789,6 +854,8 @@ const DataService = {
   },
 
   async reportDeath(residentId, payload, actor) {
+    if (isFutureDate(payload.dateOfDeath)) throw new Error('Date of death cannot be in the future.');
+    payload.replacementHeadIdentityNo = optionalCitizenId(payload.replacementHeadIdentityNo, 'Replacement head Citizen ID');
     const api = await tryApi(`/residents/${encodeURIComponent(residentId)}/death?actor=${encodeURIComponent(actor)}`, {
       method: 'POST',
       body: JSON.stringify(payload)
@@ -999,6 +1066,7 @@ const DataService = {
   },
 
   async saveVehicle(payload, actor) {
+    validateVehiclePayload(payload);
     let savedApiDto = null;
     let backendOnline = false;
     try {
@@ -1582,14 +1650,14 @@ export class ResidentsManager {
               </div>
               <div class="rm-2">
                 <div class="rm-field"><label>Floor</label><input id="rm-hh-floor" type="number" min="0"></div>
-                <div class="rm-field"><label>Area (m2)</label><input id="rm-hh-area" type="number" min="0" step="0.1"></div>
+                <div class="rm-field"><label>Area (m2)</label><input id="rm-hh-area" type="number" min="0.1" step="0.1"></div>
               </div>
               <div class="rm-2">
                 <div class="rm-field"><label>Household head</label><input id="rm-hh-head" required></div>
-                <div class="rm-field"><label>Head Citizen ID</label><input id="rm-hh-head-identity" placeholder="CCCD"></div>
+                <div class="rm-field"><label>Head Citizen ID</label><input id="rm-hh-head-identity" placeholder="12 digits" pattern="(001|002|004|006|008|010|011|012|014|015|017|019|020|022|024|025|026|027|030|031|033|034|035|036|037|038|040|042|044|045|046|048|049|051|052|054|056|058|060|062|064|066|067|068|070|072|074|075|077|079|080|082|083|084|086|087|089|091|092|093|094|095|096)\\d{9}" maxlength="12"></div>
               </div>
               <div class="rm-2">
-                <div class="rm-field"><label>Phone</label><input id="rm-hh-phone"></div>
+                <div class="rm-field"><label>Phone</label><input id="rm-hh-phone" pattern="0[35789]\\d{8}" maxlength="10" placeholder="0987654321"></div>
                 <div class="rm-field"><label>Status</label><select id="rm-hh-status">${HOUSEHOLD_STATUSES.map(s => `<option value="${s}">${statusLabel(s)}</option>`).join('')}</select></div>
               </div>
               <div class="rm-2">
@@ -1749,9 +1817,9 @@ export class ResidentsManager {
                 <div class="rm-field"><label>Gender</label><select id="rm-res-gender">${GENDERS.map(g => `<option>${g}</option>`).join('')}</select></div>
                 <div class="rm-field"><label>Date of birth</label><input id="rm-res-dob" type="date"></div>
               </div>
-              <div class="rm-field"><label>Citizen ID</label><input id="rm-res-identity" required></div>
+              <div class="rm-field"><label>Citizen ID</label><input id="rm-res-identity" required pattern="(001|002|004|006|008|010|011|012|014|015|017|019|020|022|024|025|026|027|030|031|033|034|035|036|037|038|040|042|044|045|046|048|049|051|052|054|056|058|060|062|064|066|067|068|070|072|074|075|077|079|080|082|083|084|086|087|089|091|092|093|094|095|096)\\d{9}" maxlength="12" placeholder="12 digits"></div>
               <div class="rm-2">
-                <div class="rm-field"><label>Phone</label><input id="rm-res-phone"></div>
+                <div class="rm-field"><label>Phone</label><input id="rm-res-phone" pattern="0[35789]\\d{8}" maxlength="10" placeholder="0987654321"></div>
                 <div class="rm-field"><label>Status</label><select id="rm-res-status">${RESIDENT_STATUSES.map(s => `<option value="${s}">${statusLabel(s)}</option>`).join('')}</select></div>
               </div>
               <div class="rm-2">
@@ -1837,7 +1905,7 @@ export class ResidentsManager {
             <form class="rm-form" id="rm-vh-form">
               <div class="rm-field">
                 <label>License Plate (Biển số xe)</label>
-                <input id="rm-vh-plate" required placeholder="e.g. 29A-123.45">
+                <input id="rm-vh-plate" required placeholder="e.g. 29A1-123.45" pattern="\\d{2}[A-Za-z][0-9A-Za-z]?-\\d{3}\\.\\d{2}">
               </div>
               <div class="rm-field">
                 <label>Vehicle Type (Loại xe)</label>
@@ -2078,7 +2146,7 @@ export class ResidentsManager {
               code: code.trim(),
               apartmentNo: apartmentNo.trim(),
               floor: 0,
-              area: 0,
+              area: 50,
               headName: headName.trim() || 'Pending head',
               phone: '',
               status: 'OCCUPIED',

@@ -6,6 +6,7 @@ import com.cnpm.apartment.model.enums.UserRole;
 import com.cnpm.apartment.model.enums.UserStatus;
 import com.cnpm.apartment.repository.UserRepository;
 import com.cnpm.apartment.security.JwtTokenProvider;
+import com.cnpm.apartment.validation.VietnamDataRules;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -36,13 +37,20 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequest request) {
-        if (userRepository.findByUsername(request.getUsername().toLowerCase().trim()).isPresent()) {
+        String username = VietnamDataRules.requireUsername(request.getUsername());
+        String email = VietnamDataRules.requireEmail(request.getEmail(), "Email");
+        String fullname = VietnamDataRules.requireText(request.getFullname(), "Full Name");
+        String phone = VietnamDataRules.requireVietnamMobile(request.getPhone(), "Phone");
+        String identityNo = VietnamDataRules.requireCitizenId(request.getIdentityNo(), "Citizen ID");
+        String password = VietnamDataRules.requirePassword(request.getPassword());
+
+        if (userRepository.findByUsername(username).isPresent()) {
             return ResponseEntity.badRequest().body("Username already exists.");
         }
-        if (userRepository.findByEmail(request.getEmail().trim()).isPresent()) {
+        if (userRepository.findByEmail(email).isPresent()) {
             return ResponseEntity.badRequest().body("Email already registered.");
         }
-        if (userRepository.findByIdentityNo(request.getIdentityNo().trim()).isPresent()) {
+        if (userRepository.findByIdentityNo(identityNo).isPresent()) {
             return ResponseEntity.badRequest().body("Identity Card Number (CCCD) already registered.");
         }
 
@@ -68,13 +76,13 @@ public class AuthController {
         }
 
         User user = User.builder()
-                .username(request.getUsername().toLowerCase().trim())
-                .email(request.getEmail().trim())
-                .fullname(request.getFullname().trim())
-                .room(request.getRoom())
-                .phone(request.getPhone())
-                .identityNo(request.getIdentityNo().trim())
-                .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .username(username)
+                .email(email)
+                .fullname(fullname)
+                .room(VietnamDataRules.optionalText(request.getRoom()))
+                .phone(phone)
+                .identityNo(identityNo)
+                .passwordHash(passwordEncoder.encode(password))
                 .role(role)
                 .status(status)
                 .failedAttempts(0)
@@ -183,7 +191,8 @@ public class AuthController {
 
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
-        Optional<User> userOpt = userRepository.findByEmail(request.getEmail().trim());
+        String email = VietnamDataRules.requireEmail(request.getEmail(), "Email");
+        Optional<User> userOpt = userRepository.findByEmail(email);
         if (userOpt.isPresent()) {
             User user = userOpt.get();
             String otp = String.format("%06d", new Random().nextInt(1000000));
@@ -204,7 +213,9 @@ public class AuthController {
 
     @PostMapping("/reset-password")
     public ResponseEntity<?> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
-        Optional<User> userOpt = userRepository.findByEmail(request.getEmail().trim());
+        String email = VietnamDataRules.requireEmail(request.getEmail(), "Email");
+        String newPassword = VietnamDataRules.requirePassword(request.getNewPassword());
+        Optional<User> userOpt = userRepository.findByEmail(email);
         if (userOpt.isEmpty()) {
             return ResponseEntity.badRequest().body("Email address not found.");
         }
@@ -218,7 +229,7 @@ public class AuthController {
             return ResponseEntity.badRequest().body("OTP code has expired.");
         }
 
-        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
         user.setOtpCode(null);
         user.setOtpExpiry(null);
         user.setFailedAttempts(0);
@@ -237,13 +248,12 @@ public class AuthController {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("Logged in user not found"));
 
-        if (profileDetails.getFullname() == null || profileDetails.getFullname().isBlank()) {
-            return ResponseEntity.badRequest().body("Full Name cannot be blank.");
-        }
+        String fullname = VietnamDataRules.requireText(profileDetails.getFullname(), "Full Name");
+        String phone = VietnamDataRules.optionalVietnamMobile(profileDetails.getPhone(), "Phone");
 
-        user.setFullname(profileDetails.getFullname().trim());
-        user.setPhone(profileDetails.getPhone());
-        user.setRoom(profileDetails.getRoom());
+        user.setFullname(fullname);
+        user.setPhone(phone);
+        user.setRoom(VietnamDataRules.optionalText(profileDetails.getRoom()));
         userRepository.save(user);
 
         return ResponseEntity.ok(user);

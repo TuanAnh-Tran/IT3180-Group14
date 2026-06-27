@@ -12,6 +12,7 @@ import com.cnpm.apartment.repository.HouseholdRepository;
 import com.cnpm.apartment.repository.ResidentActivityLogRepository;
 import com.cnpm.apartment.repository.ResidentRepository;
 import com.cnpm.apartment.repository.TemporaryResidenceRecordRepository;
+import com.cnpm.apartment.validation.VietnamDataRules;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -110,7 +111,7 @@ public class ResidentManagementService {
 
     @Transactional
     public ResidentDTO createResident(ResidentRequest request, String actor) {
-        String identityNo = clean(request.getIdentityNo());
+        String identityNo = VietnamDataRules.requireCitizenId(request.getIdentityNo(), "Citizen ID");
         if (residentRepository.existsByIdentityNoIgnoreCase(identityNo)) {
             throw new RuntimeException("Citizen ID already exists.");
         }
@@ -132,7 +133,7 @@ public class ResidentManagementService {
     public ResidentDTO updateResident(String id, ResidentRequest request, String actor) {
         Resident resident = getResidentOrThrow(id);
         String oldHouseholdId = resident.getHousehold() == null ? null : resident.getHousehold().getId();
-        String identityNo = clean(request.getIdentityNo());
+        String identityNo = VietnamDataRules.requireCitizenId(request.getIdentityNo(), "Citizen ID");
         if (residentRepository.existsByIdentityNoIgnoreCaseAndIdNot(identityNo, id)) {
             throw new RuntimeException("Citizen ID already exists.");
         }
@@ -152,9 +153,19 @@ public class ResidentManagementService {
     @Transactional
     public ResidentDTO reportDeath(String id, DeathReportRequest request, String actor) {
         Resident resident = getResidentOrThrow(id);
+        LocalDate dateOfDeath = request.getDateOfDeath() == null
+                ? LocalDate.now()
+                : VietnamDataRules.notFuture(request.getDateOfDeath(), "Date of death");
+        if (resident.getDateOfBirth() != null && dateOfDeath.isBefore(resident.getDateOfBirth())) {
+            throw new RuntimeException("Date of death cannot be before date of birth.");
+        }
+        String replacementHeadIdentityNo = VietnamDataRules.optionalCitizenId(
+                request.getReplacementHeadIdentityNo(),
+                "Replacement head Citizen ID");
+
         resident.setAlive(false);
         resident.setStatus(ResidentStatus.DECEASED);
-        resident.setDateOfDeath(request.getDateOfDeath() == null ? LocalDate.now() : request.getDateOfDeath());
+        resident.setDateOfDeath(dateOfDeath);
         resident.setRelationshipToHead(clean(resident.getRelationshipToHead()).equalsIgnoreCase("Head")
                 ? "Former Head (Deceased)"
                 : resident.getRelationshipToHead());
@@ -165,8 +176,8 @@ public class ResidentManagementService {
             household.setHeadResident(null);
             household.setNote(appendNote(household.getNote(), "Household head deceased; choose a new head."));
             householdRepository.save(household);
-            if (trimToNull(request.getReplacementHeadIdentityNo()) != null) {
-                changeHouseholdHead(household.getId(), replacementRequest(request.getReplacementHeadIdentityNo(), request.getNote()), actor);
+            if (replacementHeadIdentityNo != null) {
+                changeHouseholdHead(household.getId(), replacementRequest(replacementHeadIdentityNo, request.getNote()), actor);
             } else {
                 addLog(actor, "HEAD_CHANGE_REQUIRED", "HOUSEHOLD", household.getId(),
                         "Household head " + saved.getFullName() + " is deceased. Select a replacement head.");
@@ -240,7 +251,8 @@ public class ResidentManagementService {
     @Transactional
     public HouseholdDTO changeHouseholdHead(String householdId, ChangeHouseholdHeadRequest request, String actor) {
         Household household = getHouseholdOrThrow(householdId);
-        Resident newHead = residentRepository.findByIdentityNoIgnoreCase(clean(request.getIdentityNo()))
+        String identityNo = VietnamDataRules.requireCitizenId(request.getIdentityNo(), "Citizen ID");
+        Resident newHead = residentRepository.findByIdentityNoIgnoreCase(identityNo)
                 .orElseThrow(() -> new RuntimeException("Resident with the given Citizen ID was not found."));
         if (newHead.isArchived()) {
             throw new RuntimeException("Archived residents cannot be household head.");
@@ -258,15 +270,18 @@ public class ResidentManagementService {
     @Transactional
     public HouseholdDTO transferOwnership(String householdId, OwnershipTransferRequest request, String actor) {
         Household household = getHouseholdOrThrow(householdId);
+        String newOwnerPhone = VietnamDataRules.optionalVietnamMobile(request.getNewOwnerPhone(), "New owner phone");
+        String newOwnerIdentityNo = VietnamDataRules.optionalCitizenId(request.getNewOwnerIdentityNo(), "New owner Citizen ID");
+
         household.setPreviousOwnerName(household.getOwnerName());
-        household.setOwnerName(clean(request.getNewOwnerName()));
-        household.setPhone(clean(request.getNewOwnerPhone()));
+        household.setOwnerName(VietnamDataRules.requireText(request.getNewOwnerName(), "New owner name"));
+        household.setPhone(newOwnerPhone);
         household.setOwnershipTransferredAt(LocalDateTime.now());
         household.setOwnershipNote(clean(request.getNote()));
         householdRepository.save(household);
 
-        if (trimToNull(request.getNewOwnerIdentityNo()) != null) {
-            Resident ownerResident = residentRepository.findByIdentityNoIgnoreCase(clean(request.getNewOwnerIdentityNo()))
+        if (newOwnerIdentityNo != null) {
+            Resident ownerResident = residentRepository.findByIdentityNoIgnoreCase(newOwnerIdentityNo)
                     .orElseThrow(() -> new RuntimeException("New owner resident was not found by Citizen ID."));
             ownerResident.setHousehold(household);
             ownerResident.setArchived(false);
@@ -308,7 +323,7 @@ public class ResidentManagementService {
             residentRepository.save(resident);
         }
 
-        String headIdentity = trimToNull(request.getHeadIdentityNo());
+        String headIdentity = VietnamDataRules.optionalCitizenId(request.getHeadIdentityNo(), "New household head Citizen ID");
         Resident head = null;
         if (headIdentity != null) {
             head = residentRepository.findByIdentityNoIgnoreCase(headIdentity)
@@ -507,16 +522,26 @@ public class ResidentManagementService {
     }
 
     private void applyHouseholdFields(Household household, HouseholdRequest request) {
+        if (request.getFloor() != null && request.getFloor() < 0) {
+            throw new RuntimeException("Floor must be zero or greater.");
+        }
+        if (request.getArea() <= 0) {
+            throw new RuntimeException("Area must be greater than 0.");
+        }
+        if (request.getMotorcycleCount() < 0 || request.getCarCount() < 0) {
+            throw new RuntimeException("Vehicle counts must be zero or greater.");
+        }
+
         household.setApartmentNo(clean(request.getApartmentNo()));
         household.setFloor(request.getFloor());
         household.setArea(request.getArea());
         household.setOwnerName(clean(request.getHeadName()));
-        household.setPhone(clean(request.getPhone()));
+        household.setPhone(VietnamDataRules.optionalVietnamMobile(request.getPhone(), "Phone"));
         household.setHouseNo(clean(request.getHouseNo()));
         household.setStreet(clean(request.getStreet()));
         household.setWard(clean(request.getWard()));
         household.setDistrict(clean(request.getDistrict()));
-        household.setRegistrationDate(request.getRegistrationDate());
+        household.setRegistrationDate(VietnamDataRules.notFuture(request.getRegistrationDate(), "Registration date"));
         household.setStatus(parseHouseholdStatusOrDefault(request.getStatus()));
         household.setNote(clean(request.getNote()));
         household.setMotorcycleCount(request.getMotorcycleCount());
@@ -524,11 +549,29 @@ public class ResidentManagementService {
     }
 
     private void applyResidentFields(Resident resident, ResidentRequest request) {
-        resident.setFullName(clean(request.getFullName()));
+        ResidentStatus status = parseResidentStatus(request.getStatus());
+        if (status == null) {
+            status = resident.getStatus() == null ? ResidentStatus.PERMANENT : resident.getStatus();
+        }
+        boolean alive = request.getAlive() == null ? resident.isAlive() : request.getAlive();
+        LocalDate dateOfDeath = request.getDateOfDeath() == null ? resident.getDateOfDeath() : request.getDateOfDeath();
+        if (status == ResidentStatus.DECEASED) {
+            alive = false;
+            if (dateOfDeath == null) {
+                dateOfDeath = LocalDate.now();
+            }
+        } else if (!alive) {
+            status = ResidentStatus.DECEASED;
+        } else {
+            dateOfDeath = null;
+        }
+        VietnamDataRules.validateResidentDates(request.getDateOfBirth(), request.getIssueDate(), alive, dateOfDeath);
+
+        resident.setFullName(VietnamDataRules.requireText(request.getFullName(), "Full name"));
         resident.setGender(clean(request.getGender()));
         resident.setDateOfBirth(request.getDateOfBirth());
-        resident.setIdentityNo(clean(request.getIdentityNo()));
-        resident.setPhone(clean(request.getPhone()));
+        resident.setIdentityNo(VietnamDataRules.requireCitizenId(request.getIdentityNo(), "Citizen ID"));
+        resident.setPhone(VietnamDataRules.optionalVietnamMobile(request.getPhone(), "Phone"));
         resident.setAlias(clean(request.getAlias()));
         resident.setBirthPlace(clean(request.getBirthPlace()));
         resident.setHometown(clean(request.getHometown()));
@@ -540,21 +583,13 @@ public class ResidentManagementService {
         resident.setIssuePlace(clean(request.getIssuePlace()));
         resident.setPreviousResidence(clean(request.getPreviousResidence()));
         resident.setRelationshipToHead(clean(request.getRelationshipToHead()));
-        resident.setStatus(parseResidentStatusOrDefault(request.getStatus()));
-        resident.setAlive(request.getAlive() == null ? resident.isAlive() : request.getAlive());
-        resident.setDateOfDeath(request.getDateOfDeath());
-        if (resident.getStatus() == ResidentStatus.DECEASED) {
-            resident.setAlive(false);
-            if (resident.getDateOfDeath() == null) {
-                resident.setDateOfDeath(LocalDate.now());
-            }
-        } else if (request.getAlive() == null) {
-            resident.setAlive(true);
-        }
+        resident.setStatus(status);
+        resident.setAlive(alive);
+        resident.setDateOfDeath(dateOfDeath);
     }
 
     private void assignHeadIfRequested(Household household, String headIdentityNo, String actor, String action) {
-        String identity = trimToNull(headIdentityNo);
+        String identity = VietnamDataRules.optionalCitizenId(headIdentityNo, "Head Citizen ID");
         if (identity == null) {
             return;
         }

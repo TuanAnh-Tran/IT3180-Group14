@@ -103,7 +103,7 @@ function renderAuthScreen(tab = 'login') {
                 <div class="form-group" style="margin-bottom:0;">
                   <label class="form-label">Username *</label>
                   <div class="input-wrapper"><span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg></span>
-                  <input type="text" class="form-control" id="regUsername" placeholder="e.g. nguyenan" required></div>
+                  <input type="text" class="form-control" id="regUsername" placeholder="e.g. nguyenan" required pattern="[a-z0-9._-]{4,50}" title="4-50 lowercase letters, digits, dots, underscores or hyphens"></div>
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
                   <label class="form-label">Email *</label>
@@ -127,12 +127,12 @@ function renderAuthScreen(tab = 'login') {
                 <div class="form-group" style="margin-bottom:0;">
                   <label class="form-label">Citizen ID (CCCD) *</label>
                   <div class="input-wrapper"><span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></span>
-                  <input type="text" class="form-control" id="regIdentityNo" placeholder="12 digits"></div>
+                  <input type="text" class="form-control" id="regIdentityNo" placeholder="12 digits" required pattern="(001|002|004|006|008|010|011|012|014|015|017|019|020|022|024|025|026|027|030|031|033|034|035|036|037|038|040|042|044|045|046|048|049|051|052|054|056|058|060|062|064|066|067|068|070|072|074|075|077|079|080|082|083|084|086|087|089|091|092|093|094|095|096)\\d{9}" maxlength="12" title="Citizen ID must contain exactly 12 digits and start with a valid Vietnamese province/city code"></div>
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
                   <label class="form-label">Phone *</label>
                   <div class="input-wrapper"><span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-1.514 2.018a11.233 11.233 0 01-5.111-5.111l2.018-1.514c.361-.272.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"/></svg></span>
-                  <input type="tel" class="form-control" id="regPhone" placeholder="10 digits"></div>
+                  <input type="tel" class="form-control" id="regPhone" placeholder="10 digits" required pattern="0[35789]\\d{8}" maxlength="10" title="Vietnamese mobile number, for example 0987654321"></div>
                 </div>
               </div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">

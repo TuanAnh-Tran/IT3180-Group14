@@ -94,7 +94,7 @@ export class UsersManager {
                 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
                   <div class="form-group" style="margin-bottom:0;">
                     <label class="form-label">Username *</label>
-                    <input type="text" class="form-control" name="username" id="create-username" required placeholder="e.g. user1" style="padding-left:14px;">
+                    <input type="text" class="form-control" name="username" id="create-username" required placeholder="e.g. user1" pattern="[a-z0-9._-]{4,50}" title="4-50 lowercase letters, digits, dots, underscores or hyphens" style="padding-left:14px;">
                     <small style="color:var(--text-muted); font-size:11px; margin-top:4px; display:block;">Tên đăng nhập tự động tăng dần</small>
                   </div>
                   <div class="form-group" style="margin-bottom:0;">
@@ -167,11 +167,11 @@ export class UsersManager {
                   </div>
                   <div class="form-group" style="margin-bottom:0;">
                     <label class="form-label">Citizen ID (CCCD/CMND) *</label>
-                    <input type="text" class="form-control" name="identityNo" required placeholder="Digits only" pattern="\d+" title="Only digits allowed" style="padding-left:14px;">
+                    <input type="text" class="form-control" name="identityNo" required placeholder="12 digits" pattern="(001|002|004|006|008|010|011|012|014|015|017|019|020|022|024|025|026|027|030|031|033|034|035|036|037|038|040|042|044|045|046|048|049|051|052|054|056|058|060|062|064|066|067|068|070|072|074|075|077|079|080|082|083|084|086|087|089|091|092|093|094|095|096)\\d{9}" maxlength="12" title="Citizen ID must contain exactly 12 digits and start with a valid Vietnamese province/city code" style="padding-left:14px;">
                   </div>
                   <div class="form-group" style="margin-bottom:0;">
                     <label class="form-label">Phone Number *</label>
-                    <input type="tel" class="form-control" name="phone" required placeholder="Digits only" pattern="\d+" title="Only digits allowed" style="padding-left:14px;">
+                    <input type="tel" class="form-control" name="phone" required placeholder="10 digits" pattern="0[35789]\\d{8}" maxlength="10" title="Vietnamese mobile number, for example 0987654321" style="padding-left:14px;">
                   </div>
                   <div class="form-group" style="margin-bottom:0;">
                     <label class="form-label">Date of Birth *</label>
@@ -536,20 +536,20 @@ export class UsersManager {
       const previousResidence = formData.get('previousResidence').trim();
 
       // Các kiểm tra hợp lệ tại client
-      if (username.length < 4) {
-        showToast('Username must be at least 4 characters long!', 'warning');
+      if (!/^[a-z0-9._-]{4,50}$/.test(username)) {
+        showToast('Username must be 4-50 characters and may contain lowercase letters, digits, dots, underscores or hyphens!', 'warning');
         return;
       }
       if (password.length < 6) {
         showToast('Default password must be at least 6 characters long!', 'warning');
         return;
       }
-      if (!/^0\d{9}$/.test(phone)) {
-        showToast('Phone number must start with 0 and contain exactly 10 digits!', 'warning');
+      if (!/^0[35789]\d{8}$/.test(phone)) {
+        showToast('Phone must be a Vietnamese mobile number with 10 digits starting with 03, 05, 07, 08 or 09!', 'warning');
         return;
       }
-      if (!/^\d{12}$/.test(identityNo)) {
-        showToast('Citizen ID (CCCD) must contain exactly 12 digits!', 'warning');
+      if (!/^(001|002|004|006|008|010|011|012|014|015|017|019|020|022|024|025|026|027|030|031|033|034|035|036|037|038|040|042|044|045|046|048|049|051|052|054|056|058|060|062|064|066|067|068|070|072|074|075|077|079|080|082|083|084|086|087|089|091|092|093|094|095|096)\d{9}$/.test(identityNo)) {
+        showToast('Citizen ID (CCCD) must contain exactly 12 digits and start with a valid Vietnamese province/city code!', 'warning');
         return;
       }
 

@@ -33,7 +33,7 @@ public class Household {
     @JoinColumn(name = "head_resident_id")
     private Resident headResident;
 
-    @Column(name = "phone", length = 30)
+    @Column(name = "phone", length = 10)
     private String phone;
 
     @Column(name = "house_no", length = 100)

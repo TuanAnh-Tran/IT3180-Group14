@@ -1,6 +1,9 @@
 // Khóa dùng để lưu trữ thông tin phiên làm việc trong sessionStorage
 const SESSION_KEY = 'apartment_mgmt_session';
 const RESIDENTS_API_ROOT = window.RESIDENTS_API_ROOT || 'http://localhost:8080/api/residents';
+const VN_CITIZEN_ID_RE = /^(001|002|004|006|008|010|011|012|014|015|017|019|020|022|024|025|026|027|030|031|033|034|035|036|037|038|040|042|044|045|046|048|049|051|052|054|056|058|060|062|064|066|067|068|070|072|074|075|077|079|080|082|083|084|086|087|089|091|092|093|094|095|096)\d{9}$/;
+const VN_MOBILE_RE = /^0[35789]\d{8}$/;
+const USERNAME_RE = /^[a-z0-9._-]{4,50}$/;
 
 function toSessionUser(user) {
   return {
@@ -186,22 +189,44 @@ export class AuthService {
    * Đăng ký tài khoản cư dân mới từ màn hình public.
    */
   static async register(username, email, fullname, room, phone, identityNo, password, adminSecret = '', role = 'user') {
-    if (!username || !email || !fullname || !identityNo || !password) {
-      throw new Error('Please fill in all required fields (Username, Email, Full Name, Citizen ID (CCCD), Password)!');
+    if (!username || !email || !fullname || !phone || !identityNo || !password) {
+      throw new Error('Please fill in all required fields (Username, Email, Full Name, Phone, Citizen ID (CCCD), Password)!');
     }
 
-    if (username.length < 4) {
-      throw new Error('Username must be at least 4 characters long!');
+    const normalizedUsername = username.trim().toLowerCase();
+    const normalizedPhone = phone.trim();
+    const normalizedIdentityNo = identityNo.trim();
+
+    if (!USERNAME_RE.test(normalizedUsername)) {
+      throw new Error('Username must be 4-50 characters and may contain lowercase letters, digits, dots, underscores or hyphens!');
     }
 
     if (password.length < 6) {
       throw new Error('Password must be at least 6 characters long!');
     }
 
+    if (!VN_MOBILE_RE.test(normalizedPhone)) {
+      throw new Error('Phone must be a Vietnamese mobile number with 10 digits starting with 03, 05, 07, 08 or 09!');
+    }
+
+    if (!VN_CITIZEN_ID_RE.test(normalizedIdentityNo)) {
+      throw new Error('Citizen ID (CCCD) must contain exactly 12 digits and start with a valid Vietnamese province/city code!');
+    }
+
     const res = await fetch('http://localhost:8080/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, email, fullname, room, phone, identityNo, password, adminSecret, role })
+      body: JSON.stringify({
+        username: normalizedUsername,
+        email: email.trim(),
+        fullname: fullname.trim(),
+        room,
+        phone: normalizedPhone,
+        identityNo: normalizedIdentityNo,
+        password,
+        adminSecret,
+        role
+      })
     });
 
     if (!res.ok) {
