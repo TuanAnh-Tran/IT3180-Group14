@@ -316,11 +316,18 @@ public class ResidentManagementService {
         }
         long activeMovingCount = movingResidents.stream().filter(this::isActiveMember).count();
         long activeSourceCount = residentRepository.countActiveMembers(source.getId());
+        if (activeMovingCount < 1) {
+            throw new RuntimeException("Select at least one active resident to move to the new household.");
+        }
         if (activeSourceCount - activeMovingCount < 1) {
             throw new RuntimeException("The source household must keep at least one active resident after split.");
         }
+        if (parseHouseholdStatusOrDefault(newRequest.getStatus()) == HouseholdStatus.VACANT) {
+            throw new RuntimeException("The new household created by a split cannot be vacant.");
+        }
 
         Household target = createHouseholdEntity(newRequest, actor, false);
+        Resident oldSourceHead = source.getHeadResident();
         for (Resident resident : movingResidents) {
             resident.setHousehold(target);
             residentRepository.save(resident);
@@ -344,6 +351,20 @@ public class ResidentManagementService {
         }
         if (head != null) {
             setHouseholdHead(target, head, actor, "Household split");
+        }
+        if (oldSourceHead != null && movingResidents.stream().anyMatch(r -> Objects.equals(r.getId(), oldSourceHead.getId()))) {
+            Resident replacementSourceHead = residentRepository.findByHouseholdIdAndArchivedFalse(source.getId())
+                    .stream()
+                    .filter(this::isActiveMember)
+                    .findFirst()
+                    .orElse(null);
+            if (replacementSourceHead != null) {
+                setHouseholdHead(source, replacementSourceHead, actor, "Household split");
+            } else {
+                source.setHeadResident(null);
+                source.setNote(appendNote(source.getNote(), "Household head moved during split; choose a new head."));
+                householdRepository.save(source);
+            }
         }
 
         refreshMemberCount(source);

@@ -59,6 +59,22 @@ export function cleanApiErrorMessage(errorLike, fallback = 'Request failed. Plea
   return extractValidationMessage(raw.replace(/^Error:\s*/, '').trim()) || fallback;
 }
 
+function httpErrorFallback(status) {
+  if (status === 401) {
+    return 'Your session has expired. Please sign in again.';
+  }
+  if (status === 403) {
+    return 'Access denied. Admin or Accountant permission is required.';
+  }
+  if (status === 404) {
+    return 'API endpoint was not found. Rebuild and restart the backend.';
+  }
+  if (status >= 500) {
+    return 'Backend error. Please check the backend logs.';
+  }
+  return `API Error: ${status}`;
+}
+
 export const API = {
   /**
    * Kiểm tra kết nối tới backend.
@@ -119,7 +135,12 @@ export const API = {
       }
     };
 
-    const res = await fetch(url, finalOptions);
+    let res;
+    try {
+      res = await fetch(url, finalOptions);
+    } catch (error) {
+      throw new Error('Cannot connect to backend. Make sure Docker backend is running, then hard refresh the page.');
+    }
     if (!res.ok) {
       const rawError = await res.text().catch(() => '');
       let parsedError = rawError;
@@ -128,7 +149,7 @@ export const API = {
       } catch (e) {
         // Keep rawError as text.
       }
-      throw new Error(cleanApiErrorMessage(parsedError, `API Error: ${res.status}`));
+      throw new Error(cleanApiErrorMessage(parsedError, httpErrorFallback(res.status)));
     }
     const result = await res.json();
     return result.data; // Trả về trường 'data' từ ApiResponse wrapper

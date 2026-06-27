@@ -14,6 +14,7 @@ const state = {
   apiMode: true,
   activeTab: 'households',
   selectedHouseholdId: null,
+  splittingHouseholdId: null,
   editingHouseholdId: null,
   editingResidentId: null,
   editingVehicleId: null, // ID xe đang sửa đổi
@@ -890,6 +891,7 @@ const DataService = {
     if (moving.some(r => r.householdId !== sourceHouseholdId)) throw new Error('All selected residents must belong to the source household.');
     const activeSource = store.residents.filter(r => r.householdId === sourceHouseholdId && isActiveResident(r)).length;
     const activeMoving = moving.filter(isActiveResident).length;
+    if (activeMoving < 1) throw new Error('Select at least one active resident to move to the new household.');
     if (activeSource - activeMoving < 1) throw new Error('The source household must keep at least one active resident after split.');
 
     const newHousehold = {
@@ -902,15 +904,28 @@ const DataService = {
     };
     if (store.households.some(h => h.id === newHousehold.id)) throw new Error('New household code already exists.');
     store.households.push(newHousehold);
+    const oldSourceHeadIdentityNo = source.headIdentityNo || '';
     moving.forEach(r => { r.householdId = newHousehold.id; });
     const head = payload.headIdentityNo
       ? moving.find(r => norm(r.identityNo) === norm(payload.headIdentityNo))
       : moving.find(r => norm(r.relationshipToHead) === 'head') || moving.find(isActiveResident);
+    if (!head || !isActiveResident(head)) throw new Error('New household head must be an active moved resident.');
     if (head) {
       moving.forEach(r => { if (norm(r.relationshipToHead) === 'head') r.relationshipToHead = 'Member'; });
       head.relationshipToHead = 'Head';
       newHousehold.headName = head.fullName;
       newHousehold.headIdentityNo = head.identityNo;
+    }
+    if (oldSourceHeadIdentityNo && moving.some(r => norm(r.identityNo) === norm(oldSourceHeadIdentityNo))) {
+      const replacement = store.residents.find(r => r.householdId === sourceHouseholdId && isActiveResident(r));
+      if (replacement) {
+        replacement.relationshipToHead = 'Head';
+        source.headName = replacement.fullName;
+        source.headIdentityNo = replacement.identityNo;
+      } else {
+        source.headIdentityNo = '';
+        source.note = `${source.note || ''} | Household head moved during split; choose a new head.`.trim();
+      }
     }
     localLog(store, 'SPLIT_HOUSEHOLD', 'HOUSEHOLD', sourceHouseholdId, `Split ${moving.length} resident(s) to ${newHousehold.id}`);
     saveStore(store);
@@ -1376,6 +1391,66 @@ function fillVehicleForm(container, vehicle) {
   container.querySelector('#rm-vh-household').value = vehicle?.householdId || '';
 }
 
+function renderSplitHouseholdForm(household, members) {
+  const activeMembers = (members || []).filter(isActiveResident);
+  if (activeMembers.length <= 1) {
+    return `
+      <div class="rm-card" style="margin-top:16px;">
+        <h3 style="margin-top:0;">Split Household</h3>
+        <div class="rm-alert">This household must keep at least one active resident after split.</div>
+      </div>
+    `;
+  }
+
+  const defaultCode = `${household.id}-S${String(Date.now()).slice(-4)}`;
+  const defaultApartment = `${household.apartmentNo || household.id}-S`;
+  const defaultArea = household.area ? Math.max(1, Math.round((Number(household.area) / 2) * 10) / 10) : 50;
+
+  return `
+    <div class="rm-card" style="margin-top:16px;">
+      <h3 style="margin-top:0;">Split Household</h3>
+      <form class="rm-form" id="rm-split-form" data-household="${esc(household.id)}" novalidate>
+        <div class="rm-2">
+          <div class="rm-field"><label>New household code</label><input id="rm-split-code" required value="${esc(defaultCode)}"></div>
+          <div class="rm-field"><label>New apartment</label><input id="rm-split-apartment" required value="${esc(defaultApartment)}"></div>
+        </div>
+        <div class="rm-2">
+          <div class="rm-field"><label>Floor</label><input id="rm-split-floor" type="number" min="0" value="${esc(household.floor ?? 0)}"></div>
+          <div class="rm-field"><label>Area (m2)</label><input id="rm-split-area" type="number" min="0.1" step="0.1" value="${esc(defaultArea)}"></div>
+        </div>
+        <div class="rm-field">
+          <label>Residents to move</label>
+          <div class="rm-member-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
+            ${activeMembers.map(member => `
+              <label class="rm-member" style="cursor:pointer;">
+                <input type="checkbox" name="rm-split-member" value="${esc(member.id)}" data-identity="${esc(member.identityNo)}" data-name="${esc(member.fullName)}">
+                <h4>${esc(member.fullName)}</h4>
+                <p>${esc(member.identityNo)}</p>
+                <p>${esc(member.relationshipToHead || '-')} | ${statusLabel(member.status)}</p>
+              </label>
+            `).join('')}
+          </div>
+        </div>
+        <div class="rm-2">
+          <div class="rm-field">
+            <label>New household head</label>
+            <select class="rm-select" id="rm-split-head" required>
+              <option value="">Select moved resident</option>
+              ${activeMembers.map(member => `<option value="${esc(member.id)}" data-identity="${esc(member.identityNo)}" data-name="${esc(member.fullName)}">${esc(member.fullName)} - ${esc(member.identityNo)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="rm-field"><label>Phone</label><input id="rm-split-phone" pattern="0[35789]\\d{8}" maxlength="10"></div>
+        </div>
+        <div class="rm-field"><label>Note</label><textarea id="rm-split-note" rows="2">Created from household split.</textarea></div>
+        <div class="rm-actions">
+          <button class="rm-btn pri" type="submit">Create Split Household</button>
+          <button class="rm-btn sec" type="button" data-action="cancel-split">Cancel</button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+
 function readVehicleForm(container) {
   return {
     id: state.editingVehicleId || null,
@@ -1829,6 +1904,8 @@ export class ResidentsManager {
       }
       const isVacant = selected.status === 'VACANT';
       const members = isVacant ? [] : (selected.members || []);
+      const activeMembers = members.filter(isActiveResident);
+      const canSplit = !isVacant && activeMembers.length > 1;
       const store = loadStore();
       const available = state.apiMode 
         ? (state.allResidentsForSelect || []).filter(r => !isVacant && r.householdId !== selected.id && isActiveResident(r))
@@ -1844,10 +1921,11 @@ export class ResidentsManager {
               ${renderBadge(selected.status)}
               <button class="rm-btn sec" data-action="change-head" data-id="${esc(selected.id)}">Change Head</button>
               <button class="rm-btn sec" data-action="transfer-ownership" data-id="${esc(selected.id)}">Transfer Owner</button>
-              <button class="rm-btn sec" data-action="split-household" data-id="${esc(selected.id)}">Split</button>
+              <button class="rm-btn sec" data-action="split-household" data-id="${esc(selected.id)}" ${canSplit ? '' : 'disabled aria-disabled="true"'}>Split</button>
             </div>
           </div>
           ${selected.headChangeRequired ? '<div class="rm-alert">Household head is missing or inactive. Choose a new head by Citizen ID.</div>' : ''}
+          ${state.splittingHouseholdId === selected.id ? renderSplitHouseholdForm(selected, members) : ''}
           <div class="rm-detail-grid" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));">
             <div>
               <h3>Apartment Details</h3>
@@ -2250,35 +2328,15 @@ export class ResidentsManager {
           showToast('Ownership transferred', 'success');
         }
         if (action === 'split-household') {
-          const code = prompt('New household code:');
-          if (!code) return;
-          const apartmentNo = prompt('New apartment number:');
-          if (!apartmentNo) return;
-          const residentIds = (prompt('Resident IDs to move, separated by commas:') || '')
-            .split(',')
-            .map(item => item.trim())
-            .filter(Boolean);
-          if (!residentIds.length) { showToast('Enter at least one resident ID', 'warning'); return; }
-          const headIdentityNo = prompt('New household head Citizen ID (optional):') || '';
-          const headName = prompt('New household head name (optional):') || '';
-          await DataService.splitHousehold(id, {
-            newHousehold: {
-              code: code.trim(),
-              apartmentNo: apartmentNo.trim(),
-              floor: 0,
-              area: 50,
-              headName: headName.trim() || 'Pending head',
-              phone: '',
-              status: 'OCCUPIED',
-              note: 'Created from household split.',
-              motorcycleCount: 0,
-              carCount: 0
-            },
-            residentIds,
-            headIdentityNo: headIdentityNo.trim(),
-            reason: 'Household split'
-          }, actor());
-          showToast('Household split created', 'success');
+          state.selectedHouseholdId = id;
+          state.splittingHouseholdId = state.splittingHouseholdId === id ? null : id;
+          renderAll();
+          return;
+        }
+        if (action === 'cancel-split') {
+          state.splittingHouseholdId = null;
+          renderAll();
+          return;
         }
         if (action === 'mark-deceased') {
           const dateOfDeath = prompt('Date of death (YYYY-MM-DD, leave blank for today):') || '';
@@ -2342,6 +2400,57 @@ export class ResidentsManager {
           showToast('Vehicle registration saved', 'success');
           await refresh();
         }
+        if (event.target.id === 'rm-split-form') {
+          const form = event.target;
+          const sourceHouseholdId = form.dataset.household;
+          const selectedBoxes = [...form.querySelectorAll('input[name="rm-split-member"]:checked')];
+          const residentIds = selectedBoxes.map(box => box.value);
+          const headSelect = form.querySelector('#rm-split-head');
+          const headOption = headSelect?.selectedOptions?.[0] || null;
+          const headResidentId = headSelect?.value || '';
+
+          if (!residentIds.length) {
+            showToast('Select at least one resident to move', 'warning');
+            return;
+          }
+          if (!headResidentId || !residentIds.includes(headResidentId)) {
+            showToast('New household head must be one of the moved residents', 'warning');
+            return;
+          }
+
+          const sourceHousehold = await DataService.getHousehold(sourceHouseholdId);
+          const sourceActiveMembers = (sourceHousehold?.members || []).filter(isActiveResident);
+          const selectedActiveCount = selectedBoxes.filter(box => sourceActiveMembers.some(member => member.id === box.value)).length;
+          if (sourceActiveMembers.length - selectedActiveCount < 1) {
+            showToast('The source household must keep at least one active resident after split', 'warning');
+            return;
+          }
+
+          const headIdentityNo = headOption?.dataset.identity || '';
+          const headName = headOption?.dataset.name || 'Pending head';
+          const saved = await DataService.splitHousehold(sourceHouseholdId, {
+            newHousehold: {
+              code: form.querySelector('#rm-split-code').value.trim(),
+              apartmentNo: form.querySelector('#rm-split-apartment').value.trim(),
+              floor: Number(form.querySelector('#rm-split-floor').value) || 0,
+              area: Number(form.querySelector('#rm-split-area').value) || 0,
+              headName,
+              headIdentityNo,
+              phone: form.querySelector('#rm-split-phone').value.trim(),
+              status: 'OCCUPIED',
+              note: form.querySelector('#rm-split-note').value.trim(),
+              motorcycleCount: 0,
+              carCount: 0
+            },
+            residentIds,
+            headIdentityNo,
+            reason: 'Household split'
+          }, actor());
+          state.splittingHouseholdId = null;
+          state.selectedHouseholdId = saved?.id || sourceHouseholdId;
+          showToast('Household split created', 'success');
+          await refresh();
+        }
       } catch (error) {
         showToast(error.message || 'Save failed', 'error');
       }
@@ -2399,6 +2508,21 @@ export class ResidentsManager {
       }
       if (event.target.id === 'rm-hh-status') {
         syncHouseholdHeadFromIdentity(container);
+      }
+      if (event.target.name === 'rm-split-member') {
+        const form = event.target.closest('#rm-split-form');
+        const headSelect = form?.querySelector('#rm-split-head');
+        if (form && headSelect) {
+          const selectedIds = [...form.querySelectorAll('input[name="rm-split-member"]:checked')].map(box => box.value);
+          if (!selectedIds.includes(headSelect.value)) {
+            headSelect.value = selectedIds[0] || '';
+          }
+        }
+      }
+      if (event.target.id === 'rm-split-head') {
+        const form = event.target.closest('#rm-split-form');
+        const selectedHeadBox = form?.querySelector(`input[name="rm-split-member"][value="${CSS.escape(event.target.value)}"]`);
+        if (selectedHeadBox) selectedHeadBox.checked = true;
       }
     });
 
