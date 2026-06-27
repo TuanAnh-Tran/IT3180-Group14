@@ -1,8 +1,6 @@
 # Tài liệu Logic Nghiệp vụ Phân hệ Quản lý Thu Phí (Fee Management)
 
-Phân hệ Quản lý Thu Phí được thiết kế đồng bộ từ Backend (Java Spring Boot) đến Frontend (Vanilla JS) với khả năng hoạt động ở hai chế độ:
-1. **Fullstack Mode (Spring Boot + MySQL)**: Chạy thực tế khi kết nối tới backend hoạt động tốt.
-2. **Fallback Mode (LocalStorage Mock)**: Tự động kích hoạt khi backend ngoại tuyến, giả lập toàn bộ logic tính toán và lưu trữ trên trình duyệt của client.
+Phân hệ Quản lý Thu Phí được thiết kế đồng bộ từ Backend (Java Spring Boot) đến Frontend (Vanilla JS), trong đó backend và MySQL là nguồn dữ liệu chính. Khi backend mất kết nối, giao diện hiển thị lỗi kết nối để người dùng thử lại thay vì tự ghi dữ liệu nghiệp vụ trên trình duyệt.
 
 ---
 
@@ -110,9 +108,9 @@ Quy trình tính toán số tiền phải nộp (`amountRequired`) như sau:
    * Phương thức `checkHealth()` kiểm tra trạng thái hoạt động của backend bằng cách ping thử endpoint thống kê với thời gian timeout ngắn (1.5 giây).
 
 2. **Giao Diện & Engine Phụ Trợ ([payment.js](../frontend/js/components/payment.js))**
-   * **[PaymentEngine](../frontend/js/components/payment.js#L34)**: Triển khai logic tính phí (`calcAmount`) và ghi nhận nộp tiền tương đương với Backend để phục vụ riêng cho chế độ **Fallback Mode (LocalStorage)** khi không có kết nối mạng.
+   * **[PaymentEngine](../frontend/js/components/payment.js#L34)**: Triển khai logic tính phí (`calcAmount`) phục vụ hiển thị và kiểm tra nhanh trên giao diện; dữ liệu ghi nhận thanh toán vẫn phải đi qua Backend.
    * **Giao diện quản trị (PaymentView)**:
       * **Bộ lọc thông minh**: Lọc danh sách phí chưa thanh toán theo đợt thu và hộ gia đình. Tự động khóa bộ lọc và chỉ hiển thị căn hộ của chính cư dân đó nếu người dùng đăng nhập là cư dân thường (`user`).
       * **Bảo mật phân quyền thanh toán (Resident Authorization)**: Đối với cư dân thường (`role === 'user'`), giao diện chỉ hiển thị nút thanh toán **"Pay"** đối với các khoản phí thuộc về chính căn hộ/hộ gia đình của họ (`af.householdId === currentUser.room`). Các khoản phí thuộc hộ gia đình khác sẽ bị chặn và ẩn nút thanh toán, đảm bảo cư dân chỉ có thể xem và nộp các hóa đơn của chính mình.
       * **Vẽ biểu đồ thuần bằng Canvas**: Thay vì kéo các thư viện nặng ký như Chart.js, hệ thống vẽ biểu đồ cột (Monthly Revenue) và biểu đồ tròn (By Fee Type) trực tiếp lên thẻ `<canvas>` bằng HTML5 Canvas API giúp tối ưu hóa hiệu năng tải trang.
-      * **Cơ chế Sync-back (Đồng bộ ngược)**: Khi thực hiện thanh toán thành công qua API Backend, frontend tự động cập nhật lại cơ sở dữ liệu LocalStorage để đảm bảo thông tin số dư và trạng thái trên các trang Dashboard hoặc Resident hiển thị đồng bộ mà không cần tải lại toàn bộ trang.
+      * **Cơ chế đồng bộ giao diện**: Khi thực hiện thanh toán thành công qua API Backend, frontend tải lại dữ liệu liên quan để số dư và trạng thái trên các trang Dashboard hoặc Resident hiển thị đồng bộ mà không cần tải lại toàn bộ trang.

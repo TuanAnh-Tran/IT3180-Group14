@@ -474,7 +474,7 @@ export class PaymentView {
                 <input type="hidden" id="pv-pay-m-afid">
                 <div class="pv-field">
                   <label>Amount Paid (VND)</label>
-                  <input type="number" id="pv-pay-m-amount" min="0" placeholder="Automatically calculated if left blank">
+                  <input type="number" id="pv-pay-m-amount" min="1" step="1" placeholder="Enter amount to pay">
                 </div>
                 <div class="pv-field">
                   <label>Note (Optional)</label>
@@ -705,13 +705,21 @@ export class PaymentView {
         afs = afs.filter(a => a.householdId === currentUser.room);
       }
 
+      afs = afs.filter(af => {
+        const fee = isBackend ? { name: af.feeName, price: af.unitPrice } : db.fees.find(f => f.id === af.feeId);
+        const hh = isBackend ? { id: af.householdId, ownerName: af.ownerName } : db.households.find(h => h.id === af.householdId);
+        const amountRequired = Number(isBackend ? af.amountRequired : PaymentEngine.calcAmount(fee, hh, af.quantity));
+        const paid = Number(af.amountPaidAccumulated || 0);
+        return Number.isFinite(amountRequired) && amountRequired - paid > 0;
+      });
+
       q('#pv-pay-tbody').innerHTML = afs.map(af => {
         const fee = isBackend ? { name: af.feeName, price: af.unitPrice } : db.fees.find(f => f.id === af.feeId);
         const hh  = isBackend ? { id: af.householdId, ownerName: af.ownerName } : db.households.find(h => h.id === af.householdId);
         const per = isBackend ? { name: af.periodName } : db.periods.find(p => p.id === af.periodId);
         const amt = isBackend ? af.amountRequired : PaymentEngine.calcAmount(fee, hh, af.quantity);
         const paidAcc = af.amountPaidAccumulated || 0;
-        const remaining = amt - paidAcc;
+        const remaining = Math.max(0, amt - paidAcc);
         const badge = af.status === 'PARTIAL'
           ? `<span class="pv-badge" style="background:#f59e0b;color:#fff;">Partial (${vnd(paidAcc)})</span>`
           : `<span class="pv-badge red">Unpaid</span>`;

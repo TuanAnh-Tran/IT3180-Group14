@@ -1526,9 +1526,18 @@ export class ResidentsManager {
 
         if (roomCode) {
           try {
-            household = await DataService.getHousehold(roomCode);
+            const ownHouseholds = await tryApi('/households?size=1000');
+            const candidates = ownHouseholds?.content || [];
+            const normalizedRoom = norm(currentUser.room || roomCode);
+            const matched = candidates.find(h => {
+              const values = [h.id, h.code, h.apartmentNo].filter(Boolean).map(v => norm(String(v)));
+              return values.includes(normalizedRoom) || values.includes(norm(roomCode));
+            }) || candidates[0];
+            if (matched?.id) {
+              household = await DataService.getHousehold(matched.id);
+            }
           } catch (e) {
-            console.warn("Household lookup by roomCode failed, trying fallback:", e);
+            console.warn("Household lookup by authorized list failed, trying fallback:", e);
           }
         }
 
@@ -1762,7 +1771,6 @@ export class ResidentsManager {
             <span class="rm-mode" id="rm-mode">Checking API</span>
             <button class="rm-btn sec" data-action="export-households">Export Households</button>
             <button class="rm-btn sec" data-action="export-residents">Export Residents</button>
-            <button class="rm-btn dan" data-action="reset-local">Reset Local Demo</button>
           </div>
         </div>
         <div class="rm-stats" id="rm-stats"></div>

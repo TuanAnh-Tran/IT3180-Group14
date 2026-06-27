@@ -13,7 +13,7 @@
 | :--- | :--- |
 | **Kiến trúc ứng dụng** | Full-stack RESTful API (Backend: Spring Boot 3.x; Frontend: Vanilla HTML/CSS/JS SPA) |
 | **Cơ chế Xác thực (Auth)** | Spring Security + BCrypt (Mã hóa mật khẩu) + Stateless JWT (JSON Web Token) |
-| **Lưu trữ dữ liệu** | Cơ sở dữ liệu quan hệ MySQL 8.x (Thay thế hoàn toàn LocalStorage giả lập ở v1.0) |
+| **Lưu trữ dữ liệu** | Cơ sở dữ liệu quan hệ MySQL 8.x, không lưu dữ liệu nghiệp vụ trên trình duyệt |
 | **Phân quyền người dùng** | `ROLE_ADMIN` (Quản trị hệ thống/Ban quản lý), `ROLE_ACCOUNTANT` (Kế toán), `ROLE_USER` (Cư dân) |
 | **Quy định mật khẩu** | Tối thiểu 6 ký tự, mã hóa BCrypt một chiều trước khi lưu DB |
 | **Khóa tài khoản** | Tự động khóa tài khoản sau **5 lần** đăng nhập sai liên tiếp; tự động mở khóa sau **15 phút** hoặc được Admin mở khóa thủ công |
@@ -21,7 +21,7 @@
 
 ---
 
-## 2. KỊCH BẢN KIỂM THỬ CHI TIẾT (92 TEST CASES)
+## 2. KỊCH BẢN KIỂM THỬ CHI TIẾT (145 TEST CASES)
 
 ### 2.1 TC-AUTH — Xác thực người dùng & Bảo mật hệ thống
 
@@ -867,7 +867,7 @@
   2. Nhấn phím F5 reload lại trang web.
 * **Kết quả mong đợi:**
   * Dữ liệu cư dân mới vẫn hiển thị bình thường.
-  * Thông tin được lưu trực tiếp vào cơ sở dữ liệu MySQL thông qua API, không bị mất khi reload (khác với LocalStorage ở v1.0).
+  * Thông tin được lưu trực tiếp vào cơ sở dữ liệu MySQL thông qua API, không bị mất khi reload.
 
 #### **TC-DB-03: Quản lý Session bằng JWT Token**
 * **Mức độ:** High
@@ -894,42 +894,92 @@
 * **Kết quả mong đợi:**
   * Giao diện chỉ hiển thị và lưu trữ tối đa 50 bản ghi nhật ký hoạt động mới nhất để tránh quá tải dung lượng và làm chậm truy vấn. Các bản ghi cũ tự động được loại bỏ khỏi danh sách hiển thị.
 
-#### **TC-DB-06: Tự động kích hoạt chế độ dự phòng (Fallback Mode) sử dụng LocalStorage khi Backend mất kết nối**
-* **Mức độ:** High
-* **Điều kiện tiên quyết:** Cáp mạng/máy chủ backend tạm ngắt kết nối (Backend offline).
-* **Các bước thực hiện:**
-  1. Truy cập vào trang web ứng dụng hoặc tải lại trang hiện tại.
-  2. Thực hiện thao tác truy xuất dữ liệu phí hoặc danh sách căn hộ.
-* **Kết quả mong đợi:**
-  * Hàm `checkHealth()` ping endpoint backend không phản hồi (timeout sau 1.5 giây).
-  * Ứng dụng tự động kích hoạt `Fallback Mode` mà không làm sập giao diện người dùng.
-  * Hiển thị một banner hoặc huy hiệu "Offline Mode / Dự Phòng" màu vàng/cam trên Topbar/Dashboard để cảnh báo người dùng.
-  * Toàn bộ dữ liệu hiển thị và các thao tác tính toán, lưu trữ được chuyển qua giả lập trên LocalStorage của trình duyệt thay vì qua REST API.
+### 2.10 TC-EDGE — Test case lắt léo bổ sung
 
-#### **TC-DB-07: Đồng bộ dữ liệu ngược (Sync-back) giữa LocalStorage và giao diện Frontend**
-* **Mức độ:** Medium
-* **Điều kiện tiên quyết:** Hệ thống đang chạy ở chế độ Fullstack Mode.
-* **Các bước thực hiện:**
-  1. Thực hiện thanh toán thành công 1 khoản phí bất kỳ thông qua giao diện và REST API.
-  2. Quan sát thay đổi trên các màn hình khác (như Dashboard hoặc Resident Manager) và kiểm tra LocalStorage của trình duyệt.
-* **Kết quả mong đợi:**
-  * Giao diện cập nhật ngay trạng thái `PAID` và số dư liên quan.
-  * Đồng thời, Frontend tự động đồng bộ hóa trạng thái mới này xuống database LocalStorage để làm bản sao lưu dự phòng cập nhật nhất.
-  * Các trang Dashboard, Resident hiển thị số liệu hoàn toàn đồng bộ mà không cần tải lại toàn bộ trang (F5).
+Các test case dưới đây được gộp từ file `D:\SE-OOP\test_cases_chung_cu_lac_leo.md`. File nguồn không có cột mức độ ưu tiên, nên nhóm này được thống kê ở cột **Chưa phân loại** trong bảng tổng kết.
+
+| ID | Module | Tình huống lắt léo | Dữ liệu/điều kiện ban đầu | Cách test trên frontend | Expected output | Dấu hiệu bug |
+| -- | ------ | ------------------ | ------------------------- | ----------------------- | --------------- | ------------ |
+| TC-001 | Auth | Đăng ký với SĐT không đúng format Việt Nam | Chưa đăng nhập; dùng email/username mới; SĐT như `0123456789`, `0212345678`, `098765432` | Vào Register → nhập đầy đủ thông tin hợp lệ trừ SĐT → Submit | Form từ chối rõ ràng; không tạo tài khoản; không chuyển sang login thành công | Toast thành công, tạo user PENDING, hoặc lỗi mơ hồ “server error” |
+| TC-002 | Auth | Đăng ký với CCCD sai mã tỉnh hoặc không đủ 12 số | Chưa đăng nhập; dùng email/username mới; CCCD như `999123456789`, `00112345` | Register → nhập đầy đủ thông tin hợp lệ trừ CCCD → Submit | Frontend/backend từ chối; báo CCCD không hợp lệ; không tạo tài khoản | Tạo tài khoản được hoặc frontend báo thành công nhưng đăng nhập/duyệt lỗi |
+| TC-003 | Auth | Đăng ký trùng username/email/CCCD | Đã có user mẫu hoặc user vừa tạo trước đó | Register lại với username/email/CCCD đã tồn tại, thay đổi các field khác → Submit | Bị từ chối đúng field bị trùng; không tạo user thứ hai | Báo thành công, user trùng xuất hiện ở User Management, hoặc lỗi trắng màn hình |
+| TC-004 | Auth | Tài khoản PENDING thử đăng nhập ngay sau đăng ký | Vừa đăng ký user thường, admin chưa approve | Login bằng tài khoản vừa đăng ký | Không vào được app; thông báo tài khoản chờ duyệt | Vào dashboard được hoặc thấy dữ liệu cư dân/thanh toán khi chưa được duyệt |
+| TC-005 | Auth | Tài khoản LOCKED vẫn thao tác được sau refresh | Có user bị khóa; hoặc admin khóa user nếu UI có chức năng | Login bằng user bị khóa; nếu đang có session cũ thì refresh trang rồi thử mở Payment/Profile | Bị đẩy về login hoặc báo tài khoản bị khóa; không xem/sửa dữ liệu | Refresh vẫn giữ session, vẫn xem dữ liệu hoặc submit thao tác thành công |
+| TC-006 | User | ROLE_USER truy cập màn hình quản lý user qua Back/history | Đăng nhập admin mở User Management, logout; sau đó login user thường cùng trình duyệt | Bấm Back hoặc thử quay lại màn User Management từ lịch sử trình duyệt | Không thấy danh sách user; bị chuyển về màn phù hợp role user | Bảng user cũ vẫn hiện, hoặc user thường approve/delete/đổi role được |
+| TC-007 | User | Accountant thử vào chức năng chỉ admin được dùng | Đăng nhập `accountant` | Kiểm tra sidebar; dùng Back/history nếu trước đó admin đã mở User Management | Không có User Management; không thao tác được approve/delete/role | Accountant thấy màn user hoặc thao tác admin thành công |
+| TC-008 | Auth | Logout rồi bấm Back vẫn thấy dữ liệu nhạy cảm | Đăng nhập admin/accountant, mở dashboard/payment/user list | Logout → bấm Back trên trình duyệt | Không hiển thị dữ liệu cũ; yêu cầu login lại | Dashboard/user/payment list hiện lại từ cache |
+| TC-009 | User | Admin tự xóa/khóa chính mình nếu UI cho phép | Đăng nhập admin; vào User Management | Tìm chính tài khoản admin đang đăng nhập → thử Delete/Lock/Change role xuống user | UI phải chặn hoặc yêu cầu admin khác thực hiện; session không bị phá hỏng | Admin tự xóa/khóa được, sau refresh mất quyền hoặc hệ thống không còn admin |
+| TC-010 | Household | `members_count` khác số cư dân thực tế trong hộ | Đăng nhập admin/accountant; có hộ hiển thị số thành viên và danh sách cư dân | Vào Resident Management → mở chi tiết một hộ → so sánh “member count” với số resident active trong danh sách | UI phải hiển thị nhất quán hoặc cảnh báo dữ liệu lệch; phí theo người phải dựa trên resident active | Số thành viên trên card khác danh sách nhưng không cảnh báo; fee PER_PERSON tính theo số cũ |
+| TC-011 | Household | Hộ còn cư dân nhưng không còn chủ hộ | Đăng nhập admin/accountant; chọn hộ có nhiều cư dân | Mark Deceased chủ hộ hoặc Remove/Move chủ hộ mà không chọn người thay thế | Hệ thống phải yêu cầu chọn chủ hộ mới hoặc hiển thị trạng thái “chưa có chủ hộ” rõ ràng | Hộ vẫn hiển thị chủ hộ cũ, hoặc mất chủ hộ nhưng vẫn cho tạo phí/thao tác như bình thường |
+| TC-012 | Resident | Chủ hộ bị báo tử nhưng vẫn là chủ hộ | Đăng nhập admin/accountant; hộ có chủ hộ active | Vào Resident → chọn chủ hộ → Mark Deceased → refresh hộ | Resident chuyển DECEASED, không còn là head; nếu chưa chọn replacement thì hộ phải báo thiếu chủ hộ | Chủ hộ đã DECEASED vẫn hiện là Head/Owner |
+| TC-013 | Resident | Cư dân DECEASED vẫn được chọn làm chủ hộ | Có resident đã DECEASED trong cùng hộ | Household detail → Change Head → nhập CCCD của resident DECEASED | Bị từ chối; không đổi `head_resident_id` | Toast “Household head changed”, head chuyển sang người đã mất |
+| TC-014 | Resident | Cư dân MOVED_OUT vẫn được chọn làm chủ hộ | Có resident trạng thái MOVED_OUT trong hộ hoặc vừa sửa status sang MOVED_OUT | Household detail → Change Head → nhập CCCD resident MOVED_OUT | Bị từ chối; người chuyển đi không được làm chủ hộ | Head đổi sang resident MOVED_OUT |
+| TC-015 | Resident | Cư dân MOVED_OUT/DECEASED vẫn được tính vào số người thu phí | Hộ có cả active và MOVED_OUT/DECEASED resident | Vào Fee Manager → tạo/gán kỳ có phí PER_PERSON → xem số lượng/tổng tiền của hộ | Quantity chỉ tính cư dân active/hợp lệ theo nghiệp vụ | Quantity bằng `members_count` cũ hoặc tính cả người đã mất/chuyển đi |
+| TC-016 | Household | Tạo hộ trùng apartment_no | Đăng nhập admin/accountant; biết một apartment_no đã tồn tại | Resident Management → Add household → nhập apartment_no trùng → Save | Bị từ chối; không xuất hiện hộ trùng | Toast “Household saved” và danh sách có 2 hộ cùng căn |
+| TC-017 | Household | Căn hộ VACANT nhưng vẫn có cư dân | Có hộ đang có resident active | Edit household → đổi status sang VACANT → Save | Bị chặn hoặc cảnh báo phải chuyển/xóa cư dân trước | Hộ trạng thái VACANT nhưng danh sách vẫn còn cư dân active |
+| TC-018 | Household | Archive/xóa hộ đang có cư dân hoặc phí chưa thanh toán | Hộ có resident active và assigned fee UNPAID/PARTIAL | Resident Management → Delete household | Bị chặn, nêu rõ còn cư dân/công nợ | Hộ biến mất nhưng cư dân/phí/receipt vẫn còn liên kết hoặc mất khỏi màn thanh toán |
+| TC-019 | Household | Tách hộ đưa chủ hộ sang hộ mới làm hộ cũ mất chủ hộ | Hộ có chủ hộ và ít nhất 2 resident | Household detail → Split household → nhập resident IDs gồm chủ hộ → không chọn replacement cho hộ cũ | Phải yêu cầu chủ hộ mới cho hộ cũ hoặc hủy thao tác | Tách thành công nhưng hộ cũ không có head hoặc vẫn trỏ tới người đã chuyển |
+| TC-020 | Household | Tách hộ khi hộ cũ có công nợ/partial/receipt | Hộ có phí UNPAID/PARTIAL hoặc receipt ACTIVE | Split household → chuyển một số cư dân sang hộ mới → xem lại Payment của cả hai hộ | Công nợ/receipt không bị nhân đôi/mất; UI thể hiện rõ phí vẫn thuộc hộ nào | Phí chuyển nhầm, nợ bị xóa, receipt biến mất hoặc xuất hiện ở cả hai hộ |
+| TC-021 | Resident | Một cư dân xuất hiện ở hai hộ sau chuyển/tách | Đã thực hiện Split household hoặc Add/Remove member | Search resident theo CCCD ở Global Search và mở cả hộ cũ/hộ mới | Resident chỉ thuộc đúng một hộ; counts của hai hộ cập nhật | Resident hiện ở cả hai hộ hoặc count không đổi |
+| TC-022 | Vehicle | Mở tab Vehicle khi DB/schema runtime thiếu bảng `vehicle` | Đăng nhập admin/accountant; app chạy bằng schema hiện tại | Resident Management → tab Vehicles | UI phải báo lỗi rõ ràng hoặc disable chức năng; không được giả vờ có dữ liệu | Trắng màn hình, loading vô hạn, hoặc “Vehicle saved” nhưng refresh mất dữ liệu |
+| TC-023 | Vehicle | Thêm xe khi chưa chọn household | Đăng nhập admin/accountant; tab Vehicles mở được | Register Vehicle → nhập biển số, loại xe, chủ xe → để trống Household → Save | Bị từ chối; xe không xuất hiện trong list | Toast success hoặc xe tạo với household rỗng/không xác định |
+| TC-024 | Vehicle | Thêm xe có chủ xe không thuộc hộ | Có hộ A; nhập owner name không nằm trong resident của hộ A | Vehicles → chọn hộ A → nhập owner name ngoài hộ → Save | Bị từ chối hoặc cảnh báo owner không thuộc hộ | Xe được lưu, car/motorcycle count của hộ tăng sai |
+| TC-025 | Vehicle | Thêm xe cho cư dân đã chuyển đi/đã qua đời | Có resident MOVED_OUT/DECEASED trong hộ | Vehicles → chọn hộ đó → nhập owner name của resident không còn active → Save | Không cho đăng ký xe cho người không còn cư trú/hợp lệ | Xe được tạo cho người đã mất/chuyển đi |
+| TC-026 | Vehicle | Thêm hai xe trùng biển số | Có một xe biển `30A-12345` đã lưu hoặc vừa tạo | Vehicles → tạo thêm xe khác cùng biển số → Save | Bị từ chối trùng biển số; danh sách chỉ có một xe | Hai dòng cùng biển số xuất hiện |
+| TC-027 | Vehicle | Trùng biển số khác chữ hoa/thường/khoảng trắng | Đã có `30A-12345` | Tạo xe với ` 30a-12345 ` hoặc `30a-12345` | Hệ thống trim/normalize và từ chối | Lưu được xe thứ hai do khác hoa/thường/khoảng trắng |
+| TC-028 | Vehicle | User thường thao tác được thêm/xóa xe | Đăng nhập ROLE_USER | Vào Resident Management/Vehicle nếu UI cho thấy; thử Save/Delete xe | Nút quản trị xe phải ẩn/disabled hoặc thao tác bị từ chối | User thường thấy nút Save/Delete và thao tác thành công |
+| TC-029 | Vehicle | Đổi loại xe sau khi phí gửi xe đã phát sinh | Có xe máy/ô tô đã được tính trong kỳ phí mở | Edit vehicle → đổi Motorcycle thành Car hoặc ngược lại → Save → xem Fee/Payment của hộ | Phí cũ không bị sửa ngầm; nếu cần tính lại phải có cảnh báo rõ | Số tiền kỳ cũ thay đổi âm thầm hoặc motorcycle_count/car_count lệch list xe |
+| TC-030 | Fee | Tạo phí giá 0 | Đăng nhập admin/accountant | Fee Manager → Add Fee → nhập price `0` → Save | Bị từ chối; không tạo fee 0 đồng | Fee 0 đồng xuất hiện và có thể gán cho hộ |
+| TC-031 | Fee | Tạo phí giá âm | Đăng nhập admin/accountant | Fee Manager → Add Fee → nhập price `-10000` → Save | Bị từ chối; không tạo fee âm | Fee âm được lưu, tổng phải thu giảm hoặc dashboard âm |
+| TC-032 | Fee | Sửa đơn giá phí sau khi đã gán cho hộ | Có period OPEN đã gán fee cho hộ, một vài hộ đã PARTIAL/PAID | Edit fee → đổi price → Save → mở Payment của hộ đã được gán trước đó | Assigned fee cũ giữ nguyên hoặc có quy trình recalculation rõ ràng | Công nợ cũ thay đổi âm thầm, receipt cũ không khớp số tiền |
+| TC-033 | Fee | Xóa phí đã có assigned fee | Có fee đã nằm trong kỳ thu | Fee Manager → Delete fee đó | Bị chặn hoặc báo đang được sử dụng | Fee biến mất nhưng assigned fee/payment/report vẫn tham chiếu lỗi |
+| TC-034 | Period | Tạo kỳ thu trùng tên hoặc sync nhiều lần cùng fee | Đã có một collection period cùng tên | Fee Manager → tạo period cùng tên, chọn cùng danh sách phí → Save/Sync nhiều lần | Không tạo kỳ/assigned fee trùng; báo tên kỳ đã tồn tại hoặc idempotent | Một hộ có nhiều dòng phí giống hệt trong cùng kỳ |
+| TC-035 | Period | Tạo kỳ thu không chọn phí nào | Đăng nhập admin/accountant | Fee Manager → Create Period → nhập tên kỳ → không chọn fee → Submit | Bị từ chối; không tạo kỳ rỗng | Kỳ rỗng xuất hiện, dashboard/report lệch |
+| TC-036 | Period | Đóng kỳ rồi vẫn cho thanh toán/sửa utility/thêm phí | Có period CLOSED | Mở Payment/Fee/Utility của period CLOSED → thử thanh toán, edit chỉ số, thêm fee | Nút thao tác bị disable hoặc bị từ chối rõ ràng | Vẫn tạo receipt, sửa utility hoặc thêm assigned fee trong kỳ CLOSED |
+| TC-037 | Period | Reopen kỳ rồi dữ liệu phí cũ bị gán trùng | Có period CLOSED đã có assigned fee | Reopen period → bấm lại thao tác tạo/sync/gán phí nếu UI có → xem Payment từng hộ | Dữ liệu cũ giữ nguyên, không tạo dòng assigned fee trùng | Mỗi hộ xuất hiện 2 dòng cùng fee/kỳ |
+| TC-038 | Payment | Critical: nhập amount = 0 bị biến thành thanh toán nốt | Có assigned fee UNPAID/PARTIAL còn nợ | Payment → chọn khoản phí → nhập amount `0` → Record payment | Phải từ chối; không tạo receipt; status không đổi sang PAID | Tạo receipt, amount bằng phần còn lại, hoặc đánh dấu PAID |
+| TC-039 | Payment | Critical: nhập amount âm | Có assigned fee còn nợ | Payment → nhập `-1` hoặc `-50000` → Record payment | Phải từ chối; không tạo receipt; không giảm/tăng balance | Receipt được tạo, số dư âm/dương bất thường, status đổi |
+| TC-040 | Payment | Critical: nhập chữ/ký tự lạ vào số tiền | Có assigned fee còn nợ | Payment → nhập `abc`, `--`, `1,000abc` → Record payment | Phải báo số tiền không hợp lệ; không gửi thanh toán | Hệ thống hiểu là thanh toán nốt hoặc tạo receipt amount lạ |
+| TC-041 | Payment | Bỏ trống amount nhưng vẫn submit | Có assigned fee UNPAID/PARTIAL | Payment → để trống amount → Record payment | Nếu không có nút “pay remaining” rõ ràng thì phải từ chối; không tạo receipt | Blank amount được hiểu là trả toàn bộ và fee thành PAID |
+| TC-042 | Payment | Nhập số tiền vượt số còn phải nộp | Có khoản còn nợ 100k chẳng hạn | Payment → nhập amount lớn hơn remaining → Submit | Bị từ chối hoặc xử lý overpayment có rule rõ ràng; balance hiển thị đúng | Tạo overpayment không kiểm soát, household balance sai |
+| TC-043 | Payment | Double-click nút thanh toán | Có khoản UNPAID/PARTIAL | Nhập amount hợp lệ → double-click nhanh Record payment | Chỉ tạo một receipt; số tiền tích lũy tăng một lần | Hai receipt giống nhau, amount_paid_accumulated tăng đôi |
+| TC-044 | Payment | Refresh/Back rồi submit lại thanh toán cũ | Vừa thanh toán thành công một khoản | Sau success → Back/Refresh → thử submit lại form cũ | Không tạo duplicate; UI nhận biết khoản đã cập nhật | Receipt trùng, khoản bị overpaid |
+| TC-045 | Receipt | Hủy ACTIVE receipt trong khoản có nhiều partial receipt | Một assigned fee có ít nhất 2 receipt partial ACTIVE | Receipt History → Cancel một receipt → mở lại Payment khoản đó | Status và remaining phải tính theo các receipt ACTIVE còn lại | Khoản vẫn PAID dù đã hủy, hoặc quay về UNPAID dù còn receipt khác |
+| TC-046 | Receipt | Hủy receipt đã CANCELLED lần hai | Có receipt đã cancel | Receipt History → bấm Cancel lại nếu còn nút hoặc reload rồi thử lại | Bị chặn; tổng tiền/report không đổi lần hai | Số tiền bị trừ hai lần, dashboard giảm sai |
+| TC-047 | Proof | User gửi nhiều minh chứng cho cùng khoản phí | Đăng nhập ROLE_USER; có khoản UNPAID/PARTIAL | Payment của user → submit proof lần 1 → submit proof lần 2 cùng khoản | UI phải thể hiện pending hiện có hoặc chặn trùng nếu chưa xử lý | Có nhiều proof PENDING gây accountant duyệt nhầm/thu trùng |
+| TC-048 | Proof | Proof amount 0/âm/vượt nợ | Đăng nhập ROLE_USER; có khoản còn nợ | Submit proof với amount `0`, `-1`, hoặc lớn hơn remaining | Bị từ chối; không tạo PENDING proof | Proof vẫn PENDING và có thể được duyệt |
+| TC-049 | Proof | Gửi trùng mã giao dịch ngân hàng | Có một proof đã submit với transaction id X | Submit proof khác cùng transaction id X | Bị từ chối/cảnh báo trùng giao dịch | Hai proof cùng mã giao dịch cùng tồn tại |
+| TC-050 | Proof | Accountant duyệt cùng proof hai lần/double-click | Có proof PENDING | Đăng nhập accountant → Pending Proofs → double-click Approve | Chỉ duyệt một lần; chỉ một receipt; assigned fee tăng đúng một lần | Hai receipt được tạo hoặc amount_paid_accumulated tăng đôi |
+| TC-051 | Proof | Từ chối rồi lại duyệt cùng proof | Có proof PENDING | Accountant → Reject proof → refresh → nếu còn thao tác Approve thì bấm Approve | Proof REJECTED không được approve lại nếu không có luồng mở lại rõ ràng | Proof chuyển từ REJECTED sang APPROVED và tạo thanh toán |
+| TC-052 | Proof | Duyệt proof sau khi khoản đã thanh toán thủ công | User đã gửi proof PENDING; admin/accountant sau đó record payment thủ công cho cùng khoản đến PAID | Accountant → Approve proof cũ | Bị từ chối vì khoản đã PAID hoặc yêu cầu xử lý đối soát | Vẫn approve, tạo receipt thừa, household balance sai |
+| TC-053 | Utility | Chỉ số mới nhỏ hơn chỉ số cũ | Đăng nhập admin/accountant; period OPEN | Fee/Utility → chọn hộ/kỳ/điện hoặc nước → old index lớn hơn new index → Save | Bị từ chối; không tạo/cập nhật utility record | Lưu được chỉ số âm tiêu thụ, phí âm hoặc dữ liệu lệch |
+| TC-054 | Utility | Chỉ số mới bằng chỉ số cũ | Có household/kỳ/type chưa hoặc đã có utility record | Nhập old index = new index → Save → xem assigned fee utility | Nếu cho phép thì tiền tiêu thụ phải bằng 0; nếu không cho phép phải báo rõ | Vẫn sinh phí dương hoặc hiển thị consumption sai |
+| TC-055 | Utility | Chỉ số âm | Period OPEN | Nhập old/new index âm → Save | Bị từ chối; không cập nhật | Lưu chỉ số âm, report utility sai |
+| TC-056 | Utility | Nhập hai bản ghi cùng hộ/cùng kỳ/cùng loại | Đã có record điện/nước cho hộ trong kỳ | Nhập lại cùng household + period + type → Save | Chỉ update record cũ hoặc báo đã tồn tại; không tạo dòng trùng | Có 2 record cùng type/kỳ/hộ hoặc 2 khoản utility giống nhau |
+| TC-057 | Utility | Sửa chỉ số sau khi phí utility đã tạo hoặc kỳ CLOSED | Có assigned fee utility đã phát sinh; hoặc period CLOSED | Sửa old/new index → Save → mở Payment/Report | Nếu kỳ CLOSED phải chặn; nếu OPEN phải recalculation nhất quán | Utility record đổi nhưng assigned fee/report vẫn giữ tiền cũ, hoặc CLOSED vẫn sửa được |
+| TC-058 | Report | Dashboard tổng tiền khác Receipt History ACTIVE | Có nhiều receipt, gồm ACTIVE và CANCELLED | Mở Dashboard tổng thu → sang Payment/Receipt History cùng kỳ → so tổng ACTIVE | Tổng dashboard bằng tổng receipt ACTIVE hợp lệ | Dashboard tính cả CANCELLED hoặc bỏ sót receipt mới |
+| TC-059 | Report | Partial payment bị tính như full payment | Có assigned fee PARTIAL | Mở Statistics/Report theo kỳ/fee type | Chỉ tính số tiền đã thu thực tế, không tính full amount | Report coi PARTIAL như PAID 100% |
+| TC-060 | Report | Hủy receipt nhưng thống kê/export không giảm | Có receipt ACTIVE vừa thanh toán | Ghi nhận số dashboard/report → Cancel receipt → refresh → export lại | Tổng thu giảm đúng bằng receipt bị hủy; Excel khớp UI | UI/report/export vẫn giữ số tiền đã hủy |
+| TC-061 | Report | Export khi chưa đăng nhập hoặc bằng ROLE_USER | Logout hoặc login ROLE_USER | Thử bấm export từ màn report/payment nếu nút hiện; hoặc dùng Back tới màn có nút export | Không tải file; báo không đủ quyền; nút nên ẩn với ROLE_USER | File Excel tải được hoặc frontend báo success dù không có quyền |
+| TC-062 | Report | Chọn khoảng ngày ngược hoặc ngày biên bị thiếu giao dịch | Có receipt tại đầu/cuối ngày | Receipt History/Export → chọn from > to; sau đó chọn đúng ngày có giao dịch 00:00/23:59 | Ngày ngược bị chặn; ngày hợp lệ bao gồm đủ giao dịch trong ngày | Vẫn export ngày ngược, hoặc thiếu giao dịch ở đầu/cuối ngày |
+| TC-063 | Notification | User thấy notification của người khác | Có admin/accountant duyệt/từ chối proof của user A; login user B | Mở dropdown notification của user B | Chỉ thấy notification thuộc user B | User B thấy thông báo của user A |
+| TC-064 | Notification | Mark all read áp dụng nhầm toàn hệ thống | Có notification unread ở hai tài khoản khác nhau | Login user A → Mark all read → logout → login user B | Chỉ notification user A được read; user B vẫn giữ unread của họ | Notification user B cũng bị đánh dấu đã đọc |
+| TC-065 | Notification | Duyệt/từ chối proof nhưng user không nhận notification hoặc read state không bền | User submit proof; accountant approve/reject | Sau approve/reject → login user → xem notification; mark read → refresh | User nhận thông báo đúng nội dung; sau mark read badge giảm và không hiện lại unread | Không có notification, hoặc refresh xong notification đã đọc lại thành unread |
 
 ---
 
 ## 3. TỔNG KẾT BỘ KỊCH BẢN KIỂM THỬ
 
-| Module | Số TC | Critical | High | Medium | Low |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **Authentication** | 13 | 3 | 7 | 3 | 0 |
-| **User Management** | 13 | 3 | 8 | 2 | 0 |
-| **Resident Manager** | 13 | 0 | 8 | 4 | 1 |
-| **Fee Manager** | 20 | 5 | 10 | 4 | 1 |
-| **Payment & Receipt** | 11 | 2 | 7 | 2 | 0 |
-| **Statistics** | 5 | 1 | 2 | 2 | 0 |
-| **Profile** | 7 | 0 | 3 | 4 | 0 |
-| **Dashboard** | 3 | 0 | 1 | 2 | 0 |
-| **Database & API** | 7 | 2 | 3 | 1 | 1 |
-| **TỔNG CỘNG** | **82** | **15** | **43** | **21** | **3** |
+| Module | Số TC | Critical | High | Medium | Low | Chưa phân loại |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Authentication** | 13 | 3 | 7 | 3 | 0 | 0 |
+| **User Management** | 13 | 3 | 8 | 2 | 0 | 0 |
+| **Resident Manager** | 13 | 0 | 8 | 4 | 1 | 0 |
+| **Fee Manager** | 20 | 5 | 10 | 4 | 1 | 0 |
+| **Payment & Receipt** | 11 | 2 | 7 | 2 | 0 | 0 |
+| **Statistics** | 5 | 1 | 2 | 2 | 0 | 0 |
+| **Profile** | 7 | 0 | 3 | 4 | 0 | 0 |
+| **Dashboard** | 3 | 0 | 1 | 2 | 0 | 0 |
+| **Database & API** | 5 | 2 | 2 | 0 | 1 | 0 |
+| **Edge Cases bổ sung** | 65 | 0 | 0 | 0 | 0 | 65 |
+| **TỔNG CỘNG** | **145** | **15** | **42** | **20** | **3** | **65** |

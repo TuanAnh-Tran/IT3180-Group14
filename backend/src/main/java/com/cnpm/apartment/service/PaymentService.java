@@ -28,6 +28,7 @@ import com.cnpm.apartment.service.calculator.CalculatorFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -415,7 +416,11 @@ public class PaymentService {
                             list -> new org.springframework.data.domain.PageImpl<>(list, pageable, list.size())));
         }
 
-        return page.map(this::mapToAssignedFeeDTO);
+        List<AssignedFee> outstandingFees = page.getContent().stream()
+                .filter(this::hasOutstandingDebt)
+                .toList();
+        return new PageImpl<>(outstandingFees, pageable, outstandingFees.size())
+                .map(this::mapToAssignedFeeDTO);
     }
 
     // =========================================================
@@ -528,6 +533,14 @@ public class PaymentService {
                             .status(FeeStatus.UNPAID)
                             .amountPaidAccumulated(BigDecimal.ZERO)
                             .build();
+                    BigDecimal required = calculateAmount(af);
+                    if (required.compareTo(BigDecimal.ZERO) <= 0) {
+                        if (fee.getCalcMethod() == CalcMethod.CONSUMPTION) {
+                            af.setStatus(FeeStatus.PAID);
+                        } else {
+                            continue;
+                        }
+                    }
                     assignedFeeRepository.save(af);
                 }
             }
@@ -542,6 +555,12 @@ public class PaymentService {
 
     public BigDecimal calculateAmount(AssignedFee af) {
         return calculatorFactory.getCalculator(af.getFee().getCalcMethod()).calculate(af);
+    }
+
+    private boolean hasOutstandingDebt(AssignedFee af) {
+        BigDecimal required = calculateAmount(af);
+        BigDecimal paid = af.getAmountPaidAccumulated() != null ? af.getAmountPaidAccumulated() : BigDecimal.ZERO;
+        return required.subtract(paid).compareTo(BigDecimal.ZERO) > 0;
     }
 
     // =========================================================

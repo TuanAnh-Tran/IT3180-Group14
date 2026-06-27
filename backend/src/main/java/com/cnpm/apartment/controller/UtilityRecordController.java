@@ -16,9 +16,11 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
+import com.cnpm.apartment.model.enums.FeeStatus;
 import com.cnpm.apartment.model.enums.PeriodStatus;
 
 @RestController
@@ -96,7 +98,21 @@ public class UtilityRecordController {
     }
 
     private void updateConsumptionQuantity(AssignedFee assignedFee, int oldIndex, int newIndex) {
-        assignedFee.setQuantity(Math.max(0, newIndex - oldIndex));
+        int consumption = Math.max(0, newIndex - oldIndex);
+        assignedFee.setQuantity(consumption);
+        BigDecimal required = assignedFee.getFee().getPrice().multiply(BigDecimal.valueOf(consumption));
+        BigDecimal paid = assignedFee.getAmountPaidAccumulated() != null
+                ? assignedFee.getAmountPaidAccumulated()
+                : BigDecimal.ZERO;
+        if (required.compareTo(BigDecimal.ZERO) <= 0) {
+            assignedFee.setStatus(FeeStatus.PAID);
+        } else if (paid.compareTo(required) >= 0) {
+            assignedFee.setStatus(FeeStatus.PAID);
+        } else if (paid.compareTo(BigDecimal.ZERO) > 0) {
+            assignedFee.setStatus(FeeStatus.PARTIAL);
+        } else {
+            assignedFee.setStatus(FeeStatus.UNPAID);
+        }
         assignedFeeRepository.save(assignedFee);
     }
 

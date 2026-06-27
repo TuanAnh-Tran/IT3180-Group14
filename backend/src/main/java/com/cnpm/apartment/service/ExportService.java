@@ -52,10 +52,21 @@ public class ExportService {
 
     public byte[] exportDebtByPeriod(String periodId) throws IOException {
         List<AssignedFee> unpaid = assignedFeeRepository
-                .findByPeriodIdAndStatus(periodId, FeeStatus.UNPAID,
+                .findByPeriodIdAndStatusIn(periodId, List.of(FeeStatus.UNPAID, FeeStatus.PARTIAL),
                         org.springframework.data.domain.Pageable.unpaged())
-                .getContent();
+                .getContent()
+                .stream()
+                .filter(this::hasOutstandingDebt)
+                .toList();
         return buildDebtExcel(unpaid);
+    }
+
+    private boolean hasOutstandingDebt(AssignedFee af) {
+        java.math.BigDecimal required = paymentService.calculateAmount(af);
+        java.math.BigDecimal paid = af.getAmountPaidAccumulated() != null
+                ? af.getAmountPaidAccumulated()
+                : java.math.BigDecimal.ZERO;
+        return required.subtract(paid).compareTo(java.math.BigDecimal.ZERO) > 0;
     }
 
     // =========================================================

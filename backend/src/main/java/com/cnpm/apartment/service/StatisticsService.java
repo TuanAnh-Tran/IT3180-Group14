@@ -6,6 +6,7 @@ import com.cnpm.apartment.model.enums.FeeStatus;
 import com.cnpm.apartment.repository.AssignedFeeRepository;
 import com.cnpm.apartment.repository.HouseholdRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,28 +34,36 @@ public class StatisticsService {
         // Single DB call using optimized query projection
         OverviewProjection stats = assignedFeeRepository.getOverviewStatistics();
 
-        long paidCount = valueOrZero(stats.getPaidCount());
-        long unpaidCount = valueOrZero(stats.getUnpaidCount());
-        long partialCount = valueOrZero(stats.getPartialCount());
+        long paidCount = 0;
+        long unpaidCount = 0;
+        long partialCount = 0;
         BigDecimal totalCollected = stats.getTotalCollected() != null
                 ? stats.getTotalCollected()
                 : BigDecimal.ZERO;
 
-        long totalAssignments = valueOrZero(stats.getTotalAssignments());
-        double completionRate = (totalAssignments == 0) ? 0.0
-                : (double) paidCount / totalAssignments * 100;
-
+        long totalAssignments = 0;
         BigDecimal totalPending = BigDecimal.ZERO;
-        List<com.cnpm.apartment.model.AssignedFee> unpaidFees = assignedFeeRepository.findByStatusIn(
-                List.of(FeeStatus.UNPAID, FeeStatus.PARTIAL));
-        for (com.cnpm.apartment.model.AssignedFee af : unpaidFees) {
+        List<com.cnpm.apartment.model.AssignedFee> assignedFees = assignedFeeRepository.findAll();
+        for (com.cnpm.apartment.model.AssignedFee af : assignedFees) {
             BigDecimal required = calculateAmount(af);
             BigDecimal paid = af.getAmountPaidAccumulated() != null ? af.getAmountPaidAccumulated() : BigDecimal.ZERO;
             BigDecimal debt = required.subtract(paid);
+            if (required.compareTo(BigDecimal.ZERO) > 0) {
+                totalAssignments++;
+                if (af.getStatus() == FeeStatus.PAID || paid.compareTo(required) >= 0) {
+                    paidCount++;
+                } else if (paid.compareTo(BigDecimal.ZERO) > 0) {
+                    partialCount++;
+                } else {
+                    unpaidCount++;
+                }
+            }
             if (debt.compareTo(BigDecimal.ZERO) > 0) {
                 totalPending = totalPending.add(debt);
             }
         }
+        double completionRate = (totalAssignments == 0) ? 0.0
+                : (double) paidCount / totalAssignments * 100;
 
         return StatisticsDTO.builder()
                 .totalCollected(totalCollected)
@@ -92,12 +101,27 @@ public class StatisticsService {
     // =========================================================
 
     public StatisticsDTO getByPeriod(String periodId) {
-        long paidCount   = assignedFeeRepository.countByPeriodIdAndStatus(periodId, FeeStatus.PAID);
-        long unpaidCount = assignedFeeRepository.countByPeriodIdAndStatus(periodId, FeeStatus.UNPAID);
-        long partialCount = assignedFeeRepository.countByPeriodIdAndStatus(periodId, FeeStatus.PARTIAL);
+        long paidCount = 0;
+        long unpaidCount = 0;
+        long partialCount = 0;
         BigDecimal totalCollected = assignedFeeRepository.sumAmountByPeriodId(periodId);
 
-        long totalAssigned = paidCount + unpaidCount + partialCount;
+        long totalAssigned = 0;
+        for (com.cnpm.apartment.model.AssignedFee af : assignedFeeRepository.findByPeriodId(periodId, Pageable.unpaged()).getContent()) {
+            BigDecimal required = calculateAmount(af);
+            BigDecimal paid = af.getAmountPaidAccumulated() != null ? af.getAmountPaidAccumulated() : BigDecimal.ZERO;
+            if (required.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            totalAssigned++;
+            if (af.getStatus() == FeeStatus.PAID || paid.compareTo(required) >= 0) {
+                paidCount++;
+            } else if (paid.compareTo(BigDecimal.ZERO) > 0) {
+                partialCount++;
+            } else {
+                unpaidCount++;
+            }
+        }
         double completionRate = (totalAssigned == 0) ? 0.0
                 : (double) paidCount / totalAssigned * 100;
 

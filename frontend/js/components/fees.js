@@ -948,7 +948,7 @@ export class FeeManagerView {
                 <div class="sf-field"><label>Type</label><select id="sf-fee-type"><option value="COMPULSORY">Compulsory</option><option value="VOLUNTARY">Voluntary</option></select></div>
                 <div class="sf-field"><label>Calculation Method</label><select id="sf-fee-calc"><option value="FIXED">Fixed</option><option value="PER_MEMBER">Per Member</option><option value="PER_AREA">Per Area</option><option value="CONSUMPTION">Consumption</option></select></div>
               </div>
-              <div class="sf-field"><label>Unit price (VND) *</label><input type="number" id="sf-fee-price" min="0" placeholder="50000" required /></div>
+              <div class="sf-field"><label>Unit price (VND) *</label><input type="number" id="sf-fee-price" min="1" step="1" placeholder="50000" required /></div>
               <div style="display:flex;gap:10px;justify-content:flex-end;">
                 <button type="button" class="sf-btn sec" data-sfclose="sf-ov-fee">Cancel</button>
                 <button type="submit" class="sf-btn pri">Save Fee</button>
@@ -1398,6 +1398,10 @@ export class FeeManagerView {
         const id = q('#sf-fee-eid').value;
         const name = q('#sf-fee-name').value, type = q('#sf-fee-type').value,
           calc = q('#sf-fee-calc').value, price = Number(q('#sf-fee-price').value);
+        if (!Number.isFinite(price) || price <= 0) {
+          showToast('Fee price must be greater than 0.', 'error');
+          return;
+        }
         try {
           if (id) {
             await FM.updateFee(id, name, type, calc, price);
