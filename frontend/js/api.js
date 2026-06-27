@@ -5,6 +5,60 @@
 
 const API_BASE = 'http://localhost:8080/api';
 
+function extractValidationMessage(message) {
+  const prefix = 'Invalid request data:';
+  if (!message.startsWith(prefix)) {
+    return message;
+  }
+
+  const details = message.slice(prefix.length).trim();
+  if (!details) {
+    return 'Invalid request data. Please check your input.';
+  }
+
+  const cleaned = details.replace(/^\{|\}$/g, '').trim();
+  if (!cleaned) {
+    return 'Invalid request data. Please check your input.';
+  }
+
+  const firstError = cleaned.split(/,\s*(?=[A-Za-z0-9_.-]+=)/)[0];
+  const separatorIndex = firstError.indexOf('=');
+  if (separatorIndex >= 0) {
+    return firstError.slice(separatorIndex + 1).trim();
+  }
+
+  return `Invalid request data: ${cleaned}`;
+}
+
+export function cleanApiErrorMessage(errorLike, fallback = 'Request failed. Please try again.') {
+  if (errorLike instanceof Error) {
+    return cleanApiErrorMessage(errorLike.message, fallback);
+  }
+
+  if (errorLike && typeof errorLike === 'object') {
+    if (typeof errorLike.message === 'string') {
+      return cleanApiErrorMessage(errorLike.message, fallback);
+    }
+    return fallback;
+  }
+
+  const raw = String(errorLike ?? '').trim();
+  if (!raw) {
+    return fallback;
+  }
+
+  if (raw.startsWith('{') && raw.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(raw);
+      return cleanApiErrorMessage(parsed, fallback);
+    } catch (e) {
+      // Fall through and display the cleaned text below.
+    }
+  }
+
+  return extractValidationMessage(raw.replace(/^Error:\s*/, '').trim()) || fallback;
+}
+
 export const API = {
   /**
    * Kiểm tra kết nối tới backend.
@@ -67,8 +121,14 @@ export const API = {
 
     const res = await fetch(url, finalOptions);
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.message || `API Error: ${res.status}`);
+      const rawError = await res.text().catch(() => '');
+      let parsedError = rawError;
+      try {
+        parsedError = rawError ? JSON.parse(rawError) : null;
+      } catch (e) {
+        // Keep rawError as text.
+      }
+      throw new Error(cleanApiErrorMessage(parsedError, `API Error: ${res.status}`));
     }
     const result = await res.json();
     return result.data; // Trả về trường 'data' từ ApiResponse wrapper
@@ -123,6 +183,10 @@ export const API = {
 
   async unlockUser(username) {
     return this.fetchJson(`/users/${username}/unlock`, { method: 'PUT' });
+  },
+
+  async lockUser(username) {
+    return this.fetchJson(`/users/${username}/lock`, { method: 'PUT' });
   },
 
   async deleteUser(username) {

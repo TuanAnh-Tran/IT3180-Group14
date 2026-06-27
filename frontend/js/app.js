@@ -3,15 +3,15 @@
  * Điều phối đăng nhập, điều hướng, và render tất cả các module.
  */
 
-import { AuthService }      from './auth.js?v=5';
+import { AuthService }      from './auth.js?v=6';
 import { Sidebar }          from './components/sidebar.js?v=3';
 import { Dashboard }        from './components/dashboard.js?v=5';
-import { UsersManager }     from './components/users.js?v=5';
+import { UsersManager }     from './components/users.js?v=7';
 import { ProfileView }      from './components/profile.js?v=5';
-import { ResidentsManager } from './components/residents.js?v=7';
-import { FeeManagerView, FM }  from './components/fees.js?v=4';
+import { ResidentsManager } from './components/residents.js?v=9';
+import { FeeManagerView, FM }  from './components/fees.js?v=6';
 import { PaymentView, bridgeFM } from './components/payment.js?v=5';
-import { API } from './api.js?v=5';
+import { API, cleanApiErrorMessage } from './api.js?v=6';
 
 const app = document.getElementById('app');
 
@@ -31,7 +31,7 @@ function showToast(message, type = 'info') {
     font-size:14px; font-weight:500; font-family:var(--font-family);
     animation:slideUp .25s ease; max-width:360px;
   `;
-  toast.textContent = message;
+  toast.textContent = cleanApiErrorMessage(message, 'Something went wrong. Please try again.');
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 3000);
 }
@@ -148,8 +148,8 @@ function renderAuthScreen(tab = 'login') {
                   <div class="input-wrapper">
                     <span class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-.999.43-1.563A6 6 0 1121.75 8.25z"/></svg></span>
                     <select class="form-control" id="regRole" onchange="window.__onRoleChange()" style="cursor:pointer; appearance: none; background: transparent; border: none; width: 100%; padding-left: 40px; color: var(--text-primary);">
-                      <option value="user" style="background:var(--bg-secondary);">Resident (Cư dân)</option>
-                      <option value="admin" style="background:var(--bg-secondary);">Admin (Quản lý)</option>
+                      <option value="user" style="background:var(--bg-secondary);">Resident</option>
+                      <option value="admin" style="background:var(--bg-secondary);">Admin</option>
                     </select>
                   </div>
                 </div>
@@ -357,8 +357,8 @@ function renderMainApp(user) {
             <!-- Dropdown danh sách thông báo -->
             <div id="notif-dropdown" style="display:none; position:absolute; top:46px; right:0; width:340px; background:var(--bg-secondary); border:1px solid var(--border-glass); border-radius:var(--border-radius-lg); box-shadow:var(--shadow-lg); z-index:1000; overflow:hidden;">
               <div style="padding:12px 16px; border-bottom:1px solid var(--border-glass); display:flex; justify-content:space-between; align-items:center;">
-                <span style="font-weight:700; font-size:13px; color:var(--text-primary);">Thông báo</span>
-                <span id="notif-mark-all-read-btn" style="font-size:11px; color:var(--color-primary); cursor:pointer; font-weight:600;">Đánh dấu tất cả đã đọc</span>
+                <span style="font-weight:700; font-size:13px; color:var(--text-primary);">Notifications</span>
+                <span id="notif-mark-all-read-btn" style="font-size:11px; color:var(--color-primary); cursor:pointer; font-weight:600;">Mark all as read</span>
               </div>
               <div id="notif-list-container" style="max-height:280px; overflow-y:auto; font-size:12px;">
                 <!-- Dữ liệu thông báo đổ vào đây -->

@@ -37,7 +37,7 @@ public class ResidentController {
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        PageRequest pageable = PageRequest.of(page, size, Sort.by("id"));
+        PageRequest pageable = pageRequest(page, size, Sort.by("id"));
         return ResponseEntity.ok(ApiResponse.success(
                 residentManagementService.searchHouseholds(search, status, pageable)));
     }
@@ -112,7 +112,7 @@ public class ResidentController {
             @RequestParam(required = false) String householdId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        PageRequest pageable = PageRequest.of(page, size, Sort.by("fullName"));
+        PageRequest pageable = pageRequest(page, size, Sort.by("fullName"));
         return ResponseEntity.ok(ApiResponse.success(
                 residentManagementService.searchResidents(search, status, gender, householdId, pageable)));
     }
@@ -239,5 +239,9 @@ public class ResidentController {
                 .contentType(MediaType.parseMediaType(EXCEL_CONTENT_TYPE))
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                 .body(data);
+    }
+
+    private PageRequest pageRequest(int page, int size, Sort sort) {
+        return PageRequest.of(Math.max(page, 0), Math.max(size, 1), sort);
     }
 }

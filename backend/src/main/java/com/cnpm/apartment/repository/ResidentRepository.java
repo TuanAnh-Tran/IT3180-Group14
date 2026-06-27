@@ -36,10 +36,21 @@ public interface ResidentRepository extends JpaRepository<Resident, String> {
             SELECT COUNT(r) FROM Resident r
             WHERE r.archived = false
               AND r.household.id = :householdId
+              AND r.alive = true
               AND r.status <> com.cnpm.apartment.model.enums.ResidentStatus.MOVED_OUT
               AND r.status <> com.cnpm.apartment.model.enums.ResidentStatus.DECEASED
             """)
     long countActiveMembers(@Param("householdId") String householdId);
+
+    @Query("""
+            SELECT COUNT(r) FROM Resident r
+            WHERE r.archived = false
+              AND r.household IS NOT NULL
+              AND r.alive = true
+              AND r.status <> com.cnpm.apartment.model.enums.ResidentStatus.MOVED_OUT
+              AND r.status <> com.cnpm.apartment.model.enums.ResidentStatus.DECEASED
+            """)
+    long countCurrentHouseholdMembers();
 
     @Query("""
             SELECT r FROM Resident r

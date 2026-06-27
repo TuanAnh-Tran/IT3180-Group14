@@ -13,6 +13,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -116,6 +117,24 @@ public class UserController {
         user.setFailedAttempts(0);
         user.setLockTime(null);
         return ResponseEntity.ok(ApiResponse.success("User unlocked successfully", toDto(userRepository.save(user))));
+    }
+
+    @PutMapping("/{username}/lock")
+    public ResponseEntity<ApiResponse<UserAccountDTO>> lockUser(@PathVariable String username) {
+        User user = userRepository.findByUsername(username.toLowerCase().trim())
+                .orElseThrow(() -> new RuntimeException("User not found: " + username));
+
+        if (user.getRole() == UserRole.ROLE_ADMIN) {
+            throw new RuntimeException("Admin accounts cannot be locked.");
+        }
+        if (user.getStatus() == UserStatus.LOCKED) {
+            throw new RuntimeException("User is already locked.");
+        }
+
+        user.setStatus(UserStatus.LOCKED);
+        user.setFailedAttempts(5);
+        user.setLockTime(LocalDateTime.now());
+        return ResponseEntity.ok(ApiResponse.success("User locked successfully", toDto(userRepository.save(user))));
     }
 
     @DeleteMapping("/{username}")

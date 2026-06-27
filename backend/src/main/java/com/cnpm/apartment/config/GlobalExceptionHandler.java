@@ -10,7 +10,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -28,16 +28,20 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationErrors(
             MethodArgumentNotValidException ex) {
 
-        Map<String, String> errors = new HashMap<>();
+        Map<String, String> errors = new LinkedHashMap<>();
         ex.getBindingResult().getAllErrors().forEach(error -> {
             String field = ((FieldError) error).getField();
             String message = error.getDefaultMessage();
             errors.put(field, message);
         });
 
+        String message = errors.values().stream()
+                .findFirst()
+                .orElse("Invalid request data. Please check your input.");
+
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Invalid request data: " + errors.toString()));
+                .body(ApiResponse.error(message));
     }
 
     /**

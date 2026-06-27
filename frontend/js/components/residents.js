@@ -1,4 +1,4 @@
-import { API } from '../api.js';
+import { API, cleanApiErrorMessage } from '../api.js';
 
 const API_ROOT = window.RESIDENTS_API_ROOT || 'http://localhost:8080/api/residents';
 let residentMemoryStore = null;
@@ -79,6 +79,9 @@ function optionalVietnamMobile(value, label = 'Phone') {
 function validateHouseholdPayload(payload) {
   optionalVietnamMobile(payload.phone, 'Phone');
   optionalCitizenId(payload.headIdentityNo, 'Head Citizen ID');
+  if (payload.status === 'VACANT' && payload.headIdentityNo) {
+    throw new Error('Vacant households cannot have a household head.');
+  }
   if (Number(payload.floor || 0) < 0) throw new Error('Floor must be zero or greater.');
   if (Number(payload.area || 0) <= 0) throw new Error('Area must be greater than 0.');
   if (Number(payload.motorcycleCount || 0) < 0 || Number(payload.carCount || 0) < 0) {
@@ -104,6 +107,21 @@ function validateVehiclePayload(payload) {
   if (payload.registrationDate && isFutureDate(payload.registrationDate)) {
     throw new Error('Vehicle registration date cannot be in the future.');
   }
+}
+
+function findResidentByIdentityNo(identityNo) {
+  const identity = norm(identityNo);
+  if (!identity) return null;
+  const pools = [
+    state.allResidentsForSelect || [],
+    state.residents || [],
+    loadStore().residents || []
+  ];
+  for (const pool of pools) {
+    const resident = pool.find(r => norm(r.identityNo) === identity);
+    if (resident) return resident;
+  }
+  return null;
 }
 
 function seedStore() {
@@ -397,6 +415,33 @@ function makePage(content, page, size) {
   };
 }
 
+function safePageNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
+}
+
+function safePageSize(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.max(1, Math.floor(parsed)) : 8;
+}
+
+function clampResidentPages() {
+  state.householdsPage = safePageNumber(state.householdsPage);
+  state.residentsPage = safePageNumber(state.residentsPage);
+  state.vehiclesPage = safePageNumber(state.vehiclesPage);
+  state.householdsSize = safePageSize(state.householdsSize);
+  state.residentsSize = safePageSize(state.residentsSize);
+  state.vehiclesSize = safePageSize(state.vehiclesSize);
+}
+
+function syncPageState(pageData, stateKey) {
+  if (pageData && Number.isFinite(Number(pageData.number))) {
+    state[stateKey] = safePageNumber(pageData.number);
+  } else {
+    state[stateKey] = safePageNumber(state[stateKey]);
+  }
+}
+
 function appendQuery(url, params) {
   const target = new URL(url);
   Object.entries(params).forEach(([key, value]) => {
@@ -450,9 +495,16 @@ async function tryApi(path, options) {
     state.apiMode = true;
     return result;
   } catch (error) {
-    console.error("API error:", error);
+    const message = cleanApiErrorMessage(error, 'Request failed. Please try again.');
+    const networkFailure = error instanceof TypeError
+      || /failed to fetch|networkerror|load failed|err_connection|aborterror/i.test(String(error?.message || ''));
+    if (networkFailure) {
+      console.warn('Resident API is unavailable, using local fallback:', message);
+      state.apiMode = false;
+      return null;
+    }
     state.apiMode = true;
-    throw error;
+    throw new Error(message);
   }
 }
 
@@ -490,6 +542,7 @@ const DataService = {
   },
 
   async loadHouseholds() {
+    clampResidentPages();
     const url = appendQuery(`${API_ROOT}/households`, {
       search: state.householdsSearch,
       status: state.householdStatus,
@@ -512,6 +565,7 @@ const DataService = {
   },
 
   async loadResidents() {
+    clampResidentPages();
     const url = appendQuery(`${API_ROOT}/residents`, {
       search: state.residentsSearch,
       status: state.residentStatus,
@@ -577,6 +631,12 @@ const DataService = {
     if (store.households.some(h => norm(h.apartmentNo) === norm(payload.apartmentNo) && h.id !== state.editingHouseholdId)) {
       throw new Error('Apartment number already exists.');
     }
+    if (payload.status === 'VACANT') {
+      const activeMembers = store.residents.filter(r => r.householdId === state.editingHouseholdId && isActiveResident(r)).length;
+      if (activeMembers > 0) {
+        throw new Error('Cannot mark a household as vacant while it still has active residents.');
+      }
+    }
     const next = {
       id: isEdit ? state.editingHouseholdId : code,
       code: isEdit ? state.editingHouseholdId : code,
@@ -601,7 +661,7 @@ const DataService = {
     if (next.headIdentityNo) {
       const head = store.residents.find(r => norm(r.identityNo) === norm(next.headIdentityNo));
       if (!head) throw new Error('Household head was not found by Citizen ID.');
-      if (head.status === 'DECEASED' || head.alive === false) throw new Error('Deceased residents cannot be household head.');
+      if (!isActiveResident(head)) throw new Error('Moved-out, inactive or deceased residents cannot be household head.');
       head.householdId = next.id;
       head.relationshipToHead = 'Head';
       head.archived = false;
@@ -710,6 +770,10 @@ const DataService = {
     const store = loadStore();
     const resident = store.residents.find(r => r.id === residentId);
     if (!resident) throw new Error('Resident not found.');
+    const household = store.households.find(h => h.id === householdId && !h.archived);
+    if (household?.status === 'VACANT') {
+      throw new Error('Cannot add members to a vacant household. Update the household status first.');
+    }
     resident.householdId = householdId;
     localLog(store, 'ADD_MEMBER', 'HOUSEHOLD', householdId, `Added ${resident.fullName} to ${householdId}`);
     saveStore(store);
@@ -1000,6 +1064,7 @@ const DataService = {
   },
 
   async loadVehicles() {
+    clampResidentPages();
     try {
       const apiVehiclesPage = await API.searchVehicles(
         state.vehiclesSearchPlate,
@@ -1200,6 +1265,47 @@ function readResidentForm(container) {
   };
 }
 
+function syncHouseholdHeadFromIdentity(container) {
+  const headInput = container.querySelector('#rm-hh-head');
+  const identityInput = container.querySelector('#rm-hh-head-identity');
+  const statusInput = container.querySelector('#rm-hh-status');
+  if (!headInput || !identityInput || !statusInput) return;
+
+  if (statusInput.value === 'VACANT') {
+    identityInput.value = '';
+    identityInput.disabled = true;
+    identityInput.setCustomValidity('');
+    headInput.readOnly = false;
+    if (!headInput.value.trim()) headInput.value = 'Vacant Unit';
+    return;
+  }
+
+  identityInput.disabled = false;
+  const identityNo = identityInput.value.trim();
+  if (!identityNo) {
+    identityInput.setCustomValidity('');
+    headInput.readOnly = false;
+    return;
+  }
+
+  const resident = findResidentByIdentityNo(identityNo);
+  if (!resident) {
+    identityInput.setCustomValidity('No resident found with this Citizen ID.');
+    headInput.readOnly = false;
+    return;
+  }
+  if (!isActiveResident(resident)) {
+    identityInput.setCustomValidity('Moved-out, inactive or deceased residents cannot be household head.');
+    headInput.value = resident.fullName || headInput.value;
+    headInput.readOnly = true;
+    return;
+  }
+
+  identityInput.setCustomValidity('');
+  headInput.value = resident.fullName || headInput.value;
+  headInput.readOnly = true;
+}
+
 function fillHouseholdForm(container, household) {
   state.editingHouseholdId = household?.id || null;
   container.querySelector('#rm-hh-title').textContent = household ? 'Update household' : 'Add household';
@@ -1226,6 +1332,7 @@ function fillHouseholdForm(container, household) {
   container.querySelector('#rm-hh-cars').disabled = true;
   container.querySelector('#rm-hh-cars').style.opacity = '0.7';
   container.querySelector('#rm-hh-cars').style.cursor = 'not-allowed';
+  syncHouseholdHeadFromIdentity(container);
 }
 
 function fillResidentForm(container, resident) {
@@ -1567,9 +1674,12 @@ export class ResidentsManager {
 
     const refresh = async () => {
       try {
+        clampResidentPages();
         state.stats = await DataService.loadStats();
         state.householdPageData = await DataService.loadHouseholds();
+        syncPageState(state.householdPageData, 'householdsPage');
         state.residentPageData = await DataService.loadResidents();
+        syncPageState(state.residentPageData, 'residentsPage');
         state.households = state.householdPageData.content || [];
         state.residents = state.residentPageData.content || [];
         
@@ -1586,6 +1696,7 @@ export class ResidentsManager {
         
         // Tải danh sách xe cộ
         state.vehiclePageData = await DataService.loadVehicles();
+        syncPageState(state.vehiclePageData, 'vehiclesPage');
         state.vehicles = state.vehiclePageData.content || [];
 
         state.searchResults = await DataService.globalSearch();
@@ -1595,6 +1706,13 @@ export class ResidentsManager {
         showToast(error.message || 'Unable to load resident data', 'error');
         renderAll();
       }
+    };
+
+    const safeRefresh = () => {
+      refresh().catch(error => {
+        console.error('Resident Manager refresh failed:', error);
+        showToast(cleanApiErrorMessage(error, 'Unable to load resident data'), 'error');
+      });
     };
 
     const renderStats = () => {
@@ -1709,11 +1827,12 @@ export class ResidentsManager {
       if (!selected) {
         return `<div class="rm-card rm-empty">Select a household to review members and apartment details.</div>`;
       }
-      const members = selected.members || [];
+      const isVacant = selected.status === 'VACANT';
+      const members = isVacant ? [] : (selected.members || []);
       const store = loadStore();
       const available = state.apiMode 
-        ? (state.allResidentsForSelect || []).filter(r => r.householdId !== selected.id)
-        : store.residents.filter(r => r.householdId !== selected.id);
+        ? (state.allResidentsForSelect || []).filter(r => !isVacant && r.householdId !== selected.id && isActiveResident(r))
+        : store.residents.filter(r => !isVacant && r.householdId !== selected.id && isActiveResident(r));
       return `
         <div class="rm-card">
           <div class="rm-toolbar">
@@ -1739,10 +1858,10 @@ export class ResidentsManager {
               <p class="rm-muted">${esc(selected.note || '')}</p>
               <div class="rm-actions" style="margin-top:12px;">
                 <select class="rm-select" id="rm-add-member-select" style="max-width:200px;">
-                  <option value="">Add existing resident</option>
+                  <option value="">${isVacant ? 'Vacant household' : 'Add existing resident'}</option>
                   ${available.map(r => `<option value="${esc(r.id)}">${esc(r.fullName)} - ${esc(r.identityNo)}</option>`).join('')}
                 </select>
-                <button class="rm-btn pri" data-action="add-member" data-id="${esc(selected.id)}">Add</button>
+                <button class="rm-btn pri" data-action="add-member" data-id="${esc(selected.id)}" ${isVacant ? 'disabled aria-disabled="true"' : ''}>Add</button>
               </div>
             </div>
             <div>
@@ -2033,12 +2152,13 @@ export class ResidentsManager {
       const action = button.dataset.action;
       const id = button.dataset.id;
       try {
-        if (action === 'households-prev') state.householdsPage -= 1;
-        if (action === 'households-next') state.householdsPage += 1;
-        if (action === 'residents-prev') state.residentsPage -= 1;
-        if (action === 'residents-next') state.residentsPage += 1;
-        if (action === 'vehicles-prev') state.vehiclesPage -= 1;
-        if (action === 'vehicles-next') state.vehiclesPage += 1;
+        if (button.disabled || button.getAttribute('aria-disabled') === 'true') return;
+        if (action === 'households-prev') state.householdsPage = Math.max(0, state.householdsPage - 1);
+        if (action === 'households-next') state.householdsPage = Math.min((state.householdPageData?.totalPages || 1) - 1, state.householdsPage + 1);
+        if (action === 'residents-prev') state.residentsPage = Math.max(0, state.residentsPage - 1);
+        if (action === 'residents-next') state.residentsPage = Math.min((state.residentPageData?.totalPages || 1) - 1, state.residentsPage + 1);
+        if (action === 'vehicles-prev') state.vehiclesPage = Math.max(0, state.vehiclesPage - 1);
+        if (action === 'vehicles-next') state.vehiclesPage = Math.min((state.vehiclePageData?.totalPages || 1) - 1, state.vehiclesPage + 1);
         if (action === 'select-household') { state.selectedHouseholdId = id; state.activeTab = 'households'; }
         if (action === 'edit-household') {
           const household = await DataService.getHousehold(id);
@@ -2231,21 +2351,24 @@ export class ResidentsManager {
       if (event.target.id === 'rm-hh-search') {
         state.householdsSearch = event.target.value;
         state.householdsPage = 0;
-        refresh();
+        safeRefresh();
       }
       if (event.target.id === 'rm-res-search') {
         state.residentsSearch = event.target.value;
         state.residentsPage = 0;
-        refresh();
+        safeRefresh();
       }
       if (event.target.id === 'rm-vh-search') {
         state.vehiclesSearchPlate = event.target.value;
         state.vehiclesPage = 0;
-        refresh();
+        safeRefresh();
       }
       if (event.target.id === 'rm-global-search') {
         state.globalSearch = event.target.value;
-        refresh();
+        safeRefresh();
+      }
+      if (event.target.id === 'rm-hh-head-identity') {
+        syncHouseholdHeadFromIdentity(container);
       }
     });
 
@@ -2253,26 +2376,29 @@ export class ResidentsManager {
       if (event.target.id === 'rm-hh-status-filter') {
         state.householdStatus = event.target.value;
         state.householdsPage = 0;
-        refresh();
+        safeRefresh();
       }
       if (event.target.id === 'rm-res-status-filter') {
         state.residentStatus = event.target.value;
         state.residentsPage = 0;
-        refresh();
+        safeRefresh();
       }
       if (event.target.id === 'rm-res-gender-filter') {
         state.residentGender = event.target.value;
         state.residentsPage = 0;
-        refresh();
+        safeRefresh();
       }
       if (event.target.id === 'rm-vh-type-filter') {
         state.vehiclesSearchType = event.target.value;
         state.vehiclesPage = 0;
-        refresh();
+        safeRefresh();
       }
       if (event.target.id === 'rm-global-type') {
         state.globalType = event.target.value;
-        refresh();
+        safeRefresh();
+      }
+      if (event.target.id === 'rm-hh-status') {
+        syncHouseholdHeadFromIdentity(container);
       }
     });
 
@@ -2285,6 +2411,6 @@ export class ResidentsManager {
     });
 
     setLoading();
-    refresh();
+    safeRefresh();
   }
 }

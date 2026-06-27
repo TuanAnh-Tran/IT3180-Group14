@@ -75,7 +75,7 @@ public class PaymentController {
             @RequestParam(required = false) String householdId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        PageRequest pageable = PageRequest.of(page, size, Sort.by("household.ownerName"));
+        PageRequest pageable = PageRequest.of(Math.max(page, 0), Math.max(size, 1), Sort.by("household.ownerName"));
         Page<AssignedFeeDTO> result = paymentService.getUnpaidFees(periodId, householdId, pageable);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
@@ -90,7 +90,7 @@ public class PaymentController {
             @PathVariable String periodId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        PageRequest pageable = PageRequest.of(page, size);
+        PageRequest pageable = PageRequest.of(Math.max(page, 0), Math.max(size, 1));
         Page<AssignedFeeDTO> result = paymentService.getByPeriod(periodId, pageable);
         return ResponseEntity.ok(ApiResponse.success(result));
     }

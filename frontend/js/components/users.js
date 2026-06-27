@@ -1,4 +1,4 @@
-import { API } from '../api.js?v=3';
+import { API } from '../api.js?v=6';
 /**
  * THÀNH PHẦN QUẢN LÝ CƯ DÂN (UsersManager Component)
  * Dành riêng cho quyền Admin. Hỗ trợ hiển thị bảng biểu, tìm kiếm thời gian thực,
@@ -95,17 +95,17 @@ export class UsersManager {
                   <div class="form-group" style="margin-bottom:0;">
                     <label class="form-label">Username *</label>
                     <input type="text" class="form-control" name="username" id="create-username" required placeholder="e.g. user1" pattern="[a-z0-9._-]{4,50}" title="4-50 lowercase letters, digits, dots, underscores or hyphens" style="padding-left:14px;">
-                    <small style="color:var(--text-muted); font-size:11px; margin-top:4px; display:block;">Tên đăng nhập tự động tăng dần</small>
+                    <small style="color:var(--text-muted); font-size:11px; margin-top:4px; display:block;">Username is generated sequentially</small>
                   </div>
                   <div class="form-group" style="margin-bottom:0;">
                     <label class="form-label">Password *</label>
                     <div style="display:flex; gap:8px;">
                       <input type="text" class="form-control" name="password" id="create-password" required placeholder="Password" minlength="6" style="padding-left:14px; flex:1;">
-                      <button type="button" class="btn btn-secondary" id="btn-generate-password" style="padding:0 12px; height:42px; display:flex; align-items:center; justify-content:center;" title="Sinh lại mật khẩu ngẫu nhiên">
+                      <button type="button" class="btn btn-secondary" id="btn-generate-password" style="padding:0 12px; height:42px; display:flex; align-items:center; justify-content:center;" title="Generate a new random password">
                         🔄
                       </button>
                     </div>
-                    <small style="color:var(--text-muted); font-size:11px; margin-top:4px; display:block;">Mật khẩu ngẫu nhiên tự động sinh</small>
+                    <small style="color:var(--text-muted); font-size:11px; margin-top:4px; display:block;">Random password is generated automatically</small>
                   </div>
                   <div class="form-group" style="margin-bottom:0;">
                     <label class="form-label">Role *</label>
@@ -124,7 +124,7 @@ export class UsersManager {
 
               <!-- Section 2: Household Info -->
               <div style="background:var(--bg-tertiary); border:1px solid var(--border-glass); border-radius:10px; padding:14px;">
-                <h4 style="margin:0 0 10px; color:var(--color-accent); font-size:12px; text-transform:uppercase;">2. Household Registration (Sổ hộ khẩu)</h4>
+                <h4 style="margin:0 0 10px; color:var(--color-accent); font-size:12px; text-transform:uppercase;">2. Household Registration</h4>
                 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
                   <div class="form-group" style="margin-bottom:0;">
                     <label class="form-label">Household Code *</label>
@@ -345,6 +345,11 @@ export class UsersManager {
                 </div>
               ` : `
                 <div class="table-actions" style="justify-content: center;">
+                  <button class="btn-icon btn-icon-lock" data-username="${uUsername}" title="Lock Account" style="color: var(--color-warning); border: 1px solid var(--color-warning);">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                    </svg>
+                  </button>
                   <button class="btn-icon btn-icon-delete" data-username="${uUsername}" title="Delete Account">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
@@ -411,6 +416,22 @@ export class UsersManager {
       });
 
       // Lắng nghe sự kiện click nút Xóa tài khoản / Reject
+      tbody.querySelectorAll('.btn-icon-lock').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const username = btn.getAttribute('data-username');
+          if (confirm(`Lock account for @${username}? This user will not be able to sign in until an admin unlocks the account.`)) {
+            try {
+              await API.lockUser(username);
+              showToast(`Account @${username} locked!`, 'success');
+              usersList = await API.getUsers();
+              updateTable();
+            } catch (err) {
+              showToast(err.message, 'error');
+            }
+          }
+        });
+      });
+
       tbody.querySelectorAll('.btn-icon-delete').forEach(btn => {
         btn.addEventListener('click', async (e) => {
           const username = btn.getAttribute('data-username');
@@ -500,9 +521,13 @@ export class UsersManager {
     });
 
     // Lắng nghe sự kiện bấm nút sinh lại password
-    container.querySelector('#btn-generate-password').addEventListener('click', () => {
-      container.querySelector('#create-password').value = generateRandomPassword();
-    });
+    const generatePasswordBtn = container.querySelector('#btn-generate-password');
+    const createPasswordInput = container.querySelector('#create-password');
+    if (generatePasswordBtn && createPasswordInput) {
+      generatePasswordBtn.addEventListener('click', () => {
+        createPasswordInput.value = generateRandomPassword();
+      });
+    }
 
     // Xử lý sự kiện Submit của Form tạo cư dân mới
     createForm.addEventListener('submit', async (e) => {

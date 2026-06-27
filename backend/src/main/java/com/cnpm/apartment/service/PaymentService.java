@@ -18,6 +18,7 @@ import com.cnpm.apartment.repository.CollectionPeriodRepository;
 import com.cnpm.apartment.repository.FeeRepository;
 import com.cnpm.apartment.repository.HouseholdRepository;
 import com.cnpm.apartment.repository.ReceiptRepository;
+import com.cnpm.apartment.repository.ResidentRepository;
 import com.cnpm.apartment.service.calculator.CalculatorFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +43,7 @@ public class PaymentService {
     private final CollectionPeriodRepository collectionPeriodRepository;
     private final FeeRepository feeRepository;
     private final HouseholdRepository householdRepository;
+    private final ResidentRepository residentRepository;
     private final CalculatorFactory calculatorFactory;
     private final com.cnpm.apartment.repository.PaymentProofRepository paymentProofRepository;
 
@@ -436,7 +438,7 @@ public class PaymentService {
                 if (fee.getType() == FeeType.MANDATORY) {
                     shouldAssign = true;
                     if (fee.getCalcMethod() == CalcMethod.PER_PERSON) {
-                        qty = hh.getMembersCount();
+                        qty = residentRepository.countActiveMembers(hh.getId());
                     } else if (fee.getCalcMethod() == CalcMethod.PER_M2) {
                         qty = hh.getArea();
                     } else if (fee.getCalcMethod() == CalcMethod.PER_MOTORCYCLE) {
@@ -486,11 +488,13 @@ public class PaymentService {
 
     public AssignedFeeDTO mapToAssignedFeeDTO(AssignedFee af) {
         Household hh = af.getHousehold();
+        int activeMembers = (int) residentRepository.countActiveMembers(hh.getId());
+        double quantity = af.getFee().getCalcMethod() == CalcMethod.PER_PERSON ? activeMembers : af.getQuantity();
         return AssignedFeeDTO.builder()
                 .id(af.getId())
                 .householdId(hh.getId())
                 .ownerName(hh.getOwnerName())
-                .membersCount(hh.getMembersCount())
+                .membersCount(activeMembers)
                 .area(hh.getArea())
                 .motorcycleCount(hh.getMotorcycleCount())
                 .carCount(hh.getCarCount())
@@ -501,7 +505,7 @@ public class PaymentService {
                 .feeType(af.getFee().getType().name())
                 .calcMethod(af.getFee().getCalcMethod().name())
                 .unitPrice(af.getFee().getPrice())
-                .quantity(af.getQuantity())
+                .quantity(quantity)
                 .amountRequired(calculateAmount(af))
                 .amountPaidAccumulated(af.getAmountPaidAccumulated() != null ? af.getAmountPaidAccumulated() : BigDecimal.ZERO)
                 .status(af.getStatus())

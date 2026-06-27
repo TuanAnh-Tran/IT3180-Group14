@@ -1,9 +1,16 @@
 // Khóa dùng để lưu trữ thông tin phiên làm việc trong sessionStorage
+import { cleanApiErrorMessage } from './api.js?v=6';
+
 const SESSION_KEY = 'apartment_mgmt_session';
 const RESIDENTS_API_ROOT = window.RESIDENTS_API_ROOT || 'http://localhost:8080/api/residents';
 const VN_CITIZEN_ID_RE = /^(001|002|004|006|008|010|011|012|014|015|017|019|020|022|024|025|026|027|030|031|033|034|035|036|037|038|040|042|044|045|046|048|049|051|052|054|056|058|060|062|064|066|067|068|070|072|074|075|077|079|080|082|083|084|086|087|089|091|092|093|094|095|096)\d{9}$/;
 const VN_MOBILE_RE = /^0[35789]\d{8}$/;
 const USERNAME_RE = /^[a-z0-9._-]{4,50}$/;
+
+async function readApiError(response, fallback) {
+  const raw = await response.text().catch(() => '');
+  return cleanApiErrorMessage(raw || response.statusText, fallback);
+}
 
 function toSessionUser(user) {
   return {
@@ -145,8 +152,7 @@ export class AuthService {
     });
 
     if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(errorText || 'Incorrect username or password!');
+      throw new Error(await readApiError(res, 'Incorrect username or password!'));
     }
 
     const sessionUser = await res.json(); // AuthResponse
@@ -230,8 +236,7 @@ export class AuthService {
     });
 
     if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(errorText || 'Registration failed!');
+      throw new Error(await readApiError(res, 'Registration failed!'));
     }
 
     try {
@@ -292,8 +297,7 @@ export class AuthService {
     });
 
     if (!res.ok) {
-      const err = await res.text();
-      throw new Error(err || 'Failed to change password');
+      throw new Error(await readApiError(res, 'Failed to change password'));
     }
 
     return true;
@@ -336,8 +340,7 @@ export class AuthService {
     });
 
     if (!res.ok) {
-      const err = await res.text();
-      throw new Error(err || 'Failed to update profile details');
+      throw new Error(await readApiError(res, 'Failed to update profile details'));
     }
 
     const updatedUser = await res.json();
@@ -384,8 +387,7 @@ export class AuthService {
     });
 
     if (!res.ok) {
-      const err = await res.text();
-      throw new Error(err || 'Failed to fetch profile details');
+      throw new Error(await readApiError(res, 'Failed to fetch profile details'));
     }
 
     return await res.json();
@@ -399,8 +401,7 @@ export class AuthService {
       body: JSON.stringify({ email })
     });
     if (!res.ok) {
-      const err = await res.text();
-      throw new Error(err || 'Failed to request password reset');
+      throw new Error(await readApiError(res, 'Failed to request password reset'));
     }
     return await res.text();
   }
@@ -414,8 +415,7 @@ export class AuthService {
       body: JSON.stringify({ email, otp, newPassword })
     });
     if (!res.ok) {
-      const err = await res.text();
-      throw new Error(err || 'Failed to reset password');
+      throw new Error(await readApiError(res, 'Failed to reset password'));
     }
     return await res.text();
   }

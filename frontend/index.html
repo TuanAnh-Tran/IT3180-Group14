@@ -27,10 +27,10 @@
   </style>
   <script>
     window.addEventListener('error', function(e) {
-      document.body.innerHTML += '<div style="position:fixed;top:0;left:0;width:100%;background:red;color:white;padding:20px;z-index:999999;"><strong>JS ERROR:</strong> ' + e.message + '<br><small>Line: ' + e.lineno + ' in ' + e.filename + '</small></div>';
+      console.error('Unhandled UI error:', e.error || e.message);
     });
     window.addEventListener('unhandledrejection', function(e) {
-      document.body.innerHTML += '<div style="position:fixed;top:0;left:0;width:100%;background:red;color:white;padding:20px;z-index:999999;"><strong>PROMISE REJECTION:</strong> ' + (e.reason && e.reason.message ? e.reason.message : e.reason) + '</div>';
+      console.error('Unhandled promise rejection:', e.reason);
     });
   </script>
 </head>
@@ -47,6 +47,6 @@
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 
-  <script type="module" src="js/app.js?v=8"></script>
+  <script type="module" src="js/app.js?v=13"></script>
 </body>
 </html>

@@ -43,7 +43,7 @@ public class ReceiptController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
 
-        PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "paidAt"));
+        PageRequest pageable = PageRequest.of(Math.max(page, 0), Math.max(size, 1), Sort.by(Sort.Direction.DESC, "paidAt"));
         Page<ReceiptDTO> result = receiptService.getHistory(householdId, from, to, pageable);
         return ResponseEntity.ok(ApiResponse.success(result));
     }

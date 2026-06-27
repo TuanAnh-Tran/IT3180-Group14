@@ -23,6 +23,41 @@ function fmSave(db) {
   feeMemoryDB = db;
 }
 
+function normalizeFeeHousehold(h) {
+  const membersCount = Number(h.membersCount ?? h.memberCount ?? h.activeMemberCount ?? 0);
+  return {
+    id: h.id,
+    ownerName: h.ownerName || h.headName || h.apartmentNo || h.id,
+    membersCount: Number.isFinite(membersCount) ? membersCount : 0,
+    area: Number(h.area || 0),
+    motorcycleCount: Number(h.motorcycleCount || 0),
+    carCount: Number(h.carCount || 0),
+    apartmentNo: h.apartmentNo,
+    floor: h.floor,
+    phone: h.phone,
+    status: h.status
+  };
+}
+
+async function syncFeeHouseholdsFromBackend() {
+  const backendHH = await API.getHouseholds();
+  const hhList = (backendHH && backendHH.content) || backendHH || [];
+  if (!Array.isArray(hhList) || hhList.length === 0) {
+    return;
+  }
+  const db = fmGetDB();
+  db.households = hhList.map(normalizeFeeHousehold);
+  fmSave(db);
+}
+
+function chooseDefaultFeePeriod(periods) {
+  const list = Array.isArray(periods) ? periods : [];
+  return list.find(p => p.status === 'ACTIVE' && Array.isArray(p.feeIds) && p.feeIds.length > 0)
+    || list.find(p => Array.isArray(p.feeIds) && p.feeIds.length > 0)
+    || list[0]
+    || null;
+}
+
 function localNotifLoad() {
   return notificationMemory;
 }
@@ -64,22 +99,7 @@ API.checkHealth().then(async status => {
 
       // 2. Đồng bộ Households từ backend (FIX: ID hộ backend khác seed local)
       try {
-        const backendHH = await API.getHouseholds();
-        const hhList = (backendHH && backendHH.content) || backendHH || [];
-        if (hhList.length > 0) {
-          db.households = hhList.map(h => ({
-            id: h.id,
-            ownerName: h.ownerName,
-            membersCount: h.membersCount || 0,
-            area: h.area || 0,
-            motorcycleCount: h.motorcycleCount || 0,
-            carCount: h.carCount || 0,
-            apartmentNo: h.apartmentNo,
-            floor: h.floor,
-            phone: h.phone,
-            status: h.status
-          }));
-        }
+        await syncFeeHouseholdsFromBackend();
       } catch (e) {
         console.warn('Sync households failed:', e.message);
       }
@@ -95,10 +115,11 @@ API.checkHealth().then(async status => {
       }));
 
       // 3. Tự động đồng bộ hóa đơn gán phí của đợt thu mới nhất
-      if (db.periods.length > 0) {
-        const latestPeriodId = db.periods[0].id;
-        const backendAssigned = await API.getFeesByPeriod(latestPeriodId);
-        db.assignedFees = db.assignedFees.filter(af => af.periodId !== latestPeriodId);
+      const defaultPeriod = chooseDefaultFeePeriod(db.periods);
+      if (defaultPeriod) {
+        const defaultPeriodId = defaultPeriod.id;
+        const backendAssigned = await API.getFeesByPeriod(defaultPeriodId);
+        db.assignedFees = db.assignedFees.filter(af => af.periodId !== defaultPeriodId);
         const list = (backendAssigned && backendAssigned.content) || backendAssigned || [];
         list.forEach(dto => {
           db.assignedFees.push({
@@ -466,24 +487,7 @@ const FM = {
       try {
         // FIX: Sync households trước để đảm bảo db.households khớp ID với backend
         try {
-          const backendHH = await API.getHouseholds();
-          const hhList = (backendHH && backendHH.content) || backendHH || [];
-          if (hhList.length > 0) {
-            const db = fmGetDB();
-            db.households = hhList.map(h => ({
-              id: h.id,
-              ownerName: h.ownerName,
-              membersCount: h.membersCount || 0,
-              area: h.area || 0,
-              motorcycleCount: h.motorcycleCount || 0,
-              carCount: h.carCount || 0,
-              apartmentNo: h.apartmentNo,
-              floor: h.floor,
-              phone: h.phone,
-              status: h.status
-            }));
-            fmSave(db);
-          }
+          await syncFeeHouseholdsFromBackend();
         } catch (e) {
           console.warn('Sync households in syncAssignedFees failed:', e.message);
         }
@@ -1066,19 +1070,25 @@ export class FeeManagerView {
         const o = document.createElement('option');
         o.value = p.id; o.textContent = p.name; sel.appendChild(o);
       });
-      if (!selectedPeriodId || !periods.find(p => p.id === selectedPeriodId))
-        selectedPeriodId = periods[0].id;
+      if (!selectedPeriodId || !periods.find(p => p.id === selectedPeriodId)) {
+        selectedPeriodId = chooseDefaultFeePeriod(periods)?.id || periods[0].id;
+      }
       sel.value = selectedPeriodId;
     }
 
     /* ===== renderAll ===== */
     async function renderAll() {
-      await refreshPeriodSel();
-      renderDashboard();
-      await renderFees();
-      await renderPeriodCheckboxes();
-      await renderPeriods();
-      await renderHouseholds();
+      try {
+        await refreshPeriodSel();
+        renderDashboard();
+        await renderFees();
+        await renderPeriodCheckboxes();
+        await renderPeriods();
+        await renderHouseholds();
+      } catch (err) {
+        console.error('Fee Manager render failed:', err);
+        showToast(err.message || 'Fee Management failed to load', 'error');
+      }
     }
 
     /* ===== dashboard ===== */
