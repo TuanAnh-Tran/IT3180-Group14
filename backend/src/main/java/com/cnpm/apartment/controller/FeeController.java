@@ -4,6 +4,7 @@ import com.cnpm.apartment.dto.ApiResponse;
 import com.cnpm.apartment.model.Fee;
 import com.cnpm.apartment.model.enums.CalcMethod;
 import com.cnpm.apartment.model.enums.FeeType;
+import com.cnpm.apartment.repository.AssignedFeeRepository;
 import com.cnpm.apartment.repository.FeeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +24,7 @@ import java.util.UUID;
 public class FeeController {
 
     private final FeeRepository feeRepository;
+    private final AssignedFeeRepository assignedFeeRepository;
 
     public record FeeDTO(String id, String name, String type, String calcMethod, BigDecimal price) {}
 
@@ -49,12 +51,13 @@ public class FeeController {
         }
 
         String calcMethodValue = stringValue(request.get("calcMethod"));
+        BigDecimal price = toPositiveBigDecimal(request.get("price"));
         Fee fee = feeRepository.findById(id).orElseGet(Fee::new);
         fee.setId(id);
         fee.setName(name);
         fee.setType(toBackendType(stringValue(request.get("type")), calcMethodValue));
         fee.setCalcMethod(toBackendCalcMethod(calcMethodValue));
-        fee.setPrice(toBigDecimal(request.get("price")));
+        fee.setPrice(price);
 
         return ResponseEntity.ok(ApiResponse.success("Fee saved successfully", mapFee(feeRepository.save(fee))));
     }
@@ -64,6 +67,9 @@ public class FeeController {
     public ResponseEntity<ApiResponse<Void>> deleteFee(@PathVariable String id) {
         if (!feeRepository.existsById(id)) {
             throw new RuntimeException("Fee not found: " + id);
+        }
+        if (assignedFeeRepository.existsByFeeId(id)) {
+            throw new RuntimeException("This fee is already used in a collection period and cannot be deleted.");
         }
         feeRepository.deleteById(id);
         return ResponseEntity.ok(ApiResponse.success("Fee deleted successfully", null));
@@ -120,11 +126,20 @@ public class FeeController {
         };
     }
 
-    private BigDecimal toBigDecimal(Object value) {
+    private BigDecimal toPositiveBigDecimal(Object value) {
         if (value == null || String.valueOf(value).isBlank()) {
-            return BigDecimal.ZERO;
+            throw new RuntimeException("Fee price is required.");
         }
-        return new BigDecimal(String.valueOf(value));
+        BigDecimal price;
+        try {
+            price = new BigDecimal(String.valueOf(value));
+        } catch (NumberFormatException ex) {
+            throw new RuntimeException("Fee price must be a valid number.");
+        }
+        if (price.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("Fee price must be greater than 0.");
+        }
+        return price;
     }
 
     private String stringValue(Object value) {

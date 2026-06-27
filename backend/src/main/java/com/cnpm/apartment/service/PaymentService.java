@@ -77,6 +77,9 @@ public class PaymentService {
         if (af.getStatus() == FeeStatus.PAID) {
             throw new RuntimeException("This fee has already been fully paid.");
         }
+        if (af.getPeriod().getStatus() == PeriodStatus.CLOSED) {
+            throw new RuntimeException("This collection period is closed. Payment is not allowed.");
+        }
 
         // Tính số tiền phải nộp
         BigDecimal amountRequired = calculateAmount(af);
@@ -84,9 +87,18 @@ public class PaymentService {
         BigDecimal remaining = amountRequired.subtract(currentAccumulated);
 
         Household hh = af.getHousehold();
-        BigDecimal balance = hh.getBalance() != null ? hh.getBalance() : BigDecimal.ZERO;
+        BigDecimal balance = BigDecimal.ZERO;
 
         BigDecimal userPayment = request.getAmountPaid();
+        if (userPayment == null) {
+            throw new RuntimeException("Payment amount is required.");
+        }
+        if (userPayment.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("Payment amount must be greater than 0.");
+        }
+        if (userPayment.compareTo(remaining) > 0) {
+            throw new RuntimeException("Payment amount cannot exceed the remaining debt.");
+        }
         BigDecimal balanceApplied = BigDecimal.ZERO;
 
         if (userPayment == null || userPayment.compareTo(BigDecimal.ZERO) <= 0) {
@@ -249,6 +261,31 @@ public class PaymentService {
         af.getHousehold().getId();
         af.getHousehold().getOwnerName();
         af.getFee().getName();
+        if (af.getStatus() == FeeStatus.PAID) {
+            throw new RuntimeException("This fee has already been fully paid.");
+        }
+        if (af.getPeriod().getStatus() == PeriodStatus.CLOSED) {
+            throw new RuntimeException("This collection period is closed. Payment proof is not allowed.");
+        }
+        if (amount == null) {
+            throw new RuntimeException("Proof amount is required.");
+        }
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("Proof amount must be greater than 0.");
+        }
+        BigDecimal amountRequired = calculateAmount(af);
+        BigDecimal paid = af.getAmountPaidAccumulated() != null ? af.getAmountPaidAccumulated() : BigDecimal.ZERO;
+        BigDecimal remaining = amountRequired.subtract(paid);
+        if (amount.compareTo(remaining) > 0) {
+            throw new RuntimeException("Proof amount cannot exceed the remaining debt.");
+        }
+        if (paymentProofRepository.existsByAssignedFeeIdAndStatus(assignedFeeId, PaymentProof.ProofStatus.PENDING)) {
+            throw new RuntimeException("A pending payment proof already exists for this fee.");
+        }
+        String normalizedTransactionId = transactionId == null ? "" : transactionId.trim();
+        if (!normalizedTransactionId.isBlank() && paymentProofRepository.existsByTransactionIdIgnoreCase(normalizedTransactionId)) {
+            throw new RuntimeException("Transaction ID is already used by another payment proof.");
+        }
 
         PaymentProof proof = PaymentProof.builder()
                 .id("PRF-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
@@ -256,7 +293,7 @@ public class PaymentService {
                 .amount(amount)
                 .proofImage(proofImage)
                 .note(note)
-                .transactionId(transactionId)
+                .transactionId(normalizedTransactionId)
                 .payerName(payerName)
                 .status(PaymentProof.ProofStatus.PENDING)
                 .submittedAt(LocalDateTime.now())
@@ -337,20 +374,24 @@ public class PaymentService {
     @Transactional(readOnly = true)
     public Page<AssignedFeeDTO> getUnpaidFees(String periodId, String householdId, Pageable pageable) {
         Page<AssignedFee> page;
+        List<FeeStatus> unpaidStatuses = List.of(FeeStatus.UNPAID, FeeStatus.PARTIAL);
 
         if (periodId != null && householdId != null) {
             // Đối với xem nợ, xem cả UNPAID và PARTIAL
-            page = assignedFeeRepository.findByPeriodIdAndHouseholdIdAndStatus(
-                    periodId, householdId, FeeStatus.UNPAID, pageable);
+            page = assignedFeeRepository.findByPeriodIdAndHouseholdIdAndStatusIn(
+                    periodId, householdId, unpaidStatuses, pageable);
         } else if (periodId != null) {
-            page = assignedFeeRepository.findByPeriodIdAndStatus(periodId, FeeStatus.UNPAID, pageable);
+            page = assignedFeeRepository.findByPeriodIdAndStatusIn(periodId, unpaidStatuses, pageable);
         } else if (householdId != null) {
-            page = assignedFeeRepository.findByHouseholdIdAndStatus(householdId, FeeStatus.UNPAID)
+            page = assignedFeeRepository.findByHouseholdIdAndStatusIn(householdId, unpaidStatuses)
                     .stream().collect(java.util.stream.Collectors.collectingAndThen(
                             java.util.stream.Collectors.toList(),
                             list -> new org.springframework.data.domain.PageImpl<>(list, pageable, list.size())));
         } else {
-            page = assignedFeeRepository.findByStatus(FeeStatus.UNPAID, pageable);
+            page = assignedFeeRepository.findByStatusIn(unpaidStatuses).stream()
+                    .collect(java.util.stream.Collectors.collectingAndThen(
+                            java.util.stream.Collectors.toList(),
+                            list -> new org.springframework.data.domain.PageImpl<>(list, pageable, list.size())));
         }
 
         return page.map(this::mapToAssignedFeeDTO);

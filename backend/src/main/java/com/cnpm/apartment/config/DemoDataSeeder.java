@@ -151,7 +151,7 @@ public class DemoDataSeeder implements ApplicationRunner {
         upsertUser("pending_resident", "pending123", "pending@cyberspace.vn", "Pending Demo Resident", "HH-F0001",
                 "0900000999", "001099009999", UserRole.ROLE_USER, UserStatus.PENDING, 0, null);
         upsertUser("locked_resident", "locked123", "locked@cyberspace.vn", "Locked Demo Resident", "HH-E1507",
-                "0900000888", "001088008888", UserRole.ROLE_USER, UserStatus.LOCKED, 5, LocalDateTime.now());
+                "0900000888", "001088008888", UserRole.ROLE_USER, UserStatus.LOCKED, 0, null);
     }
 
     private void seedVehicles() {
@@ -207,7 +207,7 @@ public class DemoDataSeeder implements ApplicationRunner {
         CollectionPeriod april = period("PER-DEMO-2026-04", "April 2026 Cycle", PeriodStatus.CLOSED, LocalDateTime.now().minusMonths(2));
         CollectionPeriod may = period("PER-DEMO-2026-05", "May 2026 Cycle", PeriodStatus.CLOSED, LocalDateTime.now().minusMonths(1));
         CollectionPeriod june = period("PER-DEMO-2026-06", "June 2026 Cycle", PeriodStatus.OPEN, LocalDateTime.now().minusDays(5));
-        period("PER-DEMO-2026-07", "July 2026 Draft Cycle", PeriodStatus.OPEN, LocalDateTime.now().plusDays(5));
+        CollectionPeriod july = period("PER-DEMO-2026-07", "July 2026 Draft Cycle", PeriodStatus.OPEN, LocalDateTime.now().plusDays(5));
 
         AssignedFee aMgmt = assignedFee("AF-DEMO-A-MGMT-202606", hA, june, managementFee, 1, FeeStatus.UNPAID, BigDecimal.ZERO, null);
         AssignedFee aWaste = assignedFee("AF-DEMO-A-WASTE-202606", hA, june, wasteFee, 1, FeeStatus.PARTIAL, money("100000"), LocalDateTime.now().minusDays(2));
@@ -245,6 +245,28 @@ public class DemoDataSeeder implements ApplicationRunner {
         assignedFee("AF-DEMO-G-WASTE-202606", hG, june, wasteFee, 1, FeeStatus.UNPAID, BigDecimal.ZERO, null);
         assignedFee("AF-DEMO-G-WATER-202606", hG, june, waterFee, 25, FeeStatus.UNPAID, BigDecimal.ZERO, null);
         assignedFee("AF-DEMO-G-ELEVATOR-202606", hG, june, elevatorFee, 1, FeeStatus.UNPAID, BigDecimal.ZERO, null);
+
+        assignedFee("AF-DEMO-A-MGMT-202607", hA, july, managementFee, 1, FeeStatus.UNPAID, BigDecimal.ZERO, null);
+        assignedFee("AF-DEMO-A-WASTE-202607", hA, july, wasteFee, 1, FeeStatus.UNPAID, BigDecimal.ZERO, null);
+        assignedFee("AF-DEMO-A-MOTO-202607", hA, july, motorcycleFee, Math.max(1, hA.getMotorcycleCount()), FeeStatus.UNPAID, BigDecimal.ZERO, null);
+        assignedFee("AF-DEMO-A-WATER-202607", hA, july, waterFee, 0, FeeStatus.UNPAID, BigDecimal.ZERO, null);
+        assignedFee("AF-DEMO-B-MGMT-202607", hB, july, managementFee, 1, FeeStatus.UNPAID, BigDecimal.ZERO, null);
+        assignedFee("AF-DEMO-B-WASTE-202607", hB, july, wasteFee, 1, FeeStatus.UNPAID, BigDecimal.ZERO, null);
+        assignedFee("AF-DEMO-B-CAR-202607", hB, july, carFee, Math.max(1, hB.getCarCount()), FeeStatus.UNPAID, BigDecimal.ZERO, null);
+        assignedFee("AF-DEMO-C-MGMT-202607", hC, july, managementFee, 1, FeeStatus.UNPAID, BigDecimal.ZERO, null);
+        assignedFee("AF-DEMO-C-WASTE-202607", hC, july, wasteFee, 1, FeeStatus.UNPAID, BigDecimal.ZERO, null);
+        assignedFee("AF-DEMO-C-MOTO-202607", hC, july, motorcycleFee, Math.max(1, hC.getMotorcycleCount()), FeeStatus.UNPAID, BigDecimal.ZERO, null);
+        assignedFee("AF-DEMO-C-CAR-202607", hC, july, carFee, Math.max(1, hC.getCarCount()), FeeStatus.UNPAID, BigDecimal.ZERO, null);
+        assignedFee("AF-DEMO-D-MGMT-202607", hD, july, managementFee, 1, FeeStatus.UNPAID, BigDecimal.ZERO, null);
+        assignedFee("AF-DEMO-D-WASTE-202607", hD, july, wasteFee, 1, FeeStatus.UNPAID, BigDecimal.ZERO, null);
+        assignedFee("AF-DEMO-D-WATER-202607", hD, july, waterFee, 0, FeeStatus.UNPAID, BigDecimal.ZERO, null);
+        assignedFee("AF-DEMO-E-MGMT-202607", hE, july, managementFee, 1, FeeStatus.UNPAID, BigDecimal.ZERO, null);
+        assignedFee("AF-DEMO-E-WASTE-202607", hE, july, wasteFee, 1, FeeStatus.UNPAID, BigDecimal.ZERO, null);
+        assignedFee("AF-DEMO-E-SECURITY-202607", hE, july, securityFee, 1, FeeStatus.UNPAID, BigDecimal.ZERO, null);
+        assignedFee("AF-DEMO-G-MGMT-202607", hG, july, managementFee, 1, FeeStatus.UNPAID, BigDecimal.ZERO, null);
+        assignedFee("AF-DEMO-G-WASTE-202607", hG, july, wasteFee, 1, FeeStatus.UNPAID, BigDecimal.ZERO, null);
+        assignedFee("AF-DEMO-G-WATER-202607", hG, july, waterFee, 0, FeeStatus.UNPAID, BigDecimal.ZERO, null);
+        assignedFee("AF-DEMO-G-ELEVATOR-202607", hG, july, elevatorFee, 1, FeeStatus.UNPAID, BigDecimal.ZERO, null);
 
         AssignedFee aPrevMgmt = assignedFee("AF-DEMO-A-MGMT-202605", hA, may, managementFee, 1, FeeStatus.PAID,
                 requiredAmount(hA, managementFee, 1), LocalDateTime.now().minusDays(30));

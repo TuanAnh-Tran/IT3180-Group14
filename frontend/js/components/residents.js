@@ -877,6 +877,7 @@ const DataService = {
   async splitHousehold(sourceHouseholdId, payload, actor) {
     validateHouseholdPayload(payload.newHousehold || {});
     payload.headIdentityNo = optionalCitizenId(payload.headIdentityNo, 'New household head Citizen ID');
+    payload.replacementHeadIdentityNo = optionalCitizenId(payload.replacementHeadIdentityNo, 'Replacement head Citizen ID');
     const api = await tryApi(`/households/${encodeURIComponent(sourceHouseholdId)}/split?actor=${encodeURIComponent(actor)}`, {
       method: 'POST',
       body: JSON.stringify(payload)
@@ -917,15 +918,20 @@ const DataService = {
       newHousehold.headIdentityNo = head.identityNo;
     }
     if (oldSourceHeadIdentityNo && moving.some(r => norm(r.identityNo) === norm(oldSourceHeadIdentityNo))) {
-      const replacement = store.residents.find(r => r.householdId === sourceHouseholdId && isActiveResident(r));
-      if (replacement) {
-        replacement.relationshipToHead = 'Head';
-        source.headName = replacement.fullName;
-        source.headIdentityNo = replacement.identityNo;
-      } else {
-        source.headIdentityNo = '';
-        source.note = `${source.note || ''} | Household head moved during split; choose a new head.`.trim();
+      if (!payload.replacementHeadIdentityNo) {
+        throw new Error('Select a replacement household head for the source household.');
       }
+      const replacement = store.residents.find(r => (
+        r.householdId === sourceHouseholdId &&
+        norm(r.identityNo) === norm(payload.replacementHeadIdentityNo) &&
+        isActiveResident(r)
+      ));
+      if (!replacement) {
+        throw new Error('Replacement household head must be an active resident who remains in the source household.');
+      }
+      replacement.relationshipToHead = 'Head';
+      source.headName = replacement.fullName;
+      source.headIdentityNo = replacement.identityNo;
     }
     localLog(store, 'SPLIT_HOUSEHOLD', 'HOUSEHOLD', sourceHouseholdId, `Split ${moving.length} resident(s) to ${newHousehold.id}`);
     saveStore(store);
@@ -1153,6 +1159,11 @@ const DataService = {
       savedApiDto = await API.saveVehicle(payload);
       backendOnline = true;
     } catch (e) {
+      const vehicleApiOffline = /Failed to fetch|NetworkError|Network request failed/i.test(e.message || '');
+      if (state.apiMode || !vehicleApiOffline) {
+        console.warn("Failed to save vehicle to backend:", e.message);
+        throw e;
+      }
       console.warn("Failed to save vehicle to backend, falling back to memory fallback:", e.message);
       if (e.message && (e.message.includes("đã được đăng ký") || e.message.includes("Không tìm thấy hộ gia đình") || e.message.includes("Biển số xe"))) {
         throw e;
@@ -1405,11 +1416,14 @@ function renderSplitHouseholdForm(household, members) {
   const defaultCode = `${household.id}-S${String(Date.now()).slice(-4)}`;
   const defaultApartment = `${household.apartmentNo || household.id}-S`;
   const defaultArea = household.area ? Math.max(1, Math.round((Number(household.area) / 2) * 10) / 10) : 50;
+  const sourceHeadId = household.headResidentId || activeMembers.find(member =>
+    String(member.relationshipToHead || '').toLowerCase() === 'head'
+  )?.id || '';
 
   return `
     <div class="rm-card" style="margin-top:16px;">
       <h3 style="margin-top:0;">Split Household</h3>
-      <form class="rm-form" id="rm-split-form" data-household="${esc(household.id)}" novalidate>
+      <form class="rm-form" id="rm-split-form" data-household="${esc(household.id)}" data-source-head="${esc(sourceHeadId)}" novalidate>
         <div class="rm-2">
           <div class="rm-field"><label>New household code</label><input id="rm-split-code" required value="${esc(defaultCode)}"></div>
           <div class="rm-field"><label>New apartment</label><input id="rm-split-apartment" required value="${esc(defaultApartment)}"></div>
@@ -1441,6 +1455,13 @@ function renderSplitHouseholdForm(household, members) {
           </div>
           <div class="rm-field"><label>Phone</label><input id="rm-split-phone" pattern="0[35789]\\d{8}" maxlength="10"></div>
         </div>
+        <div class="rm-field" id="rm-split-source-head-wrap" style="display:none;">
+          <label>Replacement head for source household</label>
+          <select class="rm-select" id="rm-split-source-head">
+            <option value="">Select remaining resident</option>
+            ${activeMembers.map(member => `<option value="${esc(member.id)}" data-identity="${esc(member.identityNo)}" data-name="${esc(member.fullName)}">${esc(member.fullName)} - ${esc(member.identityNo)}</option>`).join('')}
+          </select>
+        </div>
         <div class="rm-field"><label>Note</label><textarea id="rm-split-note" rows="2">Created from household split.</textarea></div>
         <div class="rm-actions">
           <button class="rm-btn pri" type="submit">Create Split Household</button>
@@ -1460,6 +1481,27 @@ function readVehicleForm(container) {
     registrationDate: container.querySelector('#rm-vh-regdate').value,
     householdId: container.querySelector('#rm-vh-household').value
   };
+}
+
+function updateSplitReplacementControl(form) {
+  if (!form) return;
+  const sourceHeadId = form.dataset.sourceHead || '';
+  const selectedIds = [...form.querySelectorAll('input[name="rm-split-member"]:checked')].map(box => box.value);
+  const wrap = form.querySelector('#rm-split-source-head-wrap');
+  const sourceHeadSelect = form.querySelector('#rm-split-source-head');
+  if (!wrap || !sourceHeadSelect) return;
+
+  const movingSourceHead = sourceHeadId && selectedIds.includes(sourceHeadId);
+  wrap.style.display = movingSourceHead ? 'block' : 'none';
+  sourceHeadSelect.required = movingSourceHead;
+
+  [...sourceHeadSelect.options].forEach(option => {
+    if (!option.value) return;
+    option.disabled = selectedIds.includes(option.value);
+  });
+  if (!movingSourceHead || selectedIds.includes(sourceHeadSelect.value)) {
+    sourceHeadSelect.value = '';
+  }
 }
 
 export class ResidentsManager {
@@ -1625,12 +1667,12 @@ export class ResidentsManager {
                   <div style="display:grid; grid-template-columns:1fr; gap:12px;">
                     <div class="bm-member-card">
                       <h3 style="margin:0 0 6px; font-size:15px; color:var(--text-primary);">${esc(currentUser.fullname)}</h3>
-                      <p>Alias (Bí danh): <strong>${esc(currentUser.alias || '-')}</strong></p>
+                      <p>Alias: <strong>${esc(currentUser.alias || '-')}</strong></p>
                       <p>Citizen ID: <strong>${esc(currentUser.identityNo)}</strong></p>
                       <p>Phone: <strong>${esc(currentUser.phone)}</strong></p>
                       <p>Date of Birth: <strong>${esc(currentUser.dob)}</strong></p>
                       <p>Place of Birth: <strong>${esc(currentUser.birthPlace)}</strong></p>
-                      <p>Hometown (Nguyên quán): <strong>${esc(currentUser.hometown)}</strong></p>
+                      <p>Hometown: <strong>${esc(currentUser.hometown)}</strong></p>
                       <p>Ethnicity: <strong>${esc(currentUser.ethnicity)}</strong></p>
                       <p>Occupation: <strong>${esc(currentUser.occupation)}</strong></p>
                       <p>Workplace: <strong>${esc(currentUser.workplace)}</strong></p>
@@ -1778,7 +1820,7 @@ export class ResidentsManager {
         state.activityLogs = await DataService.loadActivity();
         renderAll();
       } catch (error) {
-        showToast(error.message || 'Unable to load resident data', 'error');
+        showToast(cleanApiErrorMessage(error, 'Unable to load resident data'), 'error');
         renderAll();
       }
     };
@@ -2084,7 +2126,7 @@ export class ResidentsManager {
       const rows = page.content?.map(v => `
         <tr>
           <td><strong>${esc(v.plateNumber)}</strong></td>
-          <td>${esc(v.type === 'CAR' ? 'Car (Ô tô)' : 'Motorcycle (Xe máy)')}</td>
+          <td>${esc(v.type === 'CAR' ? 'Car' : 'Motorcycle')}</td>
           <td>${esc(v.ownerName || '-')}</td>
           <td>${formatDate(v.registrationDate)}</td>
           <td>${esc(v.apartmentNo || v.householdId || '-')}</td>
@@ -2101,26 +2143,26 @@ export class ResidentsManager {
             <h2 id="rm-vh-title">Register Vehicle</h2>
             <form class="rm-form" id="rm-vh-form">
               <div class="rm-field">
-                <label>License Plate (Biển số xe)</label>
+                <label>License Plate</label>
                 <input id="rm-vh-plate" required placeholder="e.g. 29A1-123.45" pattern="\\d{2}[A-Za-z][0-9A-Za-z]?-\\d{3}\\.\\d{2}">
               </div>
               <div class="rm-field">
-                <label>Vehicle Type (Loại xe)</label>
+                <label>Vehicle Type</label>
                 <select id="rm-vh-type">
-                  <option value="MOTORCYCLE">Motorcycle (Xe máy)</option>
-                  <option value="CAR">Car (Ô tô)</option>
+                  <option value="MOTORCYCLE">Motorcycle</option>
+                  <option value="CAR">Car</option>
                 </select>
               </div>
               <div class="rm-field">
-                <label>Owner Name (Chủ xe)</label>
-                <input id="rm-vh-owner" required placeholder="Chủ sở hữu xe">
+                <label>Owner Name</label>
+                <input id="rm-vh-owner" required placeholder="Vehicle owner">
               </div>
               <div class="rm-field">
-                <label>Registration Date (Ngày đăng ký)</label>
+                <label>Registration Date</label>
                 <input id="rm-vh-regdate" type="date" required>
               </div>
               <div class="rm-field">
-                <label>Household (Căn hộ)</label>
+                <label>Household</label>
                 <select id="rm-vh-household" required>${householdOptions()}</select>
               </div>
               <div class="rm-actions">
@@ -2374,7 +2416,7 @@ export class ResidentsManager {
         if (action === 'export-residents') { await DataService.export('residents'); return; }
         await refresh();
       } catch (error) {
-        showToast(error.message || 'Action failed', 'error');
+        showToast(cleanApiErrorMessage(error, 'Action failed'), 'error');
       }
     });
 
@@ -2425,6 +2467,18 @@ export class ResidentsManager {
             showToast('The source household must keep at least one active resident after split', 'warning');
             return;
           }
+          const sourceHeadId = sourceHousehold?.headResidentId || form.dataset.sourceHead || '';
+          let replacementHeadIdentityNo = '';
+          if (sourceHeadId && residentIds.includes(sourceHeadId)) {
+            const replacementSelect = form.querySelector('#rm-split-source-head');
+            const replacementHeadId = replacementSelect?.value || '';
+            const replacementOption = replacementSelect?.selectedOptions?.[0] || null;
+            if (!replacementHeadId || residentIds.includes(replacementHeadId)) {
+              showToast('Select a replacement head who remains in the source household', 'warning');
+              return;
+            }
+            replacementHeadIdentityNo = replacementOption?.dataset.identity || '';
+          }
 
           const headIdentityNo = headOption?.dataset.identity || '';
           const headName = headOption?.dataset.name || 'Pending head';
@@ -2444,6 +2498,7 @@ export class ResidentsManager {
             },
             residentIds,
             headIdentityNo,
+            replacementHeadIdentityNo,
             reason: 'Household split'
           }, actor());
           state.splittingHouseholdId = null;
@@ -2452,7 +2507,7 @@ export class ResidentsManager {
           await refresh();
         }
       } catch (error) {
-        showToast(error.message || 'Save failed', 'error');
+        showToast(cleanApiErrorMessage(error, 'Save failed'), 'error');
       }
     });
 
@@ -2517,12 +2572,19 @@ export class ResidentsManager {
           if (!selectedIds.includes(headSelect.value)) {
             headSelect.value = selectedIds[0] || '';
           }
+          updateSplitReplacementControl(form);
         }
       }
       if (event.target.id === 'rm-split-head') {
         const form = event.target.closest('#rm-split-form');
         const selectedHeadBox = form?.querySelector(`input[name="rm-split-member"][value="${CSS.escape(event.target.value)}"]`);
-        if (selectedHeadBox) selectedHeadBox.checked = true;
+        if (selectedHeadBox) {
+          selectedHeadBox.checked = true;
+          updateSplitReplacementControl(form);
+        }
+      }
+      if (event.target.id === 'rm-split-source-head') {
+        updateSplitReplacementControl(event.target.closest('#rm-split-form'));
       }
     });
 

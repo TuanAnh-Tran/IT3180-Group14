@@ -91,7 +91,7 @@ export class ProfileView {
 
                 <!-- Nhóm 2: Sổ Hộ Khẩu -->
                 <div style="background:var(--bg-tertiary); border:1px solid var(--border-glass); border-radius:12px; padding:16px;">
-                  <h4 style="margin:0 0 12px; color:var(--color-accent); font-size:13px; text-transform:uppercase; font-weight:700;">2. Household Registration (Sổ hộ khẩu)</h4>
+                  <h4 style="margin:0 0 12px; color:var(--color-accent); font-size:13px; text-transform:uppercase; font-weight:700;">2. Household Registration</h4>
                   <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
                     <div class="form-group" style="margin-bottom: 0;">
                       <label class="form-label">Household Code *</label>
@@ -129,7 +129,7 @@ export class ProfileView {
                       <input type="text" class="form-control" name="alias" value="${user.alias || ''}" required placeholder="Alias or N/A" style="padding-left:14px;">
                     </div>
                     <div class="form-group" style="margin-bottom: 0;">
-                      <label class="form-label">Citizen ID (CCCD/CMND) *</label>
+                      <label class="form-label">Citizen ID *</label>
                       <input type="text" class="form-control" name="identityNo" value="${user.identityNo || ''}" required pattern="(001|002|004|006|008|010|011|012|014|015|017|019|020|022|024|025|026|027|030|031|033|034|035|036|037|038|040|042|044|045|046|048|049|051|052|054|056|058|060|062|064|066|067|068|070|072|074|075|077|079|080|082|083|084|086|087|089|091|092|093|094|095|096)\\d{9}" maxlength="12" title="Citizen ID must contain exactly 12 digits and start with a valid Vietnamese province/city code" placeholder="CCCD" style="padding-left:14px;">
                     </div>
                     <div class="form-group" style="margin-bottom: 0;">
@@ -141,7 +141,7 @@ export class ProfileView {
                       <input type="text" class="form-control" name="birthPlace" value="${user.birthPlace || ''}" required placeholder="Birth Place" style="padding-left:14px;">
                     </div>
                     <div class="form-group" style="margin-bottom: 0;">
-                      <label class="form-label">Hometown (Nguyên quán) *</label>
+                      <label class="form-label">Hometown *</label>
                       <input type="text" class="form-control" name="hometown" value="${user.hometown || ''}" required placeholder="Hometown" style="padding-left:14px;">
                     </div>
                     <div class="form-group" style="margin-bottom: 0;">

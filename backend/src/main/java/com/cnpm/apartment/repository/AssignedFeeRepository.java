@@ -37,6 +37,8 @@ public interface AssignedFeeRepository extends JpaRepository<AssignedFee, String
     // Lấy danh sách phí theo đợt thu VÀ trạng thái
     Page<AssignedFee> findByPeriodIdAndStatus(String periodId, FeeStatus status, Pageable pageable);
 
+    Page<AssignedFee> findByPeriodIdAndStatusIn(String periodId, Collection<FeeStatus> statuses, Pageable pageable);
+
     // Lấy danh sách phí chưa nộp của 1 hộ
     List<AssignedFee> findByHouseholdIdAndStatus(String householdId, FeeStatus status);
 
@@ -44,7 +46,12 @@ public interface AssignedFeeRepository extends JpaRepository<AssignedFee, String
     Page<AssignedFee> findByPeriodIdAndHouseholdIdAndStatus(
             String periodId, String householdId, FeeStatus status, Pageable pageable);
 
+    Page<AssignedFee> findByPeriodIdAndHouseholdIdAndStatusIn(
+            String periodId, String householdId, Collection<FeeStatus> statuses, Pageable pageable);
+
     List<AssignedFee> findByHouseholdIdAndStatusIn(String householdId, Collection<FeeStatus> statuses);
+
+    boolean existsByFeeId(String feeId);
 
     @Query("SELECT af FROM AssignedFee af JOIN FETCH af.household JOIN FETCH af.period JOIN FETCH af.fee " +
            "WHERE af.household.id = :householdId AND af.period.id = :periodId AND af.fee.id = :feeId")

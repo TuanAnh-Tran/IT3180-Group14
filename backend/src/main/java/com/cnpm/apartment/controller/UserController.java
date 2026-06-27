@@ -10,6 +10,7 @@ import com.cnpm.apartment.repository.UserRepository;
 import com.cnpm.apartment.validation.VietnamDataRules;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -87,6 +88,10 @@ public class UserController {
         User user = userRepository.findByUsername(username.toLowerCase().trim())
                 .orElseThrow(() -> new RuntimeException("User not found: " + username));
 
+        if (isCurrentUser(user.getUsername())) {
+            throw new RuntimeException("You cannot change your own role.");
+        }
+
         user.setRole(toRole(value(request, "role")));
         return ResponseEntity.ok(ApiResponse.success("User role updated successfully", toDto(userRepository.save(user))));
     }
@@ -132,8 +137,8 @@ public class UserController {
         }
 
         user.setStatus(UserStatus.LOCKED);
-        user.setFailedAttempts(5);
-        user.setLockTime(LocalDateTime.now());
+        user.setFailedAttempts(0);
+        user.setLockTime(null);
         return ResponseEntity.ok(ApiResponse.success("User locked successfully", toDto(userRepository.save(user))));
     }
 
@@ -141,6 +146,10 @@ public class UserController {
     public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable String username) {
         User user = userRepository.findByUsername(username.toLowerCase().trim())
                 .orElseThrow(() -> new RuntimeException("User not found: " + username));
+
+        if (isCurrentUser(user.getUsername())) {
+            throw new RuntimeException("You cannot delete your own account.");
+        }
 
         notificationRepository.deleteByTargetUsername(user.getUsername());
         userRepository.delete(user);
@@ -189,5 +198,14 @@ public class UserController {
 
     private String value(Map<String, String> request, String key) {
         return request.get(key);
+    }
+
+    private boolean isCurrentUser(String username) {
+        try {
+            String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
+            return currentUsername != null && currentUsername.equalsIgnoreCase(username);
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

@@ -3,7 +3,7 @@
  * Tích hợp kết nối API Spring Boot với cơ chế tự động Fallback về memory cache.
  */
 
-import { API } from '../api.js';
+import { API } from '../api.js?v=10';
 
 /* ─────────────────────────────────────────────
    1. RECEIPT STORE — lưu biên lai vào memory cache (Chế độ Fallback)
@@ -73,11 +73,14 @@ export const PaymentEngine = {
 
     let payment = Number(amountPaid);
     if (isNaN(payment) || payment <= 0) {
-      const current = af.amountPaidAccumulated || 0;
-      payment = amountRequired - current;
+      throw new Error('Payment amount must be greater than 0.');
     }
 
     const currentAccumulated = af.amountPaidAccumulated || 0;
+    const remaining = amountRequired - currentAccumulated;
+    if (payment > remaining) {
+      throw new Error('Payment amount cannot exceed the remaining debt.');
+    }
     const newAccumulated = currentAccumulated + payment;
     af.amountPaidAccumulated = newAccumulated;
 
@@ -489,31 +492,31 @@ export class PaymentView {
               
               <!-- Tab thanh toán -->
               <div style="display:flex; gap:8px; background:var(--bg-tertiary); border-radius:12px; padding:4px; margin-bottom:16px; border:1px solid var(--border-glass);">
-                <button type="button" id="pv-tab-qr" class="pv-btn active" style="flex:1; border:none; padding:8px; border-radius:8px; font-weight:600; cursor:pointer; background:var(--color-primary); color:#fff; transition:var(--transition-fast);">Chuyển khoản QR</button>
-                <button type="button" id="pv-tab-card" class="pv-btn" style="flex:1; border:none; padding:8px; border-radius:8px; font-weight:600; cursor:pointer; background:transparent; color:var(--text-secondary); transition:var(--transition-fast);">Thẻ quốc tế (Mock)</button>
+                <button type="button" id="pv-tab-qr" class="pv-btn active" style="flex:1; border:none; padding:8px; border-radius:8px; font-weight:600; cursor:pointer; background:var(--color-primary); color:#fff; transition:var(--transition-fast);">QR Transfer</button>
+                <button type="button" id="pv-tab-card" class="pv-btn" style="flex:1; border:none; padding:8px; border-radius:8px; font-weight:600; cursor:pointer; background:transparent; color:var(--text-secondary); transition:var(--transition-fast);">International Card (Mock)</button>
               </div>
 
               <!-- Content QR -->
               <div id="pv-content-qr" style="display:block;">
                 <div style="text-align:center; margin-bottom:12px; font-size:12px; color:var(--text-secondary);">
-                  Quét mã QR để thanh toán hoặc chuyển khoản thủ công qua ngân hàng:
+                  Scan the QR code or transfer manually through your banking app:
                 </div>
                 
                 <!-- Mock QR Code SVG -->
                 <div id="pv-qr-code-svg-wrap"></div>
 
                 <div class="pv-receipt-box" style="margin-top:12px; font-size:13px;">
-                  <div class="pv-receipt-row"><span>Ngân hàng</span><strong>MB Bank</strong></div>
-                  <div class="pv-receipt-row"><span>Số tài khoản</span><strong style="display:inline-flex; align-items:center; gap:6px;">1902 8472 93847 <span style="cursor:pointer; color:var(--color-primary);" id="btn-copy-acc" title="Copy">📋</span></strong></div>
-                  <div class="pv-receipt-row"><span>Chủ tài khoản</span><strong>BLUE MOON MANAGEMENT</strong></div>
-                  <div class="pv-receipt-row"><span>Số tiền</span><strong id="pv-qr-amount-val"></strong></div>
-                  <div class="pv-receipt-row"><span>Nội dung CK</span><strong style="display:inline-flex; align-items:center; gap:6px; color:var(--color-accent);" id="copy-content-val"> <span style="cursor:pointer; color:var(--color-primary);" id="btn-copy-content" title="Copy">📋</span></strong></div>
+                  <div class="pv-receipt-row"><span>Bank</span><strong>MB Bank</strong></div>
+                  <div class="pv-receipt-row"><span>Account Number</span><strong style="display:inline-flex; align-items:center; gap:6px;">1902 8472 93847 <span style="cursor:pointer; color:var(--color-primary);" id="btn-copy-acc" title="Copy">Copy</span></strong></div>
+                  <div class="pv-receipt-row"><span>Account Holder</span><strong>BLUE MOON MANAGEMENT</strong></div>
+                  <div class="pv-receipt-row"><span>Amount</span><strong id="pv-qr-amount-val"></strong></div>
+                  <div class="pv-receipt-row"><span>Transfer Content</span><strong style="display:inline-flex; align-items:center; gap:6px; color:var(--color-accent);" id="copy-content-val"> <span style="cursor:pointer; color:var(--color-primary);" id="btn-copy-content" title="Copy">Copy</span></strong></div>
                 </div>
 
                 <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
-                  <button class="pv-btn sec" data-pvclose="pv-ov-pay">Hủy</button>
+                  <button class="pv-btn sec" data-pvclose="pv-ov-pay">Cancel</button>
                   <button class="pv-btn suc" id="pv-pay-qr-confirm" style="display:flex; align-items:center; gap:6px;">
-                    <span>Xác nhận đã chuyển khoản</span>
+                    <span>Confirm Transfer</span>
                   </button>
                 </div>
               </div>
@@ -522,28 +525,28 @@ export class PaymentView {
               <div id="pv-content-card" style="display:none;">
                 <div class="pv-form" style="gap:12px;">
                   <div class="pv-field">
-                    <label>Tên chủ thẻ</label>
+                    <label>Cardholder Name</label>
                     <input type="text" id="pv-card-name" placeholder="NGUYEN VAN A" style="text-transform:uppercase;">
                   </div>
                   <div class="pv-field">
-                    <label>Số thẻ</label>
+                    <label>Card Number</label>
                     <input type="text" id="pv-card-number" placeholder="4111 2222 3333 4444" maxlength="19">
                   </div>
                   <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                     <div class="pv-field">
-                      <label>Ngày hết hạn</label>
+                      <label>Expiry Date</label>
                       <input type="text" id="pv-card-expiry" placeholder="MM/YY" maxlength="5">
                     </div>
                     <div class="pv-field">
-                      <label>Mã bảo mật CVV</label>
+                      <label>Security Code (CVV)</label>
                       <input type="password" id="pv-card-cvv" placeholder="123" maxlength="3">
                     </div>
                   </div>
 
                   <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;">
-                    <button class="pv-btn sec" data-pvclose="pv-ov-pay">Hủy</button>
+                    <button class="pv-btn sec" data-pvclose="pv-ov-pay">Cancel</button>
                     <button class="pv-btn pri" id="pv-pay-card-confirm" style="display:flex; align-items:center; gap:6px;">
-                      <span>Thanh toán ngay</span>
+                      <span>Pay Now</span>
                     </button>
                   </div>
                 </div>
@@ -721,7 +724,7 @@ export class PaymentView {
             })();
 
         const actionBtn = isPeriodClosed
-          ? `<button class="pv-btn sec" disabled style="cursor:not-allowed;" title="Đợt thu này đã đóng">Closed</button>`
+          ? `<button class="pv-btn sec" disabled style="cursor:not-allowed;" title="This collection period is closed">Closed</button>`
           : `<button class="pv-btn suc pv-do-pay" data-id="${af.id}" data-amt="${remaining}" data-fee="${fee?.name||''}" data-hh="${hh?.id||''}-${hh?.ownerName||''}">Pay</button>`;
 
         return `<tr>
@@ -740,66 +743,6 @@ export class PaymentView {
         b.addEventListener('click', () => openPayModal(b.dataset.id, b.dataset.amt, b.dataset.fee, b.dataset.hh));
       });
     }
-
-    async function openPayModal(assignedFeeId, remaining, feeName, hhInfo) {
-      q('#pv-pay-m-afid').value = assignedFeeId;
-      q('#pv-pay-m-amount').value = remaining;
-      q('#pv-pay-m-payer').value = '';
-      q('#pv-pay-m-note').value = '';
-      q('#pv-pay-m-sub').textContent = `${feeName} — Household ${hhInfo}`;
-      q('#pv-pay-m-info').innerHTML = `
-        <div class="pv-receipt-row"><span>Remaining amount:</span><strong>${vnd(remaining)}</strong></div>
-      `;
-      
-      const qrContainer = q('#pv-pay-qr-container');
-      const qrImg = q('#pv-pay-qr-img');
-      if (qrContainer && qrImg) {
-        if (isBackend) {
-          try {
-            const qrUrl = await API.getQrUrl(assignedFeeId);
-            qrImg.src = qrUrl;
-            qrContainer.style.display = 'block';
-          } catch (e) {
-            qrContainer.style.display = 'none';
-          }
-        } else {
-          const mockUrl = `https://img.vietqr.io/image/MB-123456789-compact2.png?amount=${remaining}&addInfo=THANH%20TOAN%20PHI%20${assignedFeeId}`;
-          qrImg.src = mockUrl;
-          qrContainer.style.display = 'block';
-        }
-      }
-      open('pv-ov-pay');
-    }
-
-    q('#pv-pay-m-confirm').addEventListener('click', async () => {
-      const afid = q('#pv-pay-m-afid').value;
-      const amt  = q('#pv-pay-m-amount').value;
-      const note = q('#pv-pay-m-note').value;
-      const payer = q('#pv-pay-m-payer').value;
-
-      try {
-        if (isBackend) {
-          const params = {
-            assignedFeeId: afid,
-            amountPaid: amt ? Number(amt) : null,
-            note: note,
-            payerName: payer,
-            idempotencyKey: 'IDEM_' + afid + '_' + Date.now()
-          };
-          await API.fetchJson('/payments', {
-            method: 'POST',
-            body: JSON.stringify(params)
-          });
-        } else {
-          PaymentEngine.recordPayment(afid, amt, note, currentUser.fullname, FM);
-        }
-        showToast('Payment recorded successfully', 'success');
-        close('pv-ov-pay');
-        renderCurrent();
-      } catch (err) {
-        showToast(err.message, 'error');
-      }
-    });
 
     async function renderReceipts() {
       const db = FM._getDB();
@@ -1075,16 +1018,27 @@ export class PaymentView {
 
 
     /* ── Payment Process Reusable Helper ── */
+    let paymentSubmitInProgress = false;
+
     async function processPayment(afId, amtInput, note, buttonEl = null, originalText = '') {
+      if (paymentSubmitInProgress) {
+        return;
+      }
+      paymentSubmitInProgress = true;
       if (buttonEl) {
         buttonEl.disabled = true;
-        buttonEl.innerHTML = `<span style="display:inline-block;width:12px;height:12px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 0.6s linear infinite;margin-right:6px;"></span> Đang xử lý...`;
+        buttonEl.innerHTML = `<span style="display:inline-block;width:12px;height:12px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 0.6s linear infinite;margin-right:6px;"></span> Processing...`;
       }
       try {
         if (isBackend) {
-          const receipt = await API.recordPayment(afId, amtInput || null, note);
+          const amount = Number(amtInput);
+          if (!Number.isFinite(amount) || amount <= 0) {
+            throw new Error('Payment amount must be greater than 0.');
+          }
+          const idempotencyKey = q('#pv-pay-m-afid')?.dataset.idempotencyKey || `PAY_${afId}_${Date.now()}`;
+          const receipt = await API.recordPayment(afId, amount, note, idempotencyKey);
           close('pv-ov-pay');
-          showToast(`Thanh toán thành công! Mã biên lai: ${receipt.receiptId || receipt.id}`, 'success');
+          showToast(`Payment recorded successfully. Receipt ID: ${receipt.receiptId || receipt.id}`, 'success');
 
           // Đồng bộ lại vào memory cache của Frontend để tránh lệch số liệu ở các tab Resident/Dashboard khác chưa di chuyển sang Backend
           try {
@@ -1098,14 +1052,15 @@ export class PaymentView {
             }
           } catch (localErr) {}
         } else {
-          const receipt = PaymentEngine.recordPayment(afId, amtInput || null, note, currentUser?.username || 'admin', FM);
+          const receipt = PaymentEngine.recordPayment(afId, amtInput, note, currentUser?.username || 'admin', FM);
           close('pv-ov-pay');
-          showToast(`Thanh toán thành công! Mã biên lai: ${receipt.id}`, 'success');
+          showToast(`Payment recorded successfully. Receipt ID: ${receipt.id}`, 'success');
         }
         renderCurrent();
       } catch(err) {
         showToast(err.message, 'error');
       } finally {
+        paymentSubmitInProgress = false;
         if (buttonEl) {
           buttonEl.disabled = false;
           buttonEl.innerHTML = originalText;
@@ -1117,35 +1072,39 @@ export class PaymentView {
     function openPayModal(afId, amt, feeName, hhLabel) {
       // Find hidden input or create it
       let hiddenInput = q('#pv-pay-m-afid');
-      if (hiddenInput) hiddenInput.value = afId;
+      if (hiddenInput) {
+        hiddenInput.value = afId;
+        hiddenInput.dataset.amount = String(parseFloat(amt) || 0);
+        hiddenInput.dataset.idempotencyKey = `PAY_${afId}_${Date.now()}`;
+      }
       
       const isResident = currentUser.role === 'user';
       if (isResident) {
-        q('#pv-pay-m-title').textContent = "Thanh toán hóa đơn";
+        q('#pv-pay-m-title').textContent = "Pay Invoice";
         q('#pv-pay-m-sub').textContent = `${hhLabel} — ${feeName}`;
         q('#pv-pay-m-admin-form').style.display = 'none';
         q('#pv-pay-m-resident-form').style.display = 'block';
 
         // Điền thông tin QR
         q('#pv-pay-m-res-info').innerHTML = `
-          <div class="pv-receipt-row"><span>Căn hộ</span><strong>${hhLabel}</strong></div>
-          <div class="pv-receipt-row"><span>Khoản phí</span><strong>${feeName}</strong></div>
-          <div class="pv-receipt-row"><span>Số tiền cần nộp</span><strong style="color:var(--color-warning); font-size: 15px;">${vnd(parseFloat(amt))}</strong></div>
+          <div class="pv-receipt-row"><span>Unit</span><strong>${hhLabel}</strong></div>
+          <div class="pv-receipt-row"><span>Fee</span><strong>${feeName}</strong></div>
+          <div class="pv-receipt-row"><span>Amount Due</span><strong style="color:var(--color-warning); font-size: 15px;">${vnd(parseFloat(amt))}</strong></div>
         `;
         q('#pv-qr-amount-val').textContent = vnd(parseFloat(amt));
         
         const cleanContent = `PAY_${afId}`;
-        q('#copy-content-val').innerHTML = `${cleanContent} <span style="cursor:pointer; color:var(--color-primary); font-size:12px; margin-left:6px;" id="btn-copy-content" title="Sao chép nội dung">📋 Sao chép</span>`;
+        q('#copy-content-val').innerHTML = `${cleanContent} <span style="cursor:pointer; color:var(--color-primary); font-size:12px; margin-left:6px;" id="btn-copy-content" title="Copy transfer content">Copy</span>`;
         q('#pv-qr-code-svg-wrap').innerHTML = generateMockQRCodeSVG();
 
         // Register copy event listeners
         q('#btn-copy-acc').onclick = () => {
           navigator.clipboard.writeText("1902847293847");
-          showToast("Đã sao chép số tài khoản!", "success");
+          showToast("Account number copied.", "success");
         };
         q('#btn-copy-content').onclick = () => {
           navigator.clipboard.writeText(cleanContent);
-          showToast("Đã sao chép nội dung chuyển khoản!", "success");
+          showToast("Transfer content copied.", "success");
         };
 
         // Reset tab
@@ -1169,7 +1128,7 @@ export class PaymentView {
         q('#pv-pay-m-admin-form').style.display = 'block';
         q('#pv-pay-m-resident-form').style.display = 'none';
 
-        q('#pv-pay-m-amount').value = '';
+        q('#pv-pay-m-amount').value = parseFloat(amt) || '';
         q('#pv-pay-m-note').value = '';
         q('#pv-pay-m-info').innerHTML = `
           <div class="pv-receipt-row"><span>Household</span><strong>${hhLabel}</strong></div>
@@ -1213,8 +1172,30 @@ export class PaymentView {
     // Resident Payment Actions
     q('#pv-pay-qr-confirm').addEventListener('click', async () => {
       const afId = q('#pv-pay-m-afid').value;
+      const amount = Number(q('#pv-pay-m-afid').dataset.amount);
       const btn = q('#pv-pay-qr-confirm');
-      await processPayment(afId, null, "Chuyển khoản QR (MB Bank)", btn, "Xác nhận đã chuyển khoản");
+      if (!Number.isFinite(amount) || amount <= 0) {
+        showToast('Payment proof amount must be greater than 0.', 'error');
+        return;
+      }
+      btn.disabled = true;
+      try {
+        await API.submitProof(
+          afId,
+          amount,
+          '',
+          'Bank transfer proof submitted from resident portal.',
+          `QR_${afId}_${Date.now()}`,
+          currentUser.fullname || currentUser.username || ''
+        );
+        close('pv-ov-pay');
+        showToast('Payment proof submitted. Please wait for accountant approval.', 'success');
+        renderCurrent();
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+      }
     });
 
     q('#pv-pay-card-confirm').addEventListener('click', async () => {
@@ -1225,13 +1206,35 @@ export class PaymentView {
       const cvv = q('#pv-card-cvv').value.trim();
 
       if (!cardName || cardNo.length < 16 || expiry.length < 5 || cvv.length < 3) {
-        showToast("Vui lòng nhập đầy đủ thông tin thẻ tín dụng hợp lệ.", "error");
+        showToast("Please enter complete valid card information.", "error");
         return;
       }
 
       const btn = q('#pv-pay-card-confirm');
-      const note = `Thanh toán thẻ (Card ending in *${cardNo.slice(-4)})`;
-      await processPayment(afId, null, note, btn, "Thanh toán ngay");
+      const note = `Card payment proof (Card ending in *${cardNo.slice(-4)})`;
+      const amount = Number(q('#pv-pay-m-afid').dataset.amount);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        showToast('Payment proof amount must be greater than 0.', 'error');
+        return;
+      }
+      btn.disabled = true;
+      try {
+        await API.submitProof(
+          afId,
+          amount,
+          '',
+          note,
+          `CARD_${cardNo.slice(-4)}_${Date.now()}`,
+          cardName
+        );
+        close('pv-ov-pay');
+        showToast('Payment proof submitted. Please wait for accountant approval.', 'success');
+        renderCurrent();
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+      }
     });
 
     // Format inputs

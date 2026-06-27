@@ -1080,6 +1080,9 @@ export class FeeManagerView {
     async function renderAll() {
       try {
         await refreshPeriodSel();
+        if (isBackendActive && selectedPeriodId) {
+          await FM.syncAssignedFees(selectedPeriodId);
+        }
         renderDashboard();
         await renderFees();
         await renderPeriodCheckboxes();
@@ -1302,8 +1305,9 @@ export class FeeManagerView {
         } else if (item.status === 'PARTIAL') {
           stBadge = `<span class="sf-badge" style="background:#f59e0b;color:#fff;">Partial (${vnd(item.amountPaidAccumulated)})</span>`;
         }
+        const remainingAmount = Math.max(0, Number(item.amount || 0) - Number(item.amountPaidAccumulated || 0));
         const actions = (item.status === 'UNPAID' || item.status === 'PARTIAL')
-          ? `<button class="sf-btn suc sf-pay" data-id="${item.assignedFeeId}">Pay</button>
+          ? `<button class="sf-btn suc sf-pay" data-id="${item.assignedFeeId}" data-amount="${remainingAmount}">Pay</button>
              <button class="sf-btn dan sf-unassign" data-fid="${item.feeId}" data-hhid="${hhId}">Unassign</button>`
           : `<button class="sf-btn sec sf-unpay" data-id="${item.assignedFeeId}">Undo</button>`;
         return `<tr>
@@ -1346,7 +1350,7 @@ export class FeeManagerView {
       q('#sf-bill-tbody').querySelectorAll('.sf-pay').forEach(b => b.addEventListener('click', async () => {
         if (isBackendActive) {
           try {
-            const receipt = await API.recordPayment(b.dataset.id, 0, 'Paid fee from bill details');
+            const receipt = await API.recordPayment(b.dataset.id, Number(b.dataset.amount), 'Paid fee from bill details');
             FM.payFee(b.dataset.id); // view synchronization
             showToast('Payment successful (Backend)!', 'success');
           } catch (err) {

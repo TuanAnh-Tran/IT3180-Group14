@@ -11,6 +11,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -48,6 +49,7 @@ public class ResidentController {
     }
 
     @PostMapping("/households")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<HouseholdDTO>> createHousehold(
             @Valid @RequestBody HouseholdRequest request,
             @RequestParam(defaultValue = "admin") String actor) {
@@ -57,6 +59,7 @@ public class ResidentController {
     }
 
     @PutMapping("/households/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<HouseholdDTO>> updateHousehold(
             @PathVariable String id,
             @Valid @RequestBody HouseholdRequest request,
@@ -67,6 +70,7 @@ public class ResidentController {
     }
 
     @DeleteMapping("/households/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<Void>> deleteHousehold(
             @PathVariable String id,
             @RequestParam(defaultValue = "admin") String actor) {
@@ -75,6 +79,7 @@ public class ResidentController {
     }
 
     @PostMapping("/households/{id}/head")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<HouseholdDTO>> changeHouseholdHead(
             @PathVariable String id,
             @Valid @RequestBody ChangeHouseholdHeadRequest request,
@@ -85,6 +90,7 @@ public class ResidentController {
     }
 
     @PostMapping("/households/{id}/ownership-transfer")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<HouseholdDTO>> transferOwnership(
             @PathVariable String id,
             @Valid @RequestBody OwnershipTransferRequest request,
@@ -95,6 +101,7 @@ public class ResidentController {
     }
 
     @PostMapping("/households/{id}/split")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<HouseholdDTO>> splitHousehold(
             @PathVariable String id,
             @Valid @RequestBody SplitHouseholdRequest request,
@@ -123,6 +130,7 @@ public class ResidentController {
     }
 
     @PostMapping("/residents")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<ResidentDTO>> createResident(
             @Valid @RequestBody ResidentRequest request,
             @RequestParam(defaultValue = "admin") String actor) {
@@ -132,6 +140,7 @@ public class ResidentController {
     }
 
     @PutMapping("/residents/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<ResidentDTO>> updateResident(
             @PathVariable String id,
             @Valid @RequestBody ResidentRequest request,
@@ -142,6 +151,7 @@ public class ResidentController {
     }
 
     @DeleteMapping("/residents/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<Void>> deleteResident(
             @PathVariable String id,
             @RequestParam(defaultValue = "admin") String actor) {
@@ -150,6 +160,7 @@ public class ResidentController {
     }
 
     @PostMapping("/residents/{id}/death")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<ResidentDTO>> reportDeath(
             @PathVariable String id,
             @Valid @RequestBody DeathReportRequest request,
@@ -167,6 +178,7 @@ public class ResidentController {
     }
 
     @PostMapping("/residents/{id}/temporary-records")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<TemporaryResidenceDTO>> createTemporaryResidenceRecord(
             @PathVariable String id,
             @Valid @RequestBody TemporaryResidenceRequest request,
@@ -177,6 +189,7 @@ public class ResidentController {
     }
 
     @PostMapping("/households/{householdId}/members/{residentId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<ResidentDTO>> addMember(
             @PathVariable String householdId,
             @PathVariable String residentId,
@@ -187,6 +200,7 @@ public class ResidentController {
     }
 
     @DeleteMapping("/households/{householdId}/members/{residentId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<ResidentDTO>> removeMember(
             @PathVariable String householdId,
             @PathVariable String residentId,
@@ -221,6 +235,7 @@ public class ResidentController {
     }
 
     @GetMapping("/export/households")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<byte[]> exportHouseholds() throws IOException {
         byte[] data = residentExportService.exportHouseholds();
         String filename = "households_" + LocalDateTime.now().format(FILE_FMT) + ".xlsx";
@@ -228,6 +243,7 @@ public class ResidentController {
     }
 
     @GetMapping("/export/residents")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<byte[]> exportResidents() throws IOException {
         byte[] data = residentExportService.exportResidents();
         String filename = "residents_" + LocalDateTime.now().format(FILE_FMT) + ".xlsx";

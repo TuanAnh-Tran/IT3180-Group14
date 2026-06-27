@@ -2,8 +2,11 @@ package com.cnpm.apartment.controller;
 
 import com.cnpm.apartment.dto.ApiResponse;
 import com.cnpm.apartment.model.Household;
+import com.cnpm.apartment.model.Resident;
 import com.cnpm.apartment.model.Vehicle;
+import com.cnpm.apartment.model.enums.ResidentStatus;
 import com.cnpm.apartment.repository.HouseholdRepository;
+import com.cnpm.apartment.repository.ResidentRepository;
 import com.cnpm.apartment.repository.VehicleRepository;
 import com.cnpm.apartment.validation.VietnamDataRules;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +32,7 @@ public class VehicleController {
 
     private final VehicleRepository vehicleRepository;
     private final HouseholdRepository householdRepository;
+    private final ResidentRepository residentRepository;
 
     public record VehicleDTO(
             String id,
@@ -101,12 +105,21 @@ public class VehicleController {
                 .orElseThrow(() -> new RuntimeException("Household not found: " + request.householdId()));
 
         Vehicle vehicle = vehicleRepository.findById(id).orElseGet(Vehicle::new);
+        String ownerName = request.ownerName() == null || request.ownerName().isBlank()
+                ? household.getOwnerName()
+                : request.ownerName().trim();
+        Resident owner = residentRepository.findByHouseholdIdAndArchivedFalse(household.getId()).stream()
+                .filter(resident -> normalize(resident.getFullName()).equals(normalize(ownerName)))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Vehicle owner must be an active resident of the selected household."));
+        if (!owner.isAlive() || owner.getStatus() == ResidentStatus.MOVED_OUT || owner.getStatus() == ResidentStatus.DECEASED) {
+            throw new RuntimeException("Vehicle owner must be an active resident of the selected household.");
+        }
+
         vehicle.setId(id);
         vehicle.setPlateNumber(plateNumber);
         vehicle.setType(normalizeType(request.type()));
-        vehicle.setOwnerName(request.ownerName() == null || request.ownerName().isBlank()
-                ? household.getOwnerName()
-                : request.ownerName().trim());
+        vehicle.setOwnerName(owner.getFullName());
         vehicle.setRegistrationDate(request.registrationDate() != null
                 ? VietnamDataRules.notFuture(request.registrationDate(), "Vehicle registration date")
                 : LocalDate.now());

@@ -353,18 +353,23 @@ public class ResidentManagementService {
             setHouseholdHead(target, head, actor, "Household split");
         }
         if (oldSourceHead != null && movingResidents.stream().anyMatch(r -> Objects.equals(r.getId(), oldSourceHead.getId()))) {
-            Resident replacementSourceHead = residentRepository.findByHouseholdIdAndArchivedFalse(source.getId())
-                    .stream()
-                    .filter(this::isActiveMember)
-                    .findFirst()
-                    .orElse(null);
-            if (replacementSourceHead != null) {
-                setHouseholdHead(source, replacementSourceHead, actor, "Household split");
-            } else {
-                source.setHeadResident(null);
-                source.setNote(appendNote(source.getNote(), "Household head moved during split; choose a new head."));
-                householdRepository.save(source);
+            String replacementIdentity = VietnamDataRules.optionalCitizenId(
+                    request.getReplacementHeadIdentityNo(),
+                    "Replacement head Citizen ID");
+            if (replacementIdentity == null) {
+                throw new RuntimeException("Select a replacement household head for the source household.");
             }
+            Resident replacementSourceHead = residentRepository.findByIdentityNoIgnoreCase(replacementIdentity)
+                    .orElseThrow(() -> new RuntimeException("Replacement household head was not found by Citizen ID."));
+            if (movingResidents.stream().anyMatch(r -> Objects.equals(r.getId(), replacementSourceHead.getId()))) {
+                throw new RuntimeException("Replacement household head must remain in the source household.");
+            }
+            if (replacementSourceHead.getHousehold() == null
+                    || !source.getId().equals(replacementSourceHead.getHousehold().getId())) {
+                throw new RuntimeException("Replacement household head must be a remaining member of the source household.");
+            }
+            validateCanBeHouseholdHead(replacementSourceHead);
+            setHouseholdHead(source, replacementSourceHead, actor, "Household split");
         }
 
         refreshMemberCount(source);

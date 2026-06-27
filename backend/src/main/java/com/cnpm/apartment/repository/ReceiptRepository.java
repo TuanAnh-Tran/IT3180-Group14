@@ -42,11 +42,14 @@ public interface ReceiptRepository extends JpaRepository<Receipt, String> {
 
     // Xuất báo cáo theo đợt (không phân trang)
     @Query("SELECT r FROM Receipt r WHERE r.assignedFee.period.id = :periodId " +
+           "AND r.status = com.cnpm.apartment.model.enums.ReceiptStatus.ACTIVE " +
            "ORDER BY r.paidAt DESC")
     List<Receipt> findAllByPeriodIdForExport(@Param("periodId") String periodId);
 
     // Xuất báo cáo theo khoảng thời gian (không phân trang)
-    @Query("SELECT r FROM Receipt r WHERE r.paidAt BETWEEN :from AND :to ORDER BY r.paidAt DESC")
+    @Query("SELECT r FROM Receipt r WHERE r.paidAt BETWEEN :from AND :to " +
+           "AND r.status = com.cnpm.apartment.model.enums.ReceiptStatus.ACTIVE " +
+           "ORDER BY r.paidAt DESC")
     List<Receipt> findAllByDateRangeForExport(
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to);

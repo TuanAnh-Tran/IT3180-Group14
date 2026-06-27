@@ -1,5 +1,5 @@
 // Khóa dùng để lưu trữ thông tin phiên làm việc trong sessionStorage
-import { cleanApiErrorMessage } from './api.js?v=6';
+import { cleanApiErrorMessage } from './api.js?v=9';
 
 const SESSION_KEY = 'apartment_mgmt_session';
 const RESIDENTS_API_ROOT = window.RESIDENTS_API_ROOT || 'http://localhost:8080/api/residents';

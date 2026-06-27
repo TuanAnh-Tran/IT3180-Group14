@@ -6,6 +6,10 @@ import com.cnpm.apartment.dto.PaymentRequestDTO;
 import com.cnpm.apartment.dto.ReceiptDTO;
 import com.cnpm.apartment.model.AssignedFee;
 import com.cnpm.apartment.model.CollectionPeriod;
+import com.cnpm.apartment.model.PaymentProof;
+import com.cnpm.apartment.model.enums.PeriodStatus;
+import com.cnpm.apartment.repository.AssignedFeeRepository;
+import com.cnpm.apartment.repository.CollectionPeriodRepository;
 import com.cnpm.apartment.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -14,15 +18,19 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import com.cnpm.apartment.model.PaymentProof;
-import com.cnpm.apartment.model.enums.PeriodStatus;
-import com.cnpm.apartment.repository.AssignedFeeRepository;
-import com.cnpm.apartment.repository.CollectionPeriodRepository;
 
 @RestController
 @RequestMapping("/api/payments")
@@ -34,7 +42,8 @@ public class PaymentController {
     private final CollectionPeriodRepository collectionPeriodRepository;
     private final AssignedFeeRepository assignedFeeRepository;
 
-    public record PeriodDTO(String id, String name, List<String> feeIds, String status, java.time.LocalDateTime createdAt) {}
+    public record PeriodDTO(String id, String name, List<String> feeIds, String status,
+                            java.time.LocalDateTime createdAt) {}
 
     public record PaymentProofDTO(
             String id,
@@ -50,24 +59,14 @@ public class PaymentController {
             String transactionId,
             String payerName) {}
 
-    /**
-     * POST /api/payments
-     * Ghi nhận nộp tiền cho một khoản phí đã gán.
-     * Trả về biên lai sau khi thu thành công.
-     */
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<ReceiptDTO>> recordPayment(
             @Valid @RequestBody PaymentRequestDTO request) {
         ReceiptDTO receipt = paymentService.recordPayment(request);
-        return ResponseEntity.ok(ApiResponse.success("Ghi nhận nộp tiền thành công", receipt));
+        return ResponseEntity.ok(ApiResponse.success("Payment recorded successfully", receipt));
     }
 
-    /**
-     * GET /api/payments/unpaid
-     * Lấy danh sách khoản phí chưa nộp.
-     * Filter: periodId, householdId, page, size
-     */
     @GetMapping("/unpaid")
     @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<Page<AssignedFeeDTO>>> getUnpaid(
@@ -80,10 +79,6 @@ public class PaymentController {
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
-    /**
-     * GET /api/payments/by-period/{periodId}
-     * Lấy toàn bộ danh sách phí (cả PAID + UNPAID) theo đợt thu.
-     */
     @GetMapping("/by-period/{periodId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<Page<AssignedFeeDTO>>> getByPeriod(
@@ -99,9 +94,15 @@ public class PaymentController {
     public ResponseEntity<ApiResponse<List<PeriodDTO>>> getPeriods() {
         List<PeriodDTO> result = collectionPeriodRepository.findAll().stream()
                 .sorted((a, b) -> {
-                    if (a.getCreatedAt() == null && b.getCreatedAt() == null) return a.getId().compareTo(b.getId());
-                    if (a.getCreatedAt() == null) return 1;
-                    if (b.getCreatedAt() == null) return -1;
+                    if (a.getCreatedAt() == null && b.getCreatedAt() == null) {
+                        return a.getId().compareTo(b.getId());
+                    }
+                    if (a.getCreatedAt() == null) {
+                        return 1;
+                    }
+                    if (b.getCreatedAt() == null) {
+                        return -1;
+                    }
                     return b.getCreatedAt().compareTo(a.getCreatedAt());
                 })
                 .map(this::mapPeriod)
@@ -116,6 +117,9 @@ public class PaymentController {
         if (name.isBlank()) {
             throw new RuntimeException("Collection period name is required.");
         }
+        if (collectionPeriodRepository.existsByNameIgnoreCase(name)) {
+            throw new RuntimeException("Collection period name already exists.");
+        }
 
         List<String> feeIds = List.of();
         Object feeIdsValue = request.get("feeIds");
@@ -123,7 +127,11 @@ public class PaymentController {
             feeIds = list.stream()
                     .map(String::valueOf)
                     .filter(value -> !value.isBlank())
+                    .distinct()
                     .toList();
+        }
+        if (feeIds.isEmpty()) {
+            throw new RuntimeException("Select at least one fee for the collection period.");
         }
 
         String id = "PER-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
@@ -151,40 +159,19 @@ public class PaymentController {
                 mapPeriod(collectionPeriodRepository.save(period))));
     }
 
-    /**
-     * POST /api/payments/{receiptId}/cancel
-     * Hủy biên lai thanh toán (Hoàn tác nộp tiền).
-     */
     @PostMapping("/{receiptId}/cancel")
     @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<Void>> cancelReceipt(@PathVariable String receiptId) {
         paymentService.cancelReceipt(receiptId);
-        return ResponseEntity.ok(ApiResponse.success("Hủy biên lai thành công", null));
+        return ResponseEntity.ok(ApiResponse.success("Receipt cancelled successfully", null));
     }
 
-    private PeriodDTO mapPeriod(CollectionPeriod period) {
-        return new PeriodDTO(
-                period.getId(),
-                period.getName(),
-                assignedFeeRepository.findDistinctFeeIdsByPeriodId(period.getId()),
-                period.getStatus().name(),
-                period.getCreatedAt());
-    }
-
-    /**
-     * GET /api/payments/qr/{assignedFeeId}
-     * Lấy link QR Code VietQR tự động.
-     */
     @GetMapping("/qr/{assignedFeeId}")
     public ResponseEntity<ApiResponse<String>> getQrCode(@PathVariable String assignedFeeId) {
         String qrUrl = paymentService.getQrCodeUrl(assignedFeeId);
         return ResponseEntity.ok(ApiResponse.success(qrUrl));
     }
 
-    /**
-     * POST /api/payments/proof
-     * Resident gửi ảnh giao dịch/minh chứng nộp tiền.
-     */
     @PostMapping("/proof")
     public ResponseEntity<ApiResponse<PaymentProofDTO>> submitProof(
             @RequestParam String assignedFeeId,
@@ -193,14 +180,12 @@ public class PaymentController {
             @RequestParam(required = false) String note,
             @RequestParam(required = false) String transactionId,
             @RequestParam(required = false) String payerName) {
-        PaymentProofDTO proof = mapProof(paymentService.submitProof(assignedFeeId, amount, proofImage, note, transactionId, payerName));
-        return ResponseEntity.ok(ApiResponse.success("Gửi minh chứng thành công, vui lòng chờ duyệt", proof));
+        PaymentProofDTO proof = mapProof(paymentService.submitProof(
+                assignedFeeId, amount, proofImage, note, transactionId, payerName));
+        return ResponseEntity.ok(ApiResponse.success(
+                "Payment proof submitted successfully. Please wait for approval.", proof));
     }
 
-    /**
-     * GET /api/payments/proof/pending
-     * Kế toán xem danh sách minh chứng chờ duyệt.
-     */
     @GetMapping("/proof/pending")
     @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<List<PaymentProofDTO>>> getPendingProofs() {
@@ -210,30 +195,31 @@ public class PaymentController {
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
-    /**
-     * POST /api/payments/proof/{proofId}/approve
-     * Phê duyệt minh chứng nộp tiền -> Tạo Receipt.
-     */
     @PostMapping("/proof/{proofId}/approve")
     @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<ReceiptDTO>> approveProof(
             @PathVariable String proofId,
             @RequestParam(required = false) String note) {
         ReceiptDTO receipt = paymentService.approveProof(proofId, note);
-        return ResponseEntity.ok(ApiResponse.success("Phê duyệt minh chứng thành công", receipt));
+        return ResponseEntity.ok(ApiResponse.success("Payment proof approved successfully", receipt));
     }
 
-    /**
-     * POST /api/payments/proof/{proofId}/reject
-     * Từ chối minh chứng nộp tiền.
-     */
     @PostMapping("/proof/{proofId}/reject")
     @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<Void>> rejectProof(
             @PathVariable String proofId,
             @RequestParam(required = false) String note) {
         paymentService.rejectProof(proofId, note);
-        return ResponseEntity.ok(ApiResponse.success("Đã từ chối minh chứng thanh toán", null));
+        return ResponseEntity.ok(ApiResponse.success("Payment proof rejected successfully", null));
+    }
+
+    private PeriodDTO mapPeriod(CollectionPeriod period) {
+        return new PeriodDTO(
+                period.getId(),
+                period.getName(),
+                assignedFeeRepository.findDistinctFeeIdsByPeriodId(period.getId()),
+                period.getStatus().name(),
+                period.getCreatedAt());
     }
 
     private PaymentProofDTO mapProof(PaymentProof proof) {

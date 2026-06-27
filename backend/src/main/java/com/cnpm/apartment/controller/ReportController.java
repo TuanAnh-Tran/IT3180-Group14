@@ -55,6 +55,10 @@ public class ReportController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to)
             throws IOException {
 
+        if (from.isAfter(to)) {
+            throw new RuntimeException("Start date must be before or equal to end date.");
+        }
+
         byte[] data = exportService.exportReceiptsByDateRange(from, to);
         String filename = "bienLai_" + LocalDateTime.now().format(FILE_FMT) + ".xlsx";
 

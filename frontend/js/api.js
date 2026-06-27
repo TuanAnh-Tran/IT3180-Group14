@@ -232,16 +232,25 @@ export const API = {
   /**
    * Ghi nhận nộp tiền (POST /api/payments).
    */
-  async recordPayment(assignedFeeId, amountPaid, note = '') {
+  async recordPayment(assignedFeeId, amountPaid, note = '', idempotencyKey = '') {
     const parsedAmount = Number(amountPaid);
-    const finalAmount = (isNaN(parsedAmount) || parsedAmount <= 0) ? null : parsedAmount;
+    if (!Number.isFinite(parsedAmount)) {
+      throw new Error('Payment amount must be a valid number.');
+    }
+    if (parsedAmount <= 0) {
+      throw new Error('Payment amount must be greater than 0.');
+    }
+    const payload = {
+      assignedFeeId,
+      amountPaid: parsedAmount,
+      note
+    };
+    if (idempotencyKey) {
+      payload.idempotencyKey = idempotencyKey;
+    }
     return this.fetchJson('/payments', {
       method: 'POST',
-      body: JSON.stringify({
-        assignedFeeId,
-        amountPaid: finalAmount,
-        note
-      })
+      body: JSON.stringify(payload)
     });
   },
 
@@ -389,9 +398,22 @@ export const API = {
     }
     if (!url) return;
 
-    const response = await fetch(url);
+    const tokenStr = sessionStorage.getItem('apartment_mgmt_session');
+    let token = null;
+    if (tokenStr) {
+      try {
+        const sessionObj = JSON.parse(tokenStr);
+        token = sessionObj.token || sessionObj;
+        if (typeof token === 'object') token = token.token;
+      } catch (e) { }
+    }
+
+    const response = await fetch(url, {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+    });
     if (!response.ok) {
-      throw new Error(`Export failed: ${response.status}`);
+      const rawError = await response.text().catch(() => '');
+      throw new Error(cleanApiErrorMessage(rawError, httpErrorFallback(response.status)));
     }
     const blob = await response.blob();
     const downloadUrl = window.URL.createObjectURL(blob);

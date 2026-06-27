@@ -20,5 +20,9 @@ public class SplitHouseholdRequest {
             message = "Head Citizen ID must contain exactly 12 digits and start with a valid Vietnamese province/city code")
     private String headIdentityNo;
 
+    @Pattern(regexp = VietnamDataRules.OPTIONAL_CITIZEN_ID_REGEX,
+            message = "Replacement head Citizen ID must contain exactly 12 digits and start with a valid Vietnamese province/city code")
+    private String replacementHeadIdentityNo;
+
     private String reason;
 }

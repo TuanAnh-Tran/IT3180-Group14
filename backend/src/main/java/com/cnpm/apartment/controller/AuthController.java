@@ -120,8 +120,10 @@ public class AuthController {
 
         // Check if locked
         if (user.getStatus() == UserStatus.LOCKED) {
-            if (user.getLockTime() != null && user.getLockTime().plusMinutes(15).isBefore(LocalDateTime.now())) {
-                // Auto unlock after 15 mins
+            boolean temporaryLock = user.getFailedAttempts() != null
+                    && user.getFailedAttempts() >= 5
+                    && user.getLockTime() != null;
+            if (temporaryLock && user.getLockTime().plusMinutes(15).isBefore(LocalDateTime.now())) {
                 user.setStatus(UserStatus.APPROVED);
                 user.setFailedAttempts(0);
                 user.setLockTime(null);

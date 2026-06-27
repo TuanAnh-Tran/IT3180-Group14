@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
+import com.cnpm.apartment.model.enums.PeriodStatus;
 
 @RestController
 @RequestMapping("/api/utility-records")
@@ -53,6 +54,9 @@ public class UtilityRecordController {
         String feeId = stringValue(request.get("feeId"));
         int oldIndex = intValue(request.get("oldIndex"));
         int newIndex = intValue(request.get("newIndex"));
+        if (oldIndex < 0 || newIndex < 0) {
+            throw new RuntimeException("Utility indexes must be zero or greater.");
+        }
         if (newIndex < oldIndex) {
             throw new RuntimeException("New utility index must be greater than or equal to old index.");
         }
@@ -61,6 +65,9 @@ public class UtilityRecordController {
                 .orElseThrow(() -> new RuntimeException("Household not found: " + householdId));
         CollectionPeriod period = collectionPeriodRepository.findById(periodId)
                 .orElseThrow(() -> new RuntimeException("Collection period not found: " + periodId));
+        if (period.getStatus() == PeriodStatus.CLOSED) {
+            throw new RuntimeException("This collection period is closed. Utility indexes cannot be changed.");
+        }
 
         UtilityRecord record = utilityRecordRepository
                 .findByHouseholdIdAndPeriodIdAndType(householdId, periodId, "WATER")

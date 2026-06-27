@@ -22,4 +22,8 @@ public interface PaymentProofRepository extends JpaRepository<PaymentProof, Stri
     List<PaymentProof> findByStatusWithDetails(@Param("status") PaymentProof.ProofStatus status);
 
     List<PaymentProof> findByAssignedFeeHouseholdId(String householdId);
+
+    boolean existsByAssignedFeeIdAndStatus(String assignedFeeId, PaymentProof.ProofStatus status);
+
+    boolean existsByTransactionIdIgnoreCase(String transactionId);
 }
