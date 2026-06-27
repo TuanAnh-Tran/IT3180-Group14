@@ -4,6 +4,7 @@ import com.cnpm.apartment.dto.ApiResponse;
 import com.cnpm.apartment.dto.AssignedFeeDTO;
 import com.cnpm.apartment.dto.PaymentRequestDTO;
 import com.cnpm.apartment.dto.ReceiptDTO;
+import com.cnpm.apartment.model.AssignedFee;
 import com.cnpm.apartment.model.CollectionPeriod;
 import com.cnpm.apartment.service.PaymentService;
 import jakarta.validation.Valid;
@@ -34,6 +35,20 @@ public class PaymentController {
     private final AssignedFeeRepository assignedFeeRepository;
 
     public record PeriodDTO(String id, String name, List<String> feeIds, String status, java.time.LocalDateTime createdAt) {}
+
+    public record PaymentProofDTO(
+            String id,
+            String assignedFeeId,
+            String householdId,
+            String ownerName,
+            String feeName,
+            BigDecimal amount,
+            String proofImage,
+            String status,
+            java.time.LocalDateTime submittedAt,
+            String note,
+            String transactionId,
+            String payerName) {}
 
     /**
      * POST /api/payments
@@ -171,14 +186,14 @@ public class PaymentController {
      * Resident gửi ảnh giao dịch/minh chứng nộp tiền.
      */
     @PostMapping("/proof")
-    public ResponseEntity<ApiResponse<PaymentProof>> submitProof(
+    public ResponseEntity<ApiResponse<PaymentProofDTO>> submitProof(
             @RequestParam String assignedFeeId,
             @RequestParam BigDecimal amount,
             @RequestParam(required = false) String proofImage,
             @RequestParam(required = false) String note,
             @RequestParam(required = false) String transactionId,
             @RequestParam(required = false) String payerName) {
-        PaymentProof proof = paymentService.submitProof(assignedFeeId, amount, proofImage, note, transactionId, payerName);
+        PaymentProofDTO proof = mapProof(paymentService.submitProof(assignedFeeId, amount, proofImage, note, transactionId, payerName));
         return ResponseEntity.ok(ApiResponse.success("Gửi minh chứng thành công, vui lòng chờ duyệt", proof));
     }
 
@@ -188,8 +203,10 @@ public class PaymentController {
      */
     @GetMapping("/proof/pending")
     @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
-    public ResponseEntity<ApiResponse<List<PaymentProof>>> getPendingProofs() {
-        List<PaymentProof> result = paymentService.getPendingProofs();
+    public ResponseEntity<ApiResponse<List<PaymentProofDTO>>> getPendingProofs() {
+        List<PaymentProofDTO> result = paymentService.getPendingProofs().stream()
+                .map(this::mapProof)
+                .toList();
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
@@ -217,5 +234,22 @@ public class PaymentController {
             @RequestParam(required = false) String note) {
         paymentService.rejectProof(proofId, note);
         return ResponseEntity.ok(ApiResponse.success("Đã từ chối minh chứng thanh toán", null));
+    }
+
+    private PaymentProofDTO mapProof(PaymentProof proof) {
+        AssignedFee assignedFee = proof.getAssignedFee();
+        return new PaymentProofDTO(
+                proof.getId(),
+                assignedFee.getId(),
+                assignedFee.getHousehold().getId(),
+                assignedFee.getHousehold().getOwnerName(),
+                assignedFee.getFee().getName(),
+                proof.getAmount(),
+                proof.getProofImage(),
+                proof.getStatus().name(),
+                proof.getSubmittedAt(),
+                proof.getNote(),
+                proof.getTransactionId(),
+                proof.getPayerName());
     }
 }

@@ -1,4 +1,4 @@
-import { API } from '../api.js?v=4';
+import { API } from '../api.js?v=5';
 
 /**
  * THÀNH PHẦN BẢNG TỔNG QUAN (Dashboard Component)

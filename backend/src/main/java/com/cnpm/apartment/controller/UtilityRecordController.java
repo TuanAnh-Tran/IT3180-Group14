@@ -17,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -44,14 +43,6 @@ public class UtilityRecordController {
             int newIndexAfter,
             String modifiedBy,
             LocalDateTime modifiedAt) {}
-
-    @GetMapping("/history")
-    public ResponseEntity<ApiResponse<List<UtilityRecordDTO>>> getHistory() {
-        List<UtilityRecordDTO> result = utilityRecordRepository.findAllWithDetails().stream()
-                .map(record -> mapRecord(record, record.getOldIndex(), record.getNewIndex(), currentUsername()))
-                .toList();
-        return ResponseEntity.ok(ApiResponse.success(result));
-    }
 
     @PostMapping("/update")
     @Transactional

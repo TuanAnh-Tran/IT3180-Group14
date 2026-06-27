@@ -291,13 +291,6 @@ export const API = {
   },
 
   /**
-   * Lấy danh sách lịch sử sửa đổi chỉ số điện nước (GET /api/utility-records/history).
-   */
-  async getUtilityHistory() {
-    return this.fetchJson('/utility-records/history');
-  },
-
-  /**
    * Secure Excel export using fetch and Blobs
    */
   async exportExcel(type, param1 = '', param2 = '') {

@@ -244,6 +244,9 @@ public class PaymentService {
     public PaymentProof submitProof(String assignedFeeId, BigDecimal amount, String proofImage, String note, String transactionId, String payerName) {
         AssignedFee af = assignedFeeRepository.findById(assignedFeeId)
                 .orElseThrow(() -> new RuntimeException("Assigned fee not found."));
+        af.getHousehold().getId();
+        af.getHousehold().getOwnerName();
+        af.getFee().getName();
 
         PaymentProof proof = PaymentProof.builder()
                 .id("PRF-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
@@ -262,7 +265,7 @@ public class PaymentService {
 
     @Transactional(readOnly = true)
     public List<PaymentProof> getPendingProofs() {
-        return paymentProofRepository.findByStatus(PaymentProof.ProofStatus.PENDING);
+        return paymentProofRepository.findByStatusWithDetails(PaymentProof.ProofStatus.PENDING);
     }
 
     @Transactional

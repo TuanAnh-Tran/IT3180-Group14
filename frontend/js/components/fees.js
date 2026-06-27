@@ -572,15 +572,10 @@ const FM = {
     if (!db.utilityRecords) db.utilityRecords = [];
 
     let ur = db.utilityRecords.find(r => r.householdId === householdId && r.periodId === periodId && r.type === type);
-    let oldIndexBefore = 0;
-    let newIndexBefore = 0;
-
     if (!ur) {
       ur = { id: uid('UT'), householdId, periodId, type, oldIndex, newIndex };
       db.utilityRecords.push(ur);
     } else {
-      oldIndexBefore = ur.oldIndex;
-      newIndexBefore = ur.newIndex;
       ur.oldIndex = oldIndex;
       ur.newIndex = newIndex;
     }
@@ -588,25 +583,6 @@ const FM = {
     const af = db.assignedFees.find(a => a.householdId === householdId && a.periodId === periodId && a.feeId === feeId);
     if (af) {
       af.quantity = newIndex - oldIndex;
-    }
-
-    // Ghi nhận lịch sử offline
-    if (oldIndexBefore !== oldIndex || newIndexBefore !== newIndex) {
-      if (!db.utilityHistory) db.utilityHistory = [];
-      const period = db.periods.find(p => p.id === periodId);
-      db.utilityHistory.unshift({
-        id: uid('UTH'),
-        householdId,
-        periodId,
-        periodName: period ? period.name : periodId,
-        type,
-        oldIndexBefore,
-        newIndexBefore,
-        oldIndexAfter: oldIndex,
-        newIndexAfter: newIndex,
-        modifiedBy: 'local_admin',
-        modifiedAt: new Date().toISOString()
-      });
     }
 
     fmSave(db);
@@ -874,7 +850,6 @@ export class FeeManagerView {
           <button class="sf-tab" data-sf="sf-fees">Fees</button>
           <button class="sf-tab" data-sf="sf-periods">Periods</button>
           <button class="sf-tab ${isResident ? 'active' : ''}" data-sf="sf-hh">Households & Invoices</button>
-          ${!isResident ? `<button class="sf-tab" data-sf="sf-logs">Utility Logs</button>` : ''}
         </div>
 
         <!-- DASHBOARD -->
@@ -955,30 +930,6 @@ export class FeeManagerView {
             </div>
         </div>
 
-        <!-- UTILITY LOGS -->
-        <div class="sf-panel" id="sf-logs">
-          <div class="sf-card">
-            <h3>Utility Index Modification Logs</h3>
-            <div class="sf-tbl-wrap">
-              <table class="sf-tbl">
-                <thead>
-                  <tr>
-                    <th>Household ID</th>
-                    <th>Utility Type</th>
-                    <th>Collection Period</th>
-                    <th>Old Index (Before &rarr; After)</th>
-                    <th>New Index (Before &rarr; After)</th>
-                    <th>Modified By</th>
-                    <th>Modified At</th>
-                  </tr>
-                </thead>
-                <tbody id="sf-logs-tbody">
-                  <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px;">Loading logs...</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- MODAL: FEE FORM -->
@@ -1128,49 +1079,6 @@ export class FeeManagerView {
       await renderPeriodCheckboxes();
       await renderPeriods();
       await renderHouseholds();
-      await renderLogs();
-    }
-
-    /* ===== renderLogs ===== */
-    async function renderLogs() {
-      const tbody = q('#sf-logs-tbody');
-      if (!tbody) return;
-
-      let logs = [];
-      if (isBackendActive) {
-        try {
-          logs = await API.getUtilityHistory();
-        } catch (e) {
-          console.error("Error loading utility history from backend: ", e);
-        }
-      } else {
-        const db = fmGetDB();
-        logs = db.utilityHistory || [];
-      }
-
-      tbody.innerHTML = logs.map(log => {
-        const formatTime = t => {
-          try {
-            const date = new Date(t);
-            return date.toLocaleDateString('vi-VN') + ' ' + date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-          } catch {
-            return t;
-          }
-        };
-        const typeLabel = log.type === 'WATER' ? '<span class="sf-badge blue">Water</span>' : '<span class="sf-badge yellow">Electricity</span>';
-
-        return `
-          <tr>
-            <td><strong>${log.householdId}</strong></td>
-            <td>${typeLabel}</td>
-            <td>${log.periodName || log.periodId}</td>
-            <td>${log.oldIndexBefore} &rarr; <strong>${log.oldIndexAfter}</strong></td>
-            <td>${log.newIndexBefore} &rarr; <strong>${log.newIndexAfter}</strong></td>
-            <td><span class="sf-badge gray">${log.modifiedBy}</span></td>
-            <td><small style="color:var(--text-muted);">${formatTime(log.modifiedAt)}</small></td>
-          </tr>
-        `;
-      }).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px;">No utility logs recorded.</td></tr>`;
     }
 
     /* ===== dashboard ===== */
