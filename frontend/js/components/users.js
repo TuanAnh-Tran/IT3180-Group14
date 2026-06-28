@@ -116,7 +116,7 @@ export class UsersManager {
                     </select>
                   </div>
                   <div class="form-group" style="margin-bottom:0;">
-                    <label class="form-label">Room Number *</label>
+                    <label class="form-label">Apartment / Unit Number *</label>
                     <input type="text" class="form-control" name="room" required placeholder="e.g. A1201" style="padding-left:14px;">
                   </div>
                 </div>
@@ -150,6 +150,22 @@ export class UsersManager {
                     <label class="form-label">District *</label>
                     <input type="text" class="form-control" name="district" required placeholder="e.g. Nam Tu Liem" style="padding-left:14px;">
                   </div>
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Floor</label>
+                    <input type="number" class="form-control" name="floor" min="0" placeholder="e.g. 12" style="padding-left:14px;">
+                  </div>
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Area (m²) *</label>
+                    <input type="number" class="form-control" name="area" required min="1" step="0.1" placeholder="e.g. 72.5" style="padding-left:14px;">
+                  </div>
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Motorcycles</label>
+                    <input type="number" class="form-control" name="motorcycleCount" min="0" value="0" style="padding-left:14px;">
+                  </div>
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Cars</label>
+                    <input type="number" class="form-control" name="carCount" min="0" value="0" style="padding-left:14px;">
+                  </div>
                 </div>
               </div>
 
@@ -164,6 +180,16 @@ export class UsersManager {
                   <div class="form-group" style="margin-bottom:0;">
                     <label class="form-label">Alias *</label>
                     <input type="text" class="form-control" name="alias" required placeholder="Alias or N/A" style="padding-left:14px;">
+                  </div>
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Relationship to Head *</label>
+                    <select class="select-filter" name="relationshipToHead" style="width:100%; height:42px;">
+                      <option value="Head">Head</option>
+                      <option value="Member">Member</option>
+                      <option value="Spouse">Spouse</option>
+                      <option value="Child">Child</option>
+                      <option value="Parent">Parent</option>
+                    </select>
                   </div>
                   <div class="form-group" style="margin-bottom:0;">
                     <label class="form-label">Citizen ID *</label>
@@ -215,7 +241,7 @@ export class UsersManager {
 
             <div class="dialog-actions">
               <button type="button" class="btn btn-secondary" id="btn-cancel-create-dialog">Cancel</button>
-              <button type="submit" class="btn btn-primary">Create Account</button>
+              <button type="submit" class="btn btn-primary">Create Account & Resident</button>
             </div>
           </form>
         </div>
@@ -547,8 +573,13 @@ export class UsersManager {
       const street = formData.get('street').trim();
       const ward = formData.get('ward').trim();
       const district = formData.get('district').trim();
+      const floor = formData.get('floor').trim();
+      const area = formData.get('area').trim();
+      const motorcycleCount = formData.get('motorcycleCount').trim();
+      const carCount = formData.get('carCount').trim();
       
       const alias = formData.get('alias').trim();
+      const relationshipToHead = formData.get('relationshipToHead').trim();
       const dob = formData.get('dob').trim();
       const birthPlace = formData.get('birthPlace').trim();
       const hometown = formData.get('hometown').trim();
@@ -577,16 +608,49 @@ export class UsersManager {
         showToast('Citizen ID (CCCD) must contain exactly 12 digits and start with a valid Vietnamese province/city code!', 'warning');
         return;
       }
+      if (!Number.isFinite(Number(area)) || Number(area) <= 0) {
+        showToast('Area must be greater than 0!', 'warning');
+        return;
+      }
+      if ([floor, motorcycleCount, carCount].some(v => v && (!Number.isInteger(Number(v)) || Number(v) < 0))) {
+        showToast('Floor and vehicle counts must be zero or greater whole numbers!', 'warning');
+        return;
+      }
 
       try {
         await API.createUser({
           username,
           password,
           fullname,
-          room,
+          room: role === 'user' ? householdCode : room,
           phone,
           role,
-          identityNo
+          identityNo,
+          householdCode,
+          apartmentNo: room,
+          householdHeadName,
+          houseNo,
+          street,
+          ward,
+          district,
+          floor,
+          area,
+          motorcycleCount,
+          carCount,
+          alias,
+          relationshipToHead,
+          dateOfBirth: dob,
+          dob,
+          birthPlace,
+          hometown,
+          ethnicity,
+          occupation,
+          workplace,
+          issueDate,
+          issuePlace,
+          previousResidence,
+          residentStatus: 'PERMANENT',
+          householdStatus: 'OCCUPIED'
         });
         // Hiện thông báo thành công Tiếng Anh
         showToast(`Created resident @${username} successfully!`, 'success');

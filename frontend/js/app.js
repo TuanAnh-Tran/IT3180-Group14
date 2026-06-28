@@ -6,7 +6,7 @@
 import { AuthService }      from './auth.js?v=7';
 import { Sidebar }          from './components/sidebar.js?v=3';
 import { Dashboard }        from './components/dashboard.js?v=5';
-import { UsersManager }     from './components/users.js?v=8';
+import { UsersManager }     from './components/users.js?v=9';
 import { ProfileView }      from './components/profile.js?v=6';
 import { ResidentsManager } from './components/residents.js?v=16';
 import { FeeManagerView, FM }  from './components/fees.js?v=8';
