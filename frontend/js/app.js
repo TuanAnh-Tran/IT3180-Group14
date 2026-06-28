@@ -10,7 +10,7 @@ import { UsersManager }     from './components/users.js?v=8';
 import { ProfileView }      from './components/profile.js?v=6';
 import { ResidentsManager } from './components/residents.js?v=16';
 import { FeeManagerView, FM }  from './components/fees.js?v=8';
-import { PaymentView, bridgeFM } from './components/payment.js?v=9';
+import { PaymentView, bridgeFM } from './components/payment.js?v=10';
 import { API, cleanApiErrorMessage } from './api.js?v=10';
 
 const app = document.getElementById('app');

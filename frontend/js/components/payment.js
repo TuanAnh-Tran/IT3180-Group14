@@ -356,6 +356,7 @@ export class PaymentView {
         <div class="pv-tabs">
           <button class="pv-tab active" data-pv="pv-pay">Payment</button>
           <button class="pv-tab" data-pv="pv-receipts">Receipt History</button>
+          ${currentUser.role !== 'user' ? `<button class="pv-tab" data-pv="pv-proofs">Payment Proofs</button>` : ''}
           ${currentUser.role !== 'user' ? `<button class="pv-tab" data-pv="pv-stats">Statistics</button>` : ''}
         </div>
 
@@ -414,6 +415,28 @@ export class PaymentView {
             </div>
           </div>
         </div>
+
+        <!-- ── TAB: PAYMENT PROOFS ── -->
+        ${currentUser.role !== 'user' ? `
+        <div class="pv-panel" id="pv-proofs">
+          <div class="pv-card">
+            <div class="pv-row">
+              <h3 style="margin:0;">Pending Payment Proofs</h3>
+              <button class="pv-btn sec" id="pv-proof-refresh-btn">Refresh</button>
+            </div>
+            <div class="pv-tbl-wrap">
+              <table class="pv-tbl">
+                <thead><tr>
+                  <th>Proof ID</th><th>Household</th><th>Fee Name</th>
+                  <th>Amount</th><th>Payer</th><th>Submitted At</th><th>Note</th>
+                  <th style="text-align:right;">Actions</th>
+                </tr></thead>
+                <tbody id="pv-proof-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        ` : ''}
 
         <!-- ── TAB: THỐNG KÊ ── -->
         ${currentUser.role !== 'user' ? `
@@ -560,6 +583,13 @@ export class PaymentView {
     const q   = s => container.querySelector(s);
     const vnd = n => new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND'}).format(n||0);
     const fmt = iso => iso ? new Date(iso).toLocaleString('vi-VN') : '—';
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }[ch]));
     const open  = id => container.querySelector('#'+id).classList.add('active');
     const close = id => container.querySelector('#'+id).classList.remove('active');
 
@@ -829,6 +859,73 @@ export class PaymentView {
       }
     }
 
+    async function renderPendingProofs() {
+      const tbody = q('#pv-proof-tbody');
+      if (!tbody) return;
+
+      if (!isBackend) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:20px;">Backend connection is required to review payment proofs.</td></tr>`;
+        return;
+      }
+
+      let proofs = [];
+      try {
+        proofs = await API.getPendingProofs();
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--color-danger);padding:20px;">${esc(e.message)}</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = proofs.map(p => `
+        <tr>
+          <td><code style="font-size:11px;color:var(--color-primary);">${esc(p.id)}</code></td>
+          <td><strong>${esc(p.householdId)}</strong><br><small style="color:var(--text-muted);">${esc(p.ownerName || '—')}</small></td>
+          <td>${esc(p.feeName || '—')}</td>
+          <td><strong style="color:var(--color-warning);">${vnd(p.amount)}</strong></td>
+          <td>${esc(p.payerName || '—')}</td>
+          <td style="font-size:12px;">${fmt(p.submittedAt)}</td>
+          <td style="font-size:12px;color:var(--text-muted);">${esc(p.note || '—')}</td>
+          <td style="text-align:right;">
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+              <button class="pv-btn suc pv-proof-approve" data-id="${esc(p.id)}">Approve</button>
+              <button class="pv-btn dan pv-proof-reject" data-id="${esc(p.id)}">Reject</button>
+            </div>
+          </td>
+        </tr>
+      `).join('') || `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:20px;">No pending payment proofs.</td></tr>`;
+
+      tbody.querySelectorAll('.pv-proof-approve').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Approve this payment proof and create a receipt?')) return;
+          btn.disabled = true;
+          try {
+            const receipt = await API.approveProof(btn.dataset.id);
+            showToast(`Payment proof approved. Receipt ID: ${receipt.receiptId || receipt.id}`, 'success');
+            renderCurrent();
+          } catch (err) {
+            showToast(err.message, 'error');
+            btn.disabled = false;
+          }
+        });
+      });
+
+      tbody.querySelectorAll('.pv-proof-reject').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const note = prompt('Rejection note (optional):', '');
+          if (note === null) return;
+          btn.disabled = true;
+          try {
+            await API.rejectProof(btn.dataset.id, note);
+            showToast('Payment proof rejected.', 'success');
+            renderCurrent();
+          } catch (err) {
+            showToast(err.message, 'error');
+            btn.disabled = false;
+          }
+        });
+      });
+    }
+
     async function renderStats() {
       let overviewData = null;
       let monthlyRevenue = {};
@@ -1005,6 +1102,7 @@ export class PaymentView {
       const active = q('.pv-tab.active').dataset.pv;
       if (active === 'pv-pay')      renderUnpaid();
       if (active === 'pv-receipts') renderReceipts();
+      if (active === 'pv-proofs')   renderPendingProofs();
       if (active === 'pv-stats')    renderStats();
     }
 
@@ -1022,6 +1120,11 @@ export class PaymentView {
     const ySel = q('#pv-year-sel');
     if (ySel) {
       ySel.addEventListener('change', renderStats);
+    }
+
+    const proofRefreshBtn = q('#pv-proof-refresh-btn');
+    if (proofRefreshBtn) {
+      proofRefreshBtn.addEventListener('click', renderPendingProofs);
     }
 
 
