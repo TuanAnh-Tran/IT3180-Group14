@@ -68,6 +68,12 @@ export class Dashboard {
               <span>finance summary restricted</span>
             `;
 
+    const householdMetricTitle = user.role === 'user' ? 'My Apartment' : 'Total Apartments';
+    const householdMetricDesc = user.role === 'user' ? 'Linked household scope' : '100% Handed over';
+    const residentMetricTitle = user.role === 'user' ? 'Household Members' : 'Total Residents';
+    const residentMetricLead = user.role === 'user' ? 'My unit' : 'Realtime DB';
+    const residentMetricDesc = user.role === 'user' ? 'registered members' : 'registered records';
+
     // Vẽ biểu đồ cột trực tiếp bằng mã SVG (Glassmorphic Bar Chart)
     const svgChart = `
       <svg viewBox="0 0 500 220" class="svg-chart" style="width: 100%; height: 100%; font-family: inherit;">
@@ -175,13 +181,13 @@ export class Dashboard {
         <!-- Thẻ Thống kê 1: Tổng số căn hộ -->
         <div class="metric-card dashboard-block" style="--dash-delay: 0ms;">
           <div class="metric-info">
-            <h3>Total Apartments</h3>
+            <h3>${householdMetricTitle}</h3>
             <div class="metric-value">${stats.apartments}</div>
             <div class="metric-desc">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 14px; height: 14px; color: var(--color-success);">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
               </svg>
-              <span>100% Handed over</span>
+              <span>${householdMetricDesc}</span>
             </div>
           </div>
           <div class="metric-icon-box">
@@ -194,11 +200,11 @@ export class Dashboard {
         <!-- Thẻ Thống kê 2: Tổng nhân khẩu -->
         <div class="metric-card accent dashboard-block" style="--dash-delay: 80ms;">
           <div class="metric-info">
-            <h3>Total Residents</h3>
+            <h3>${residentMetricTitle}</h3>
             <div class="metric-value">${residentCount}</div>
             <div class="metric-desc">
-              <span style="color: var(--color-accent); font-weight: bold;">Realtime DB</span>
-              <span>registered records</span>
+              <span style="color: var(--color-accent); font-weight: bold;">${residentMetricLead}</span>
+              <span>${residentMetricDesc}</span>
             </div>
           </div>
           <div class="metric-icon-box">
